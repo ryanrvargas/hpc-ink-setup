@@ -1,0 +1,26 @@
+This folder explains how the example scripts are structured.
+
+1) scripts/job_template.sbatch
+   Single node CPU job. Good for general workloads that only need threads on one node.
+   Tweak --cpus-per-task and --mem based on your application. Use OMP_NUM_THREADS if your code is OpenMP aware.
+
+2) scripts/mpi_job.slurm
+   Multi node MPI job. Uses srun to launch ranks across nodes.
+   Set --nodes and --ntasks-per-node for your scale. Confirm the site default MPI launcher (srun or mpirun).
+
+3) scripts/gpu_training.slurm
+   Single node GPU job. Loads CUDA and Python.
+   Request GPUs with --gres=gpu:<count>. Activate your framework environment before running your training script.
+
+General tips
+- Always set a realistic --time to avoid early termination.
+- Choose the correct partition. CPU jobs go to "compute". GPU jobs go to "gpu".
+- Use module purge and then load only what you need to avoid conflicts.
+- Put outputs in logs/ so they are easy to find per job.
+- Use SLURM variables for portability: $SLURM_CPUS_PER_TASK, $SLURM_NTASKS, $SLURM_JOB_NAME, $SLURM_JOB_ID.
+
+Copilot usage
+- In Copilot CLI interactive mode, attach a file with @path to include its content in the prompt.
+  Example:  Explain @scripts/gpu_training.slurm
+- Add a directory once per session if files live elsewhere:
+  /add-dir /shared/hpc-scripts

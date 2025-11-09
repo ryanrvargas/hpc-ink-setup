@@ -13,7 +13,7 @@ This folder explains how the example scripts are structured.
    Request GPUs with --gres=gpu:<count>. Activate your framework environment before running your training script.
 
 General tips
-- Always set a realistic --time to avoid early termination.
+- Always set a realistic time to avoid early termination.
 - Choose the correct partition. CPU jobs go to "compute". GPU jobs go to "gpu".
 - Use module purge and then load only what you need to avoid conflicts.
 - Put outputs in logs/ so they are easy to find per job.

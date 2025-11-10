@@ -15,12 +15,12 @@ bash install.sh
 
 Use this:
 ```bash
-echo "source ~/hpc-copilot-setup/ink.sh" >> ~/.bashrc
+echo "source ~/hpc-ink-setup/ink.sh" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-## Example on how to use inker
+## Example on how to use ink
 ```bash
 ink "Write a Slurm sbatch script for 2 GPU nodes for 24 hours"
 ```
-Copilot will automatically read your cluster’s slurm.conf, os-release, and available modules to tailor its output.
+Ink(Copilot) will automatically read your cluster’s slurm.conf, os-release, and available modules to tailor its output.

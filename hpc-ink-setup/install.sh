@@ -9,7 +9,14 @@ echo "Installing Ink CLI (powered by GitHub Copilot)..."
 echo "[1/6] Ensure Node (nvm) is available (user-space)…"
 if ! command -v node >/dev/null 2>&1; then
   if [ ! -d "$HOME/.nvm" ]; then
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    else
+      echo "Error: neither curl nor wget is available — please install one first." >&2
+      exit 1
+    fi
   fi
   # shellcheck disable=SC1090
   . "$HOME/.nvm/nvm.sh"

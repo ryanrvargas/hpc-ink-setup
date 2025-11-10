@@ -53,7 +53,7 @@ echo "[3/6] Install GitHub Copilot CLI (npm)…"
 npm install -g @github/copilot
 
 echo "[4/6] Expose 'inkly' alias next to 'copilot'…"
-# Create a stable alias so your wrapper can call 'inkly -p "...".
+# Create a stable alias so wrapper can call 'inkly -p "...".
 COPILOT_BIN="$(command -v copilot)"
 mkdir -p "$HOME/.npm-global/bin"
 ln -sf "$COPILOT_BIN" "$HOME/.npm-global/bin/inkly"
@@ -65,7 +65,7 @@ if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
 fi
 
 echo "[6/6] Source the Ink wrapper function from the nested folder…"
-# Auto-load your ink() function on future shells; append only once.
+# Auto-load ink() function on future shells; append only once.
 if ! grep -q 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' "$HOME/.bashrc"; then
   echo 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' >> "$HOME/.bashrc"
 fi

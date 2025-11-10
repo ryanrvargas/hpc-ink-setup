@@ -1,17 +1,12 @@
-# HPC Job Scripts and Copilot Context
+# Ink: HPC AI Assistant
 
-This repo holds Slurm and SBATCH examples for our cluster and is meant to be used with GitHub Copilot CLI and VS Code chat.
+Ink is a one-step setup that installs and configures the **Ink CLI** (powered by GitHub Copilot) for use on **HPC clusters** such as Slurm-based systems.  
+It automatically reads your environment (Slurm config, OS info, available modules) and feeds that context into AI prompts.
 
-## What is here
-- `.github/copilot-instructions.md`  Persistent guidance for Copilot about our cluster
-- `scripts/`  Ready to adapt job scripts
-- `examples/job_explanation.txt`  Notes about how these scripts work
+## Quick Start
 
-## Quick use with Copilot CLI
 ```bash
-# clone and enter the repo
-git clone <YOUR_REPO_URL> hpc-scripts
-cd hpc-scripts
-
-# run Copilot CLI
-copilot
+git clone https://github.com/ryanrvargas/hpc-ink-setup.git
+cd hpc-ink-setup/hpc-ink-setup
+bash install.sh
+```

@@ -7,14 +7,14 @@ It automatically reads your environment (Slurm config, OS info, available module
 
 ```bash
 git clone https://github.com/ryanrvargas/hpc-ink-setup.git
-cd hpc-ink-setup
+cd hpc-ink-setup/hpc-ink-setup
 bash install.sh
 ```
 
 ## Activating the wrapper
 Use this:
 ```bash
-echo "source ~/hpc-ink-setup/ink.sh" >> ~/.bashrc
+echo "source ~/hpc-ink-setup/hpc-ink-setup/ink.sh" >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -26,6 +26,6 @@ Ink(Copilot) will automatically read your cluster’s slurm.conf, os-release, an
 
 ## Add this to your ~/.bashrc
 ```bash
-source ~/hpc-ink-setup/ink.sh
+source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
 ```
 And to reload your shell use this command

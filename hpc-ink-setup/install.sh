@@ -8,13 +8,13 @@ set -e
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
 # Create tools directory
-mkdir -p ~/tools
-cd ~/tools
+mkdir -p ~/tools/inkly
+cd ~/tools/inkly
 
 # Download and install Copilot CLI (renamed as inkly)
 wget https://github.com/github/copilot-cli/releases/download/v0.0.353/copilot-linux-amd64 -O inkly
-chmod +x inkly
-echo 'export PATH="$HOME/tools:$PATH"' >> ~/.bashrc
+chmod +x ~/tools/inkly
+echo 'export PATH="$HOME/tools/inkly:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
 echo "Installation complete."

@@ -101,7 +101,7 @@ echo "node:      $(node -v)"
 echo "npm:       $(npm -v)"
 echo "copilot:   $(copilot --version || true)"
 echo "inkly:     $(inkly --version || true)"
-type ink || true
+
 echo
 echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
 echo
@@ -116,4 +116,4 @@ source ~/.bashrc
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
 echo "Starting Inkly(Powered by Copilot)"
-copilot
+inkly

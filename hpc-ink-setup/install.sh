@@ -110,10 +110,10 @@ echo "  inkly -p \"Say hello\""
 echo "  ink  \"Say hello\""
 
 echo "Activating Ink for this shell..."
-exec bash --rcfile ~/.bashrc
+source ~/.bashrc
 
 # Unset npm prefix warning
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
 echo "Starting Inkly(Powered by Copilot)"
-inkly
+copilot

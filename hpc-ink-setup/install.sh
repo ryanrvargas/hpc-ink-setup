@@ -89,21 +89,18 @@ fi
 # 6. Source Ink wrapper function
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
 
-if ! grep -q 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' "$HOME/.bashrc"; then
-  echo 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' >> "$HOME/.bashrc"
+if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
+  echo "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
 fi
 
-. "$HOME/.bashrc"
-
-# Make inkly and ink available immediately in this shell
-export PATH="$HOME/.npm-global/bin:$PATH"
-source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
-export -f ink
-
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
-
+# Quietly source everything without printing the function body
+{
+  export PATH="$HOME/.npm-global/bin:$PATH"
+  source "$HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >/dev/null 2>&1
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+  nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
+} 2>/dev/null
 
 echo
 echo "=== Verification ==="
@@ -114,14 +111,8 @@ echo "inkly:     $(inkly --version || true)"
 
 echo
 echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
+echo "Type 'inkly' and login with GitHub"
 echo
 echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  ink  \"Say hello\""
-
-echo "Activating Ink function for this shell..."
-source ~/.bashrc
-ehco "Type 'inkly' and login with github'"
-# Unset npm prefix warning
-nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
-

@@ -112,4 +112,4 @@ echo "  ink  \"Say hello\""
 echo "Activating Ink for this shell..."
 exec bash --rcfile ~/.bashrc
 echo "Starting Inkly(Powered by Copilot)"
-exec bash inkly
+inkly

@@ -37,6 +37,9 @@ if ! command -v node >/dev/null 2>&1; then
     nvm install --lts
     nvm use --lts
   )
+  # Re-load nvm into the parent shell so npm is accessible
+    export NVM_DIR="$HOME/.nvm"
+    . "$NVM_DIR/nvm.sh"
 else
   echo "Node detected: $(node -v)"
 fi

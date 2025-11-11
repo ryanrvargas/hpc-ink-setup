@@ -108,3 +108,6 @@ echo
 echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  ink  \"Say hello\""
+
+echo "Activating Ink for this shell..."
+exec bash --rcfile ~/.bashrc

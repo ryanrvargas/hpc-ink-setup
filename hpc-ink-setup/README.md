@@ -36,3 +36,4 @@ Run these two commmands
 export PATH="$HOME/.npm-global/bin:$PATH"
 source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
 ```
+Then call inkly command

@@ -50,6 +50,12 @@ echo "[2/6] Configuring npm for user-space global installs…"
 mkdir -p "$HOME/.npm-global"
 npm config set prefix "$HOME/.npm-global"
 
+# Remove incompatible settings from ~/.npmrc if they exist
+if grep -Eq '^(globalconfig|prefix)' "$HOME/.npmrc" 2>/dev/null; then
+  echo "→ Cleaning up incompatible npm settings from ~/.npmrc"
+  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" && mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
+fi
+
 # Add ~/.npm-global/bin to PATH if not already present
 if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.bashrc"; then
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
@@ -93,6 +99,10 @@ fi
 export PATH="$HOME/.npm-global/bin:$PATH"
 source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
 export -f ink
+
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
 
 echo

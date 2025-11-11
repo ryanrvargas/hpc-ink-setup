@@ -109,11 +109,9 @@ echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  ink  \"Say hello\""
 
-echo "Activating Ink for this shell..."
+echo "Activating Ink function for this shell..."
 source ~/.bashrc
-
+ehco "Type 'inkly' and login with github'"
 # Unset npm prefix warning
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
-echo "Starting Inkly(Powered by Copilot)"
-inkly

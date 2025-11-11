@@ -29,3 +29,10 @@ Ink(Copilot) will automatically read your cluster’s slurm.conf, os-release, an
 source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
 ```
 And to reload your shell use this command
+
+## Once install has completed
+Run these two commmands
+```bash
+export PATH="$HOME/.npm-global/bin:$PATH"
+source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
+```

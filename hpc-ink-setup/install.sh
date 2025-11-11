@@ -89,6 +89,12 @@ fi
 
 . "$HOME/.bashrc"
 
+# Make inkly and ink available immediately in this shell
+export PATH="$HOME/.npm-global/bin:$PATH"
+source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
+export -f ink
+
+
 echo
 echo "=== Verification ==="
 echo "node:      $(node -v)"
@@ -98,3 +104,7 @@ echo "inkly:     $(inkly --version || true)"
 type ink || true
 echo
 echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
+echo
+echo "Try:"
+echo "  inkly -p \"Say hello\""
+echo "  ink  \"Say hello\""

@@ -8,17 +8,17 @@
 # Verifies setup at the end
 
 
-set -euo pipefail
+set -eo pipefail
 
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
-# If 'node' isn't present, bootstrap nvm and install the latest LTS node.
+
+# 1. Ensure Node (nvm) is available
 echo "[1/6] Ensuring Node (nvm) is available (user-space)…"
 
 if ! command -v node >/dev/null 2>&1; then
-  # Install nvm only if missing
+  # Install nvm if it doesn't exist
   if [ ! -d "$HOME/.nvm" ]; then
     echo "→ Installing nvm..."
-    # Prefer curl; fall back to wget; fail clearly if neither exists
     if command -v curl >/dev/null 2>&1; then
       curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     elif command -v wget >/dev/null 2>&1; then
@@ -29,37 +29,36 @@ if ! command -v node >/dev/null 2>&1; then
     fi
   fi
 
-  # Load nvm safely. Avoid nounset pitfalls by not using `set -u` yet.
-  export NVM_DIR="$HOME/.nvm"
-  if [ -s "$NVM_DIR/nvm.sh" ]; then
-    # shellcheck disable=SC1090
+  # Run nvm in a subshell to avoid 'set -u' issues
+  (
+    set +u
+    export NVM_DIR="$HOME/.nvm"
     . "$NVM_DIR/nvm.sh"
     nvm install --lts
     nvm use --lts
-  else
-    echo "Error: nvm.sh not found after installation." >&2
-    exit 1
-  fi
+  )
 else
   echo "Node detected: $(node -v)"
 fi
 
-
+# 2. Configure npm for user-space installs
 echo "[2/6] Configuring npm for user-space global installs…"
-# Put global npm packages in ~/.npm-global (writeable by the user)
+
 mkdir -p "$HOME/.npm-global"
 npm config set prefix "$HOME/.npm-global"
 
-# Persist PATH for future sessions (idempotent append)
+# Add ~/.npm-global/bin to PATH if not already present
 if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.bashrc"; then
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
 fi
-# Make PATH live in current shell immediately
+
 export PATH="$HOME/.npm-global/bin:$PATH"
 
+# 3. Install GitHub Copilot CLI
 echo "[3/6] Installing GitHub Copilot CLI via npm…"
 npm install -g @github/copilot
 
+# 4. Create 'inkly' alias for Copilot
 echo "[4/6] Creating 'inkly' alias…"
 
 COPILOT_BIN="$(command -v copilot || true)"
@@ -68,23 +67,23 @@ if [ -z "$COPILOT_BIN" ]; then
   exit 1
 fi
 
-# Ensure the bin dir exists and create/refresh the symlink
 mkdir -p "$HOME/.npm-global/bin"
 ln -sf "$COPILOT_BIN" "$HOME/.npm-global/bin/inkly"
 
+# 5. Verify PATH includes npm-global
 echo "[5/6] Verifying PATH configuration…"
+
 if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
   export PATH="$HOME/.npm-global/bin:$PATH"
 fi
 
+# 6. Source Ink wrapper function
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
-# Auto-load your ink() function on future shells; append only once
+
 if ! grep -q 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' "$HOME/.bashrc"; then
   echo 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' >> "$HOME/.bashrc"
 fi
 
-# Load it now for immediate use
-# shellcheck disable=SC1090
 . "$HOME/.bashrc"
 
 echo
@@ -93,6 +92,6 @@ echo "node:      $(node -v)"
 echo "npm:       $(npm -v)"
 echo "copilot:   $(copilot --version || true)"
 echo "inkly:     $(inkly --version || true)"
-type ink || true   # Expected: "ink is a function"
+type ink || true
 echo
 echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."

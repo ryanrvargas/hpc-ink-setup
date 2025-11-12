@@ -130,7 +130,7 @@ prompt="$*"                                    # Combine args into a single prom
 
 # Extra safety filter against destructive requests in the prompt text
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
-  echo "❌ Operation blocked: destructive command detected in prompt."
+  echo "Operation blocked: destructive command detected in prompt."
   echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
@@ -143,6 +143,12 @@ chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
 # [6/6] Install "ink" launcher (do NOT source ink.sh at login)
 echo "[6/6] Installing ink launcher…"
+
+# --- SAFETY PATCH: fix unterminated if-block in .bashrc (Ubuntu quirk) ---
+if grep -q '^if ! shopt -oq posix; then' "$HOME/.bashrc" && ! grep -q '^fi$' "$HOME/.bashrc"; then
+  echo "→ Patching .bashrc: adding missing 'fi' at end of file"
+  echo "fi" >> "$HOME/.bashrc"
+fi
 
 sed -i '/hpc-ink-setup\/ink.sh/d' "$HOME/.bashrc"     # Remove any old “source ink.sh” lines to avoid autoload.
 

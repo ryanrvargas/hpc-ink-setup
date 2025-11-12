@@ -126,18 +126,11 @@ if printf '%s' "$prompt_text" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|
   exit 1
 fi
 
-# Run Copilot: support both new and old CLI versions, auto-fallback on failure
+# Run Copilot: if the user provided -p, keep it; if not, pass their text as the prompt
 if [ $has_prompt -eq 1 ]; then
   exec "$COPILOT_BIN" "$@" "${deny_flags[@]}"
 else
-  # Try old -p style first; if it fails, rerun using new 'suggest' syntax
-  "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}" 2> >(tee /tmp/inkly_error.log >&2)
-  status=$?
-  if grep -q "Invalid command format" /tmp/inkly_error.log; then
-    exec "$COPILOT_BIN" suggest "$prompt_text" "${deny_flags[@]}"
-  else
-    exit $status
-  fi
+  exec "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}"
 fi
 EOF
 

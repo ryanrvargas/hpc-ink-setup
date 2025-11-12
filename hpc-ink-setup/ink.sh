@@ -1,37 +1,52 @@
 #!/bin/bash
-# HPC-aware wrapper that feeds cluster context automatically from slurm.conf, os-release, software, and module
-# Call this function and then a prompt
-# ex. "ink 'Write a slurm sbatch script for 2 gpu nodes for 24 hours"
+# Ink: HPC-aware assistant built on Inkly (Copilot CLI)
+# Lets you type:  ink "Make me a Slurm sbatch for 2 GPU nodes"
 
-########################To activate it:#############################
-# echo "source ~/hpc-ink-setup/ink.sh" >> ~/.bashrc
-# source ~/.bashrc
+set -euo pipefail
 
-ink() {
-  set -o pipefail
-  CONTEXT=$(
-    {
-      echo "===== /etc/slurm/slurm.conf ====="
-      cat /etc/slurm/slurm.conf 2>/dev/null || echo "(not readable)"
-      echo
-      echo "===== /etc/os-release ====="
-      cat /etc/os-release 2>/dev/null || echo "(not readable)"
-      echo
-      echo "===== software ====="
-      command -v software >/dev/null && software 2>/dev/null || echo "(software command not found)"
-      echo
-      echo "===== module avail ====="
-      if command -v module >/dev/null 2>&1; then
-        module avail 2>&1 || echo "(module system failed)"
-      else
-        echo "(module not found)"
-      fi
-      echo
-    }
-  )
-  # Copilot/inkly gets called, then using our variable CONTEXT, so it has background information to create files
-  inkly -p "Using the following HPC environment context:
-$CONTEXT
+# --- Detect Inkly binary ---
+INKLY_BIN="${HOME}/.npm-global/bin/inkly"
+if [ ! -x "$INKLY_BIN" ]; then
+  echo "❌ Inkly binary not found — make sure you’ve run install.sh successfully."
+  exit 1
+fi
 
-Now, $*"
-}
+# --- Build HPC context automatically ---
+CONTEXT_INFO=""
+
+# Add hostname and OS details
+if command -v hostname >/dev/null 2>&1; then
+  CONTEXT_INFO+="Hostname: $(hostname)\n"
+fi
+if [ -f /etc/os-release ]; then
+  CONTEXT_INFO+="OS Info: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')\n"
+fi
+
+# Include SLURM configuration summary if available
+if command -v sinfo >/dev/null 2>&1; then
+  CONTEXT_INFO+="SLURM Queues: $(sinfo -h -o '%P %D %C' | head -n 3)\n"
+fi
+if [ -f /etc/slurm/slurm.conf ]; then
+  CONTEXT_INFO+="SLURM Config Path: /etc/slurm/slurm.conf\n"
+fi
+
+# Add GPU info if present
+if command -v nvidia-smi >/dev/null 2>&1; then
+  GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -n 1)
+  CONTEXT_INFO+="GPU: $GPU_INFO\n"
+fi
+
+# --- Handle no arguments ---
+if [ "$#" -eq 0 ]; then
+  echo "Usage: ink \"Your HPC prompt here\""
+  echo
+  echo "Example: ink \"Write a Slurm sbatch file for 4 CPU tasks and 1 GPU\""
+  exit 1
+fi
+
+# --- Combine context with user query ---
+USER_QUERY="$*"
+PROMPT="Using the following HPC environment context:\n${CONTEXT_INFO}\n\nNow: ${USER_QUERY}"
+
+# --- Run through Inkly CLI (safe mode retained) ---
+"$INKLY_BIN" -p "$PROMPT"

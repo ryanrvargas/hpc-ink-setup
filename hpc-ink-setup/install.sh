@@ -60,7 +60,17 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 # [3/6] Install GitHub Copilot CLI (binary version)
 echo "[3/6] Installing GitHub Copilot CLI binary…"
 mkdir -p "$HOME/.npm-global/bin"
-curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64 -o "$HOME/.npm-global/bin/copilot"
+
+# Download Copilot binary using curl or wget (fallback)
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64 -o "$HOME/.npm-global/bin/copilot"
+elif command -v wget >/dev/null 2>&1; then
+  wget -qO "$HOME/.npm-global/bin/copilot" https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64
+else
+  echo "Error: Need curl or wget to download Copilot CLI." >&2
+  exit 1
+fi
+
 chmod +x "$HOME/.npm-global/bin/copilot"
 
 # [4/6] Create secure Inkly wrapper

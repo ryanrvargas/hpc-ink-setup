@@ -101,6 +101,11 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 source ~/hpc-ink-setup/hpc-ink-setup/ink.sh 2>/dev/null || true
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
+NODE_PATH="$(nvm which current | xargs dirname)"
+if ! echo "$PATH" | grep -q "$NODE_PATH"; then
+  export PATH="$NODE_PATH:$PATH"
+  echo "export PATH=\"$NODE_PATH:\$PATH\"" >> "$HOME/.bashrc"
+fi
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
 # --- Verification ---
@@ -120,4 +125,3 @@ echo
 echo "Activating Ink function for this shell..."
 source ~/.bashrc
 echo "Type 'inkly' and log in with GitHub."
-nvm use --delete-prefix v$(node -v | tr -d 'v') --silent

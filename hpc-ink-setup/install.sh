@@ -61,7 +61,7 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 echo "[3/6] Installing GitHub Copilot CLI binary…"
 mkdir -p "$HOME/.npm-global/bin"
 
-# Detect system architecture
+# Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)  ASSET="github-copilot-cli-linux-x64" ;;
@@ -69,29 +69,41 @@ case "$ARCH" in
   *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-# Fetch the latest release URL dynamically from GitHub API
+# Try to get latest release download URL
+echo "→ Fetching latest release info from GitHub…"
 if command -v curl >/dev/null 2>&1; then
-  DOWNLOAD_URL=$(curl -fsSL https://api.github.com/repos/github/copilot-cli/releases/latest | grep "browser_download_url" | grep "$ASSET" | cut -d '"' -f 4 | head -n1)
+  JSON=$(curl -fsSL https://api.github.com/repos/github/copilot-cli/releases/latest || true)
 elif command -v wget >/dev/null 2>&1; then
-  DOWNLOAD_URL=$(wget -qO- https://api.github.com/repos/github/copilot-cli/releases/latest | grep "browser_download_url" | grep "$ASSET" | cut -d '"' -f 4 | head -n1)
+  JSON=$(wget -qO- https://api.github.com/repos/github/copilot-cli/releases/latest || true)
 else
-  echo "Error: Need curl or wget to fetch GitHub release info." >&2
+  echo "Error: curl or wget required to download Copilot CLI." >&2
   exit 1
 fi
 
+# Extract download URL
+DOWNLOAD_URL=$(printf '%s\n' "$JSON" | grep "browser_download_url" | grep "$ASSET" | cut -d '"' -f 4 | head -n1 || true)
+
+# Fallback if GitHub API fails or rate-limited
 if [ -z "$DOWNLOAD_URL" ]; then
-  echo "Error: Could not find a valid Copilot CLI binary for $ARCH"
-  exit 1
+  echo "⚠️  GitHub API may be rate-limited or missing asset. Using fallback URL..."
+  DOWNLOAD_URL="https://github.com/github/copilot-cli/releases/latest/download/$ASSET"
 fi
 
-echo "→ Downloading Copilot CLI from: $DOWNLOAD_URL"
+echo "→ Downloading from: $DOWNLOAD_URL"
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL "$DOWNLOAD_URL" -o "$HOME/.npm-global/bin/copilot"
+  curl -L --progress-bar "$DOWNLOAD_URL" -o "$HOME/.npm-global/bin/copilot"
 else
-  wget -qO "$HOME/.npm-global/bin/copilot" "$DOWNLOAD_URL"
+  wget --progress=bar:force "$DOWNLOAD_URL" -O "$HOME/.npm-global/bin/copilot"
+fi
+
+if [ ! -s "$HOME/.npm-global/bin/copilot" ]; then
+  echo "❌ Download failed — file is empty or missing."
+  exit 1
 fi
 
 chmod +x "$HOME/.npm-global/bin/copilot"
+echo "✓ Copilot CLI installed successfully."
+
 
 # [4/6] Create secure Inkly wrapper
 echo "[4/6] Creating secure 'inkly' wrapper..."

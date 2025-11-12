@@ -69,12 +69,17 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 
 set -euo pipefail
 
-# ✅ Use the Copilot CLI entrypoint directly to avoid recursion
-COPILOT_BIN="$(npm root -g)/@github/copilot/node_modules/@github/copilot-cli/bin/copilot.js"
-if [ ! -f "$COPILOT_BIN" ]; then
-  echo "Error: Copilot binary not found at $COPILOT_BIN"
+# Auto-detect Copilot CLI binary (handles both new and old npm layouts)
+COPILOT_ROOT="$(npm root -g)/@github/copilot"
+if [ -f "$COPILOT_ROOT/bin/copilot.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/bin/copilot.js"
+elif [ -f "$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
+else
+  echo "Error: Could not locate Copilot CLI binary under $COPILOT_ROOT"
   exit 1
 fi
+
 
 deny_flags=(
   --deny-tool 'shell(rm:*)'

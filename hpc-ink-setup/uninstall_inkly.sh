@@ -3,6 +3,13 @@
 # Inkly / Copilot CLI full uninstall (user-space cleanup)
 # Removes: nvm, npm-global, Copilot (npm + binary), inkly alias/wrapper,
 #          deny-list config, PATH + source lines in .bashrc/.zshrc, npmrc prefixes.
+# Auto-fix line endings if CRLF snuck in
+if file "$0" | grep -q "CRLF"; then
+  echo "Converting Windows line endings to Unix (LF)..."
+  sed -i 's/\r$//' "$0"
+  exec bash "$0" "$@"
+  exit 0
+fi
 
 set -eo pipefail
 

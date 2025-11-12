@@ -9,6 +9,10 @@
 # For testing
 # rm -rf ~/.nvm ~/.npm-global ~/.npm ~/.copilot ~/.cache
 # sed -i '/prefix/d' ~/.npmrc 2>/dev/null
+# cd ~/hpc-ink-setup/hpc-ink-setup
+# git fetch --prune origin 
+# git reset --hard origin/tester
+# bash install.sh
 
 # --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then
@@ -76,7 +80,7 @@ npm install -g @github/copilot
 # Immediately unset NPM_CONFIG_PREFIX so nvm stays active
 unset NPM_CONFIG_PREFIX
 
-# [4/6] Create secure 'inkly' wrapper
+# [4/6] Create secure 'inkly' wrapper…
 echo "[4/6] Creating secure 'inkly' wrapper…"
 COPILOT_BIN="$(command -v copilot || true)"
 if [ -z "$COPILOT_BIN" ]; then
@@ -88,68 +92,56 @@ mkdir -p "$HOME/.npm-global/bin"
 
 cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-# Inkly Secure Wrapper — blocks destructive commands
+# Inkly secure wrapper — supports both:
+#   inkly "prompt here"        -> copilot -p "prompt here"
+#   inkly --flag … / subcmd …  -> copilot <as-is>
+set -euo pipefail
 
-COPILOT_BIN="$(command -v copilot)"
-ARGS="$*"
+COPILOT_BIN="$(command -v copilot || true)"
+if [ -z "$COPILOT_BIN" ]; then
+  echo "Error: GitHub Copilot CLI not found." >&2
+  exit 1
+fi
 
-# Block risky command strings
-if echo "$ARGS" | grep -Eq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|cp\s+-r\s+/|sudo)\b'; then
+deny_flags=(
+  --deny-tool 'shell(rm:*)'
+  --deny-tool 'shell(sudo:*)'
+  --deny-tool 'shell(chmod:*)'
+  --deny-tool 'shell(chown:*)'
+  --deny-tool 'shell(rmdir:*)'
+  --deny-tool 'shell(unlink:*)'
+  --deny-tool 'shell(cp:*)'
+  --deny-tool 'shell(mv:*)'
+)
+
+# No arguments -> interactive copilot with deny flags
+if [ "$#" -eq 0 ]; then
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
+fi
+
+# If first token looks like a flag/subcommand, pass-through (keeps existing workflows)
+case "$1" in
+  -*)        exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+  help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
+             exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+esac
+
+# Otherwise, treat the whole argument list as a natural-language prompt
+prompt="$*"
+
+# Extra safety filter against destructive requests in the prompt text
+if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "❌ Operation blocked: destructive command detected in prompt."
   echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
 
-# Run Copilot with deny-tool guard
-"$COPILOT_BIN" "$@" \
-  --deny-tool 'shell(rm:*)' \
-  --deny-tool 'shell(sudo:*)' \
-  --deny-tool 'shell(chmod:*)' \
-  --deny-tool 'shell(chown:*)' \
-  --deny-tool 'shell(rmdir:*)' \
-  --deny-tool 'shell(unlink:*)' \
-  --deny-tool 'shell(cp:*)' \
-  --deny-tool 'shell(mv:*)'
+# Call copilot with -p and our deny flags
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"
 EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"
 
-# Create a convenience shell function: Inkly "Command"
-INKLY_FUNC='
-inkly() {
-  if [ $# -eq 0 ]; then
-    echo "Usage: inkly \"Your prompt here\""
-    return 1
-  fi
-  inkly -p "$*"
-}
-export -f inkly
-'
-
-# Append the function to .bashrc if missing
-if ! grep -q "inkly()" "$HOME/.bashrc"; then
-  echo "$INKLY_FUNC" >> "$HOME/.bashrc"
-fi
-
-# [5/6] Add Copilot global deny-list
-echo "[5/6] Setting Copilot global deny-list…"
-mkdir -p "$HOME/.copilot"
-cat <<'EOF' > "$HOME/.copilot/config.json"
-{
-  "toolPermissions": {
-    "deny": [
-      "shell(rm:*)",
-      "shell(sudo:*)",
-      "shell(chmod:*)",
-      "shell(chown:*)",
-      "shell(rmdir:*)",
-      "shell(unlink:*)",
-      "shell(cp:*)",
-      "shell(mv:*)"
-    ]
-  }
-}
-EOF
 
 # [6/6] Link Ink wrapper
 echo "[6/6] Linking Ink wrapper (ink.sh)…"

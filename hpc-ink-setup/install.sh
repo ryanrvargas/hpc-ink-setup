@@ -70,6 +70,9 @@ fi
 echo "[3/6] Installing GitHub Copilot CLI via npm…"
 npm install -g @github/copilot
 
+# Immediately unset NPM_CONFIG_PREFIX so nvm stays active
+unset NPM_CONFIG_PREFIX
+
 # [4/6] Create 'inkly' alias for Copilot
 echo "[4/6] Creating 'inkly' alias…"
 COPILOT_BIN="$(command -v copilot || true)"

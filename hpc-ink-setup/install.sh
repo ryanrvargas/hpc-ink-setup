@@ -163,7 +163,7 @@ if [ -x "$NODE_PATH" ]; then
     echo "export PATH=\"$NODE_DIR:\$PATH\"" >> "$HOME/.bashrc"
   fi
 else
-  echo "⚠️ Node binary not found; ensure nvm installed correctly." >&2
+  echo "Node binary not found; ensure nvm installed correctly." >&2
 fi
 
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
@@ -185,3 +185,8 @@ echo
 echo "Activating Ink function for this shell..."
 source ~/.bashrc
 echo "Type 'inkly' and log in with GitHub."
+
+# --- Refresh parent shell environment for immediate use ---
+echo
+echo "Reloading environment so Node and Inkly are active now..."
+exec bash -l

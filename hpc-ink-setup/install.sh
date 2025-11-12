@@ -157,10 +157,15 @@ echo "npm:       $(npm -v 2>/dev/null)"
 echo "copilot:   $(copilot --version 2>/dev/null || true)"
 echo "inkly:     $(inkly --version 2>/dev/null || true)"
 echo
-echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
-echo "Type 'inkly' and log in with GitHub."
-echo
+echo "Installation complete — you can start using Ink right away."
 echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  inkly \"Say hello\""
 set -e
+
+# --- Reload shell so inkly/copilot work immediately in this terminal ---
+hash -r
+echo
+echo "Reloading your shell to pick up PATH/NVM changes..."
+SHELL_PATH="${SHELL:-/bin/bash}"
+exec "$SHELL_PATH" -l

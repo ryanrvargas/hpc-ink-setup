@@ -1,28 +1,26 @@
 #!/bin/bash
-# Inkly CLI Installer for HPC(user-space, no sudo)
+# Inkly CLI Installer for HPC (user-space, no sudo)
 # Installs Node via nvm if missing (using curl or wget)
-# Configures npm to a home-local prefix (~/.npm-global)
+# Configures npm for a home-local prefix (~/.npm-global) without nvm conflicts
 # Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
 # Creates an 'inkly' alias (symlink) to the 'copilot' binary
 # Sources Ink wrapper function (ink.sh) for the current user
-# Verifies setup at the end.
-# Auto-fix line endings if CRLF snuck in
+# Verifies setup at the end
+
+# --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then
   echo "Converting Windows line endings to Unix (LF)..."
   sed -i 's/\r$//' "$0"
   exec bash "$0" "$@"
 fi
 
-
 set -eo pipefail
 
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
-# 1. Ensure Node (nvm) is available
+# [1/6] Ensure Node (nvm)
 echo "[1/6] Ensuring Node (nvm) is available (user-space)…"
-
 if ! command -v node >/dev/null 2>&1; then
-  # Install nvm if it doesn't exist
   if [ ! -d "$HOME/.nvm" ]; then
     echo "→ Installing nvm..."
     if command -v curl >/dev/null 2>&1; then
@@ -35,7 +33,6 @@ if ! command -v node >/dev/null 2>&1; then
     fi
   fi
 
-  # Run nvm in a subshell to avoid 'set -u' issues
   (
     set +u
     export NVM_DIR="$HOME/.nvm"
@@ -43,39 +40,38 @@ if ! command -v node >/dev/null 2>&1; then
     nvm install --lts
     nvm use --lts
   )
-  # Re-load nvm into the parent shell so npm is accessible
-    export NVM_DIR="$HOME/.nvm"
-    . "$NVM_DIR/nvm.sh"
+  export NVM_DIR="$HOME/.nvm"
+  . "$NVM_DIR/nvm.sh"
 else
   echo "Node detected: $(node -v)"
 fi
 
-# 2. Configure npm for user-space installs
-echo "[2/6] Configuring npm for user-space global installs…"
+# [2/6] Configure npm (no nvm conflict)
+echo "[2/6] Configuring npm for user-space installs…"
 
 mkdir -p "$HOME/.npm-global"
-npm config set prefix "$HOME/.npm-global"
 
-# Remove incompatible settings from ~/.npmrc if they exist
-if grep -Eq '^(globalconfig|prefix)' "$HOME/.npmrc" 2>/dev/null; then
-  echo "→ Cleaning up incompatible npm settings from ~/.npmrc"
-  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" && mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
+# Clean up any conflicting prefix/globalconfig in .npmrc
+if [ -f "$HOME/.npmrc" ]; then
+  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" || true
+  mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
 fi
 
-# Add ~/.npm-global/bin to PATH if not already present
-if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.bashrc"; then
+# Use environment variable for prefix to avoid nvm warning
+export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+
+# Ensure ~/.npm-global/bin is in PATH
+if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
+  export PATH="$HOME/.npm-global/bin:$PATH"
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 
-export PATH="$HOME/.npm-global/bin:$PATH"
-
-# 3. Install GitHub Copilot CLI
+# [3/6] Install GitHub Copilot CLI
 echo "[3/6] Installing GitHub Copilot CLI via npm…"
 npm install -g @github/copilot
 
-# 4. Create 'inkly' alias for Copilot
+# [4/6] Create 'inkly' alias for Copilot
 echo "[4/6] Creating 'inkly' alias…"
-
 COPILOT_BIN="$(command -v copilot || true)"
 if [ -z "$COPILOT_BIN" ]; then
   echo "Error: Copilot CLI not found after npm install." >&2
@@ -85,49 +81,40 @@ fi
 mkdir -p "$HOME/.npm-global/bin"
 ln -sf "$COPILOT_BIN" "$HOME/.npm-global/bin/inkly"
 
-# 5. Verify PATH includes npm-global
+# [5/6] Verify PATH includes npm-global
 echo "[5/6] Verifying PATH configuration…"
-
 if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
   export PATH="$HOME/.npm-global/bin:$PATH"
 fi
 
-# 6. Source Ink wrapper function
+# [6/6] Link Ink wrapper (ink.sh)
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
-
-if ! grep -q 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' "$HOME/.bashrc"; then
-  echo 'source ~/hpc-ink-setup/hpc-ink-setup/ink.sh' >> "$HOME/.bashrc"
+if ! grep -q "source ~/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
+  echo "source ~/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
 fi
 
-. "$HOME/.bashrc"
-
-# Make inkly and ink available immediately in this shell
+# Activate in current shell
 export PATH="$HOME/.npm-global/bin:$PATH"
-source ~/hpc-ink-setup/hpc-ink-setup/ink.sh
-export -f ink
-
+source ~/hpc-ink-setup/hpc-ink-setup/ink.sh 2>/dev/null || true
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
-
+# --- Verification ---
 echo
 echo "=== Verification ==="
 echo "node:      $(node -v)"
 echo "npm:       $(npm -v)"
 echo "copilot:   $(copilot --version || true)"
 echo "inkly:     $(inkly --version || true)"
-
 echo
 echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
 echo
 echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  ink  \"Say hello\""
-
+echo
 echo "Activating Ink function for this shell..."
 source ~/.bashrc
-ehco "Type 'inkly' and login with github'"
-# Unset npm prefix warning
+echo "Type 'inkly' and log in with GitHub."
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
-

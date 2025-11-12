@@ -126,11 +126,17 @@ if printf '%s' "$prompt_text" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|
   exit 1
 fi
 
-# Run Copilot: if the user provided -p, keep it; if not, pass their text as the prompt
+# Run Copilot: support both new and old CLI versions
 if [ $has_prompt -eq 1 ]; then
   exec "$COPILOT_BIN" "$@" "${deny_flags[@]}"
 else
-  exec "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}"
+  if "$COPILOT_BIN" help 2>&1 | grep -q "suggest"; then
+    # New CLI format (no -p flag)
+    exec "$COPILOT_BIN" suggest "$prompt_text" "${deny_flags[@]}"
+  else
+    # Old CLI format with -p
+    exec "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}"
+  fi
 fi
 EOF
 

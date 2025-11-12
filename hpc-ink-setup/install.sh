@@ -61,14 +61,34 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 echo "[3/6] Installing GitHub Copilot CLI binary…"
 mkdir -p "$HOME/.npm-global/bin"
 
-# Download Copilot binary using curl or wget (new binary name)
+# Detect system architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)  ASSET="github-copilot-cli-linux-x64" ;;
+  aarch64) ASSET="github-copilot-cli-linux-arm64" ;;
+  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+# Fetch the latest release URL dynamically from GitHub API
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/github-copilot-cli-linux -o "$HOME/.npm-global/bin/copilot"
+  DOWNLOAD_URL=$(curl -fsSL https://api.github.com/repos/github/copilot-cli/releases/latest | grep "browser_download_url" | grep "$ASSET" | cut -d '"' -f 4 | head -n1)
 elif command -v wget >/dev/null 2>&1; then
-  wget -qO "$HOME/.npm-global/bin/copilot" https://github.com/github/copilot-cli/releases/latest/download/github-copilot-cli-linux
+  DOWNLOAD_URL=$(wget -qO- https://api.github.com/repos/github/copilot-cli/releases/latest | grep "browser_download_url" | grep "$ASSET" | cut -d '"' -f 4 | head -n1)
 else
-  echo "Error: Need curl or wget to download Copilot CLI." >&2
+  echo "Error: Need curl or wget to fetch GitHub release info." >&2
   exit 1
+fi
+
+if [ -z "$DOWNLOAD_URL" ]; then
+  echo "Error: Could not find a valid Copilot CLI binary for $ARCH"
+  exit 1
+fi
+
+echo "→ Downloading Copilot CLI from: $DOWNLOAD_URL"
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "$DOWNLOAD_URL" -o "$HOME/.npm-global/bin/copilot"
+else
+  wget -qO "$HOME/.npm-global/bin/copilot" "$DOWNLOAD_URL"
 fi
 
 chmod +x "$HOME/.npm-global/bin/copilot"

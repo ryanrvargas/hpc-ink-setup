@@ -114,6 +114,23 @@ EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"
 
+# Create a convenience shell function: Inkly "Command"
+INKLY_FUNC='
+inkly() {
+  if [ $# -eq 0 ]; then
+    echo "Usage: inkly \"Your prompt here\""
+    return 1
+  fi
+  inkly -p "$*"
+}
+export -f inkly
+'
+
+# Append the function to .bashrc if missing
+if ! grep -q "inkly()" "$HOME/.bashrc"; then
+  echo "$INKLY_FUNC" >> "$HOME/.bashrc"
+fi
+
 # [5/6] Add Copilot global deny-list
 echo "[5/6] Setting Copilot global deny-list…"
 mkdir -p "$HOME/.copilot"

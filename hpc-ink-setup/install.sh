@@ -143,30 +143,23 @@ EOF
 chmod +x "$HOME/.npm-global/bin/inkly"
 
 
-# [6/6] Link Ink wrapper (ink.sh) and inject lowercase inkly() function
-echo "[6/6] Linking Ink wrapper (ink.sh)…"
+# [6/6] Install "ink" launcher (do NOT source ink.sh at login)
+echo "[6/6] Installing ink launcher…"
 
-# Clean up old Inkly function definitions if any
-sed -i '/# --- INKLY FN START ---/,/# --- INKLY FN END ---/d' "$HOME/.bashrc"
+# Remove any old sourcing blocks for ink.sh (defensive)
+sed -i '/hpc-ink-setup\/ink.sh/d' "$HOME/.bashrc"
 
-# Ensure ink.sh is sourced
-if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
-  echo "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
-fi
+# Install a small executable that runs ink.sh with args
+mkdir -p "$HOME/.npm-global/bin"
+cat <<'LAUNCH' > "$HOME/.npm-global/bin/ink"
+#!/bin/bash
+exec "$HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$@"
+LAUNCH
+chmod +x "$HOME/.npm-global/bin/ink"
 
-# Append the lowercase inkly() shell function
-cat <<'EOF' >> "$HOME/.bashrc"
-# --- INKLY FN START ---
-inkly() {
-  if [ $# -eq 0 ]; then
-    echo 'Usage: inkly "Your prompt here"'
-    return 1
-  fi
-  command inkly -p "$*"
-}
-export -f inkly
-# --- INKLY FN END ---
-EOF
+# Keep the lowercase inkly() helper function you already inject — it’s fine.
+# Just ensure ~/.npm-global/bin is in PATH (you already do that earlier).
+
 
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 

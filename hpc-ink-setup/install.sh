@@ -1,19 +1,19 @@
 #!/bin/bash
 # Inkly CLI Installer for HPC (user-space, no sudo)
 # Installs Node via nvm if missing (using curl or wget)
-# Configures npm to a home-local prefix (~/.npm-global)
-# Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
+# Configures npm for local (user-space) installs
+# Installs the GitHub Copilot CLI binary instead of the npm package
 # Creates a secure 'inkly' wrapper to block destructive commands
-# Adds Copilot global deny-list for dangerous tools
-# Sources Ink wrapper (ink.sh)
-# Verifies setup
+# Adds Copilot deny-list for safety
+# Links the ink.sh helper
+# Verifies setup at the end
 
-set -eo pipefail # Exit the script if any command fails
+set -eo pipefail  # Stop if any command fails
 
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
-# [1/6] Ensure Node (nvm)
-echo "[1/6] Ensuring Node (nvm) is available (user-space)…"
+# [1/6] Node setup using nvm
+echo "[1/6] Checking for Node (nvm)…"
 if ! command -v node >/dev/null 2>&1; then
   if [ ! -d "$HOME/.nvm" ]; then
     echo "→ Installing nvm..."
@@ -22,10 +22,11 @@ if ! command -v node >/dev/null 2>&1; then
     elif command -v wget >/dev/null 2>&1; then
       wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     else
-      echo "Error: neither curl nor wget is available." >&2
+      echo "Error: Need curl or wget installed." >&2
       exit 1
     fi
   fi
+
   (
     set +u
     export NVM_DIR="$HOME/.nvm"
@@ -39,63 +40,47 @@ else
   echo "Node detected: $(node -v)"
 fi
 
-# [2/6] Configure npm user-space installs
-echo "[2/6] Configuring npm for user-space global installs…"
+# [2/6] Configure npm for user-space installs
+echo "[2/6] Configuring npm for user-space installs…"
 mkdir -p "$HOME/.npm-global"
-# Avoid modifying ~/.npmrc directly — just export PREFIX for this session
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
 
+# Clean out any old conflicting npmrc entries
 if grep -Eq '^(globalconfig|prefix)' "$HOME/.npmrc" 2>/dev/null; then
-  echo "→ Cleaning up incompatible npm settings from ~/.npmrc"
+  echo "→ Cleaning up old npm settings from ~/.npmrc"
   grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" && mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
 fi
 
+# Add to PATH if not already present
 if ! grep -q 'export PATH="$HOME/.npm-global/bin:$PATH"' "$HOME/.bashrc"; then
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 export PATH="$HOME/.npm-global/bin:$PATH"
 
-# [3/6] Install GitHub Copilot CLI
-echo "[3/6] Installing GitHub Copilot CLI via npm…"
-npm install -g @github/copilot
+# [3/6] Install GitHub Copilot CLI (binary version)
+echo "[3/6] Installing GitHub Copilot CLI binary…"
+mkdir -p "$HOME/.npm-global/bin"
+curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64 -o "$HOME/.npm-global/bin/copilot"
+chmod +x "$HOME/.npm-global/bin/copilot"
 
-# [4/6] Create secure 'inkly' wrapper
-echo "[4/6] Creating secure 'inkly' wrapper…"
+# [4/6] Create secure Inkly wrapper
+echo "[4/6] Creating secure 'inkly' wrapper..."
 mkdir -p "$HOME/.npm-global/bin"
 
 cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-# Inkly Secure Wrapper — blocks destructive commands and allows 'inkly "command"' usage safely
+# Inkly Secure Wrapper — prevents file modification and lets you run 'inkly "prompt"'
 
 set -euo pipefail
 
-# Auto-detect Copilot CLI binary (covers all known layouts 2023–2025)
-COPILOT_ROOT="$(npm root -g)/@github/copilot"
-
-if [ -f "$COPILOT_ROOT/bin/copilot.js" ]; then
-  COPILOT_BIN="$COPILOT_ROOT/bin/copilot.js"
-elif [ -f "$COPILOT_ROOT/cli.js" ]; then
-  COPILOT_BIN="$COPILOT_ROOT/cli.js"
-elif [ -f "$COPILOT_ROOT/dist/cli.js" ]; then
-  COPILOT_BIN="$COPILOT_ROOT/dist/cli.js"
-elif [ -f "$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js" ]; then
-  COPILOT_BIN="$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
-elif [ -f "$(npm root -g)/@github/copilot-cli/bin/copilot.js" ]; then
-  COPILOT_BIN="$(npm root -g)/@github/copilot-cli/bin/copilot.js"
-else
-  echo "Error: Could not locate GitHub Copilot CLI binary."
-  echo "Checked:"
-  echo "  $COPILOT_ROOT/bin/copilot.js"
-  echo "  $COPILOT_ROOT/cli.js"
-  echo "  $COPILOT_ROOT/dist/cli.js"
-  echo "  $COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
-  echo "  $(npm root -g)/@github/copilot-cli/bin/copilot.js"
+# Make sure copilot binary exists
+COPILOT_BIN="$(command -v copilot || echo "$HOME/.npm-global/bin/copilot")"
+if [ ! -x "$COPILOT_BIN" ]; then
+  echo "Error: GitHub Copilot CLI not found or not executable."
   exit 1
 fi
 
-
-
-
+# Restricted shell commands (deny-list)
 deny_flags=(
   --deny-tool 'shell(rm:*)'
   --deny-tool 'shell(sudo:*)'
@@ -107,25 +92,26 @@ deny_flags=(
   --deny-tool 'shell(mv:*)'
 )
 
-# No arguments → interactive Copilot mode
+# No args → interactive mode
 if [ "$#" -eq 0 ]; then
-  exec node "$COPILOT_BIN" "${deny_flags[@]}"
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
+# Combine user input into one prompt string
 prompt_text="$*"
 
-# Block risky strings
-if printf '%s' "$prompt_text" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r[[:space:]]+/' ; then
-  echo "❌ Operation blocked: destructive command detected in prompt."
-  echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
+# Filter dangerous commands in the prompt
+if printf '%s' "$prompt_text" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
+  echo "❌ Operation blocked: destructive command detected."
+  echo "Inkly runs in safe mode — no file deletions or system changes allowed."
   exit 1
 fi
 
-# Try -p syntax first, then fallback to suggest if needed
-node "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}" 2> >(tee /tmp/inkly_error.log >&2)
+# Try the normal -p mode first; fallback to suggest if CLI format changed
+"$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}" 2> >(tee /tmp/inkly_error.log >&2)
 status=$?
 if grep -q "Invalid command format" /tmp/inkly_error.log; then
-  exec node "$COPILOT_BIN" suggest "$prompt_text" "${deny_flags[@]}"
+  exec "$COPILOT_BIN" suggest "$prompt_text" "${deny_flags[@]}"
 else
   exit $status
 fi
@@ -133,8 +119,8 @@ EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"
 
-# [5/6] Add Copilot global deny-list
-echo "[5/6] Setting Copilot global deny-list…"
+# [5/6] Add Copilot deny-list config
+echo "[5/6] Creating Copilot deny-list config..."
 mkdir -p "$HOME/.copilot"
 
 cat <<'EOF' > "$HOME/.copilot/config.json"
@@ -154,7 +140,7 @@ cat <<'EOF' > "$HOME/.copilot/config.json"
 }
 EOF
 
-# [6/6] Link Ink wrapper
+# [6/6] Link Ink wrapper (ink.sh)
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
 
 if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
@@ -178,15 +164,15 @@ echo "npm:       $(npm -v 2>/dev/null)"
 echo "copilot:   $(copilot --version 2>/dev/null || true)"
 echo "inkly:     $(inkly --version 2>/dev/null || true)"
 echo
-echo "Installation complete — you can start using Ink right away."
+echo "Installation complete — Inkly is ready."
 echo "Try:"
 echo "  inkly -p \"Say hello\""
 echo "  inkly \"Say hello\""
 set -e
 
-# --- Reload shell so inkly/copilot work immediately in this terminal ---
+# Reload the shell so it works immediately
 hash -r
 echo
-echo "Reloading your shell to pick up PATH/NVM changes..."
+echo "Reloading shell so Inkly and Copilot work now..."
 SHELL_PATH="${SHELL:-/bin/bash}"
 exec "$SHELL_PATH" -l

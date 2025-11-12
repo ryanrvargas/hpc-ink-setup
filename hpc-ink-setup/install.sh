@@ -157,8 +157,8 @@ cat <<'EOF' > "$HOME/.copilot/config.json"
 }
 EOF
 
-# [6/6] Link Ink wrapper
-echo "[6/6] Linking Ink wrapper (ink.sh)…"
+# [6/7] Link Ink wrapper
+echo "[6/7] Linking Ink wrapper (ink.sh)…"
 
 if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then # Search .bashrc for the exact line; ! flips the logic so if .bashrc doesn’t already contain this line, add it
   echo "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc" # Append to .bashrc
@@ -171,6 +171,75 @@ fi
   [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
   nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 } 2>/dev/null
+
+
+echo "[7/7] Information about our system inkinfo"
+
+cat <<'EOF' > "$HOME/.npm-global/bin/inkinfo"
+#!/bin/bash
+# InkInfo — HPC System Information Wrapper
+# Provides quick access to Slurm queue, job, and node info commands safely.
+
+set -euo pipefail
+
+# Check that Slurm is available
+if ! command -v squeue >/dev/null 2>&1; then
+  echo "Slurm commands not found. This tool requires an HPC system with Slurm installed."
+  exit 1
+fi
+
+case "${1:-}" in
+  squeue)
+    echo "=== Current Queue (squeue) ==="
+    squeue -u "$USER" || true
+    ;;
+  sinfo)
+    echo "=== Node Information (sinfo) ==="
+    sinfo || true
+    ;;
+  sacct)
+    echo "=== Account Job History (sacct) ==="
+    sacct -u "$USER" --format=JobID,JobName%25,Partition,State,Elapsed,AllocCPUS || true
+    ;;
+  sbatch)
+    shift
+    if [ $# -eq 0 ]; then
+      echo "Usage: inkinfo sbatch <jobscript.sh>"
+      exit 1
+    fi
+    echo "Submitting job via sbatch..."
+    sbatch "$@" || true
+    ;;
+  all)
+    echo "=== squeue ==="
+    squeue -u "$USER"
+    echo
+    echo "=== sinfo ==="
+    sinfo
+    echo
+    echo "=== sacct (recent jobs) ==="
+    sacct -u "$USER" --format=JobID,State,Elapsed
+    ;;
+  usage)
+    echo "InkInfo — HPC status helper"
+    echo
+    echo "Usage:"
+    echo "  inkinfo squeue       # Show your jobs in the queue"
+    echo "  inkinfo sinfo        # Show node and partition info"
+    echo "  inkinfo sacct        # Show your job history"
+    echo "  inkinfo sbatch file  # Submit a job"
+    echo "  inkinfo all          # Show everything at once"
+    ;;
+  *)
+    echo "Unknown or missing command."
+    echo "Run 'inkinfo usage' for help."
+    exit 1
+    ;;
+esac
+EOF
+
+chmod +x "$HOME/.npm-global/bin/inkinfo"
+
 
 # --- Verification ---
 echo

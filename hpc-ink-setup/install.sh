@@ -78,10 +78,14 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 
 set -euo pipefail
 
-# ✅ Use the *real* Copilot CLI entrypoint to avoid recursion loops
-COPILOT_BIN="$(npm root -g)/@github/copilot/node_modules/@github/copilot-cli/bin/copilot.js"
-if [ ! -f "$COPILOT_BIN" ]; then
-  echo "Error: Copilot binary not found at $COPILOT_BIN"
+# Auto-detect Copilot CLI binary for both legacy and new npm layouts
+COPILOT_ROOT="$(npm root -g)/@github/copilot"
+if [ -f "$COPILOT_ROOT/bin/copilot.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/bin/copilot.js"
+elif [ -f "$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
+else
+  echo "Error: Could not locate GitHub Copilot CLI entrypoint under $COPILOT_ROOT"
   exit 1
 fi
 
@@ -101,7 +105,6 @@ if [ "$#" -eq 0 ]; then
   exec node "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
-# Combine arguments into a single prompt
 prompt_text="$*"
 
 # Block risky strings
@@ -122,6 +125,7 @@ fi
 EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"
+
 # [5/6] Add Copilot global deny-list (Option 3)
 echo "[5/6] Setting Copilot global deny-list…"
 mkdir -p "$HOME/.copilot"

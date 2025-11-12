@@ -73,9 +73,8 @@ npm install -g @github/copilot
 # Immediately unset NPM_CONFIG_PREFIX so nvm stays active
 unset NPM_CONFIG_PREFIX
 
-# [4/6] Create 'inkly' alias for Copilot
-echo "[4/6] Creating 'inkly' alias…"
-
+# [4/6] Create secure 'inkly' wrapper
+echo "[4/6] Creating secure 'inkly' wrapper…"
 COPILOT_BIN="$(command -v copilot || true)"
 if [ -z "$COPILOT_BIN" ]; then
   echo "Error: Copilot CLI not found after npm install." >&2
@@ -84,53 +83,67 @@ fi
 
 mkdir -p "$HOME/.npm-global/bin"
 
-# Get absolute path to Node from nvm
-NODE_PATH="$(nvm which current 2>/dev/null || command -v node)"
-if [ -z "$NODE_PATH" ]; then
-  echo "Error: Node binary not found — ensure nvm installed correctly." >&2
-  exit 1
-fi
-
-# Create a launcher that explicitly calls Node with the Copilot CLI
-cat <<EOF > "$HOME/.npm-global/bin/inkly"
+cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-NODE_BIN="$NODE_PATH"
-COPILOT_BIN="$COPILOT_BIN"
+# Inkly Secure Wrapper — blocks destructive commands
 
-if [ ! -x "\$NODE_BIN" ]; then
-  echo "Error: Node not found at \$NODE_BIN"
+COPILOT_BIN="$(command -v copilot)"
+ARGS="$*"
+
+# Block risky command strings
+if echo "$ARGS" | grep -Eq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|cp\s+-r\s+/|sudo)\b'; then
+  echo "❌ Operation blocked: destructive command detected in prompt."
+  echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
 
-exec "\$NODE_BIN" "\$COPILOT_BIN" "\$@"
+# Run Copilot with deny-tool guard
+"$COPILOT_BIN" "$@" \
+  --deny-tool 'shell(rm:*)' \
+  --deny-tool 'shell(sudo:*)' \
+  --deny-tool 'shell(chmod:*)' \
+  --deny-tool 'shell(chown:*)' \
+  --deny-tool 'shell(rmdir:*)' \
+  --deny-tool 'shell(unlink:*)' \
+  --deny-tool 'shell(cp:*)' \
+  --deny-tool 'shell(mv:*)'
 EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"
 
+# [5/6] Add Copilot global deny-list
+echo "[5/6] Setting Copilot global deny-list…"
+mkdir -p "$HOME/.copilot"
+cat <<'EOF' > "$HOME/.copilot/config.json"
+{
+  "toolPermissions": {
+    "deny": [
+      "shell(rm:*)",
+      "shell(sudo:*)",
+      "shell(chmod:*)",
+      "shell(chown:*)",
+      "shell(rmdir:*)",
+      "shell(unlink:*)",
+      "shell(cp:*)",
+      "shell(mv:*)"
+    ]
+  }
+}
+EOF
 
-# [5/6] Verify PATH includes npm-global
-echo "[5/6] Verifying PATH configuration…"
-if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
-  export PATH="$HOME/.npm-global/bin:$PATH"
-fi
-
-# [6/6] Link Ink wrapper (ink.sh)
+# [6/6] Link Ink wrapper
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
-if ! grep -q "source ~/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
-  echo "source ~/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
+if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
+  echo "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
 fi
 
-# Activate in current shell
-export PATH="$HOME/.npm-global/bin:$PATH"
-source ~/hpc-ink-setup/hpc-ink-setup/ink.sh 2>/dev/null || true
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-NODE_PATH="$(nvm which current | xargs dirname)"
-if ! echo "$PATH" | grep -q "$NODE_PATH"; then
-  export PATH="$NODE_PATH:$PATH"
-  echo "export PATH=\"$NODE_PATH:\$PATH\"" >> "$HOME/.bashrc"
-fi
-nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
+{
+  export PATH="$HOME/.npm-global/bin:$PATH"
+  source "$HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >/dev/null 2>&1
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+  nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
+} 2>/dev/null
 
 # --- Verification ---
 echo

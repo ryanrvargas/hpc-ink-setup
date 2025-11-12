@@ -143,37 +143,30 @@ EOF
 chmod +x "$HOME/.npm-global/bin/inkly"
 
 
-# [6/6] Link Ink wrapper
+# [6/6] Link Ink wrapper (ink.sh) and inject lowercase inkly() function
 echo "[6/6] Linking Ink wrapper (ink.sh)…"
+
+# Clean up old Inkly function definitions if any
+sed -i '/# --- INKLY FN START ---/,/# --- INKLY FN END ---/d' "$HOME/.bashrc"
+
+# Ensure ink.sh is sourced
 if ! grep -q "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$HOME/.bashrc"; then
   echo "source $HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >> "$HOME/.bashrc"
 fi
 
-{
-  export PATH="$HOME/.npm-global/bin:$PATH"
-  source "$HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" >/dev/null 2>&1
-  export NVM_DIR="$HOME/.nvm"
-  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
-  nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
-} 2>/dev/null
-
-# Activate NVM and ensure Node path stays available
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-
-# --- Ensure Node path is active globally ---
-NODE_PATH="$(nvm which current 2>/dev/null || command -v node)"
-NODE_DIR="$(dirname "$NODE_PATH")"
-
-if [ -x "$NODE_PATH" ]; then
-  if ! echo "$PATH" | grep -q "$NODE_DIR"; then
-    echo "→ Adding Node binary directory to PATH: $NODE_DIR"
-    export PATH="$NODE_DIR:$PATH"
-    echo "export PATH=\"$NODE_DIR:\$PATH\"" >> "$HOME/.bashrc"
+# Append the lowercase inkly() shell function
+cat <<'EOF' >> "$HOME/.bashrc"
+# --- INKLY FN START ---
+inkly() {
+  if [ $# -eq 0 ]; then
+    echo 'Usage: inkly "Your prompt here"'
+    return 1
   fi
-else
-  echo "Node binary not found; ensure nvm installed correctly." >&2
-fi
+  command inkly -p "$*"
+}
+export -f inkly
+# --- INKLY FN END ---
+EOF
 
 nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 

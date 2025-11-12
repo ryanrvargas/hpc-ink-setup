@@ -69,13 +69,15 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 
 set -euo pipefail
 
-# Auto-detect Copilot CLI binary (handles all known npm layouts)
+# Auto-detect Copilot CLI binary (covers all known layouts 2023–2025)
 COPILOT_ROOT="$(npm root -g)/@github/copilot"
 
 if [ -f "$COPILOT_ROOT/bin/copilot.js" ]; then
   COPILOT_BIN="$COPILOT_ROOT/bin/copilot.js"
 elif [ -f "$COPILOT_ROOT/cli.js" ]; then
   COPILOT_BIN="$COPILOT_ROOT/cli.js"
+elif [ -f "$COPILOT_ROOT/dist/cli.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/dist/cli.js"
 elif [ -f "$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js" ]; then
   COPILOT_BIN="$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
 elif [ -f "$(npm root -g)/@github/copilot-cli/bin/copilot.js" ]; then
@@ -85,10 +87,12 @@ else
   echo "Checked:"
   echo "  $COPILOT_ROOT/bin/copilot.js"
   echo "  $COPILOT_ROOT/cli.js"
+  echo "  $COPILOT_ROOT/dist/cli.js"
   echo "  $COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
   echo "  $(npm root -g)/@github/copilot-cli/bin/copilot.js"
   exit 1
 fi
+
 
 
 

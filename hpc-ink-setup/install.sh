@@ -32,7 +32,7 @@ if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, insta
     echo "→ Installing nvm..."
     if command -v curl >/dev/null 2>&1; then  # Prefer curl if available.
       curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-    elif command -v wget >/dev/null 2>&1; then# Fall back to wget if curl is missing.
+    elif command -v wget >/dev/null 2>&1; then  # Fall back to wget if curl is missing.
       wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     else
       echo "Error: neither curl nor wget is available — please install one first." >&2

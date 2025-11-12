@@ -6,6 +6,9 @@
 # Creates an 'inkly' alias (symlink) to the 'copilot' binary
 # Sources Ink wrapper function (ink.sh) for the current user
 # Verifies setup at the end
+# For testing
+# rm -rf ~/.nvm ~/.npm-global ~/.npm ~/.copilot ~/.cache
+# sed -i '/prefix/d' ~/.npmrc 2>/dev/null
 
 # --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then
@@ -144,6 +147,26 @@ fi
   [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
   nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 } 2>/dev/null
+
+# Activate NVM and ensure Node path stays available
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+
+# --- Ensure Node path is active globally ---
+NODE_PATH="$(nvm which current 2>/dev/null || command -v node)"
+NODE_DIR="$(dirname "$NODE_PATH")"
+
+if [ -x "$NODE_PATH" ]; then
+  if ! echo "$PATH" | grep -q "$NODE_DIR"; then
+    echo "→ Adding Node binary directory to PATH: $NODE_DIR"
+    export PATH="$NODE_DIR:$PATH"
+    echo "export PATH=\"$NODE_DIR:\$PATH\"" >> "$HOME/.bashrc"
+  fi
+else
+  echo "⚠️ Node binary not found; ensure nvm installed correctly." >&2
+fi
+
+nvm use --delete-prefix v$(node -v | tr -d 'v') --silent
 
 # --- Verification ---
 echo

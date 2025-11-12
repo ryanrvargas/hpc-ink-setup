@@ -75,6 +75,7 @@ unset NPM_CONFIG_PREFIX
 
 # [4/6] Create 'inkly' alias for Copilot
 echo "[4/6] Creating 'inkly' alias…"
+
 COPILOT_BIN="$(command -v copilot || true)"
 if [ -z "$COPILOT_BIN" ]; then
   echo "Error: Copilot CLI not found after npm install." >&2
@@ -82,7 +83,30 @@ if [ -z "$COPILOT_BIN" ]; then
 fi
 
 mkdir -p "$HOME/.npm-global/bin"
-ln -sf "$COPILOT_BIN" "$HOME/.npm-global/bin/inkly"
+
+# Get absolute path to Node from nvm
+NODE_PATH="$(nvm which current 2>/dev/null || command -v node)"
+if [ -z "$NODE_PATH" ]; then
+  echo "Error: Node binary not found — ensure nvm installed correctly." >&2
+  exit 1
+fi
+
+# Create a launcher that explicitly calls Node with the Copilot CLI
+cat <<EOF > "$HOME/.npm-global/bin/inkly"
+#!/bin/bash
+NODE_BIN="$NODE_PATH"
+COPILOT_BIN="$COPILOT_BIN"
+
+if [ ! -x "\$NODE_BIN" ]; then
+  echo "Error: Node not found at \$NODE_BIN"
+  exit 1
+fi
+
+exec "\$NODE_BIN" "\$COPILOT_BIN" "\$@"
+EOF
+
+chmod +x "$HOME/.npm-global/bin/inkly"
+
 
 # [5/6] Verify PATH includes npm-global
 echo "[5/6] Verifying PATH configuration…"

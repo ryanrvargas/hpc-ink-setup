@@ -69,17 +69,22 @@ fi
 
 mkdir -p "$HOME/.npm-global/bin"
 
-# --- Secure Wrapper (supports "inkly 'command'" without -p) ---
-cat <<'EOF' > "$HOME/.npm-global/bin/inkly" # Our bash script for inkly 
+# --- Secure Wrapper (prevents destructive commands and recursion) ---
+mkdir -p "$HOME/.npm-global/bin"
+
+cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-# Inkly Secure Wrapper — blocks destructive commands and allows 'inkly "command"' usage
+# Inkly Secure Wrapper — blocks destructive commands and allows 'inkly "command"' usage safely
 
-set -euo pipefail # -e stop on error, -u fail on unset variable
+set -euo pipefail
 
-COPILOT_BIN="$(command -v copilot || true)" # Make sure copilot exists before starting
-[ -n "$COPILOT_BIN" ] || { echo "copilot not found"; exit 1; }
+# ✅ Use the *real* Copilot CLI entrypoint to avoid recursion loops
+COPILOT_BIN="$(npm root -g)/@github/copilot/node_modules/@github/copilot-cli/bin/copilot.js"
+if [ ! -f "$COPILOT_BIN" ]; then
+  echo "Error: Copilot binary not found at $COPILOT_BIN"
+  exit 1
+fi
 
-# Deny-list for Copilot CLI (built-in guard)
 deny_flags=(
   --deny-tool 'shell(rm:*)'
   --deny-tool 'shell(sudo:*)'
@@ -90,52 +95,33 @@ deny_flags=(
   --deny-tool 'shell(cp:*)'
   --deny-tool 'shell(mv:*)'
 )
-# We have 3 modes:
-# inkly 'command'
-# inkly -p 'command'
-# copilot -p "command"
-# No arguments = interactive Copilot mode. If the user just types inkly, interactive mode is activated 
+
+# No arguments → interactive Copilot mode
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"
+  exec node "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
-# Detect if user provided -p/--prompt explicitly
-# Loop through every argument ($@); if -p or --prompt is found, set has_prompt to 1
-has_prompt=0
-for a in "$@"; do
-  [ "$a" = "-p" ] || [ "$a" = "--prompt" ] && { has_prompt=1; break; }
-done
+# Combine arguments into a single prompt
+prompt_text="$*"
 
-# Extract the text for filtering. If the user types -p "command", grab what follows -p;
-# otherwise join all arguments into $* as one string to become our prompt.
-prompt_text=""
-if [ $has_prompt -eq 1 ]; then
-  prev=""
-  for a in "$@"; do
-    if [ -n "$prev" ]; then prompt_text="$a"; break; fi
-    [ "$a" = "-p" ] || [ "$a" = "--prompt" ] && prev=1
-  done
-else
-  prompt_text="$*"
-fi
-
-# Block risky strings in prompt text
+# Block risky strings
 if printf '%s' "$prompt_text" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r[[:space:]]+/' ; then
-  echo "Operation blocked: destructive command detected in prompt."
+  echo "❌ Operation blocked: destructive command detected in prompt."
   echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
 
-# Run Copilot: if the user provided -p, keep it; if not, pass their text as the prompt
-if [ $has_prompt -eq 1 ]; then
-  exec "$COPILOT_BIN" "$@" "${deny_flags[@]}"
+# Try legacy (-p) and new (suggest) Copilot modes automatically
+node "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}" 2> >(tee /tmp/inkly_error.log >&2)
+status=$?
+if grep -q "Invalid command format" /tmp/inkly_error.log; then
+  exec node "$COPILOT_BIN" suggest "$prompt_text" "${deny_flags[@]}"
 else
-  exec "$COPILOT_BIN" -p "$prompt_text" "${deny_flags[@]}"
+  exit $status
 fi
 EOF
 
-chmod +x "$HOME/.npm-global/bin/inkly" # Change file mode to executable for user/group/others
-
+chmod +x "$HOME/.npm-global/bin/inkly"
 # [5/6] Add Copilot global deny-list (Option 3)
 echo "[5/6] Setting Copilot global deny-list…"
 mkdir -p "$HOME/.copilot"

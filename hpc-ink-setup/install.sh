@@ -5,7 +5,7 @@
 # Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
 # Creates an 'inkly' alias (symlink) to the 'copilot' binary
 # Sources Ink wrapper function (ink.sh) for the current user
-# Verifies setup at the end
+# Verifies setup at the end.
 
 
 set -eo pipefail

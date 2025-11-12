@@ -61,11 +61,11 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 echo "[3/6] Installing GitHub Copilot CLI binary…"
 mkdir -p "$HOME/.npm-global/bin"
 
-# Download Copilot binary using curl or wget (fallback)
+# Download Copilot binary using curl or wget (new binary name)
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64 -o "$HOME/.npm-global/bin/copilot"
+  curl -fsSL https://github.com/github/copilot-cli/releases/latest/download/github-copilot-cli-linux -o "$HOME/.npm-global/bin/copilot"
 elif command -v wget >/dev/null 2>&1; then
-  wget -qO "$HOME/.npm-global/bin/copilot" https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-amd64
+  wget -qO "$HOME/.npm-global/bin/copilot" https://github.com/github/copilot-cli/releases/latest/download/github-copilot-cli-linux
 else
   echo "Error: Need curl or wget to download Copilot CLI." >&2
   exit 1

@@ -79,7 +79,5 @@ done
 echo
 echo "Uninstall complete."
 echo "Open a NEW terminal (or run: exec \$SHELL -l) before testing a fresh install."
-#nano uninstall_inkly.sh   # paste the script, save
-#chmod +x uninstall_inkly.sh
-#./uninstall_inkly.sh
+
 #exec $SHELL -l            # reload a clean login shell

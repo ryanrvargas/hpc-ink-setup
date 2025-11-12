@@ -42,7 +42,8 @@ fi
 # [2/6] Configure npm user-space installs
 echo "[2/6] Configuring npm for user-space global installs…"
 mkdir -p "$HOME/.npm-global"
-npm config set prefix "$HOME/.npm-global"
+# Avoid modifying ~/.npmrc directly — just export PREFIX for this session
+export NPM_CONFIG_PREFIX="$HOME/.npm-global"
 
 if grep -Eq '^(globalconfig|prefix)' "$HOME/.npmrc" 2>/dev/null; then
   echo "→ Cleaning up incompatible npm settings from ~/.npmrc"

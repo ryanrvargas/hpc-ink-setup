@@ -11,7 +11,6 @@ if file "$0" | grep -q "CRLF"; then
   echo "Converting Windows line endings to Unix (LF)..."
   sed -i 's/\r$//' "$0"
   exec bash "$0" "$@"
-  exit 0
 fi
 
 

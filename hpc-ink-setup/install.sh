@@ -69,16 +69,27 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 
 set -euo pipefail
 
-# Auto-detect Copilot CLI binary (handles both new and old npm layouts)
+# Auto-detect Copilot CLI binary (handles all known npm layouts)
 COPILOT_ROOT="$(npm root -g)/@github/copilot"
+
 if [ -f "$COPILOT_ROOT/bin/copilot.js" ]; then
   COPILOT_BIN="$COPILOT_ROOT/bin/copilot.js"
+elif [ -f "$COPILOT_ROOT/cli.js" ]; then
+  COPILOT_BIN="$COPILOT_ROOT/cli.js"
 elif [ -f "$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js" ]; then
   COPILOT_BIN="$COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
+elif [ -f "$(npm root -g)/@github/copilot-cli/bin/copilot.js" ]; then
+  COPILOT_BIN="$(npm root -g)/@github/copilot-cli/bin/copilot.js"
 else
-  echo "Error: Could not locate Copilot CLI binary under $COPILOT_ROOT"
+  echo "Error: Could not locate GitHub Copilot CLI binary."
+  echo "Checked:"
+  echo "  $COPILOT_ROOT/bin/copilot.js"
+  echo "  $COPILOT_ROOT/cli.js"
+  echo "  $COPILOT_ROOT/node_modules/@github/copilot-cli/bin/copilot.js"
+  echo "  $(npm root -g)/@github/copilot-cli/bin/copilot.js"
   exit 1
 fi
+
 
 
 deny_flags=(

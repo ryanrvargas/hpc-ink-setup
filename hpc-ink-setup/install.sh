@@ -7,12 +7,7 @@
 # Sources Ink wrapper function (ink.sh) for the current user
 # Verifies setup at the end
 # For testing
-# rm -rf ~/.nvm ~/.npm-global ~/.npm ~/.copilot ~/.cache
-# sed -i '/prefix/d' ~/.npmrc 2>/dev/null
-# cd ~/hpc-ink-setup/hpc-ink-setup
-# git fetch --prune origin 
-# git reset --hard origin/tester
-# bash install.sh
+
 
 # --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then          # Detect Windows line endings so Bash won’t choke.

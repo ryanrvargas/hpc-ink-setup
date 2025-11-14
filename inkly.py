@@ -1,5 +1,6 @@
 #!/bin/env python3
 import sys
+import os
 
 
 LOG_FILE = "inkly.log"
@@ -8,7 +9,8 @@ def squeue() -> str:
     import subprocess
 
     # Run the squeue command and capture its output
-    result = subprocess.run(['squeue', '-u', 'your_username'], stdout=subprocess.PIPE)
+    user = os.environ.get("USER")
+    result = subprocess.run(['squeue', '-u', f"{user}"], stdout=subprocess.PIPE)
 
     # Decode the output from bytes to string
     output = result.stdout.decode('utf-8')
@@ -16,6 +18,10 @@ def squeue() -> str:
     # Print the output
     # print(output)
     return output
+
+def prior_log() -> str:
+    with open(LOG_FILE, "r") as f:
+        return f.read()
 
 
 def chat_with_copilot(user_input: str) -> str:
@@ -37,9 +43,11 @@ if __name__ == "__main__":
     
     # Grab information from the system
     squeue_output = squeue()
+    log_output = prior_log()
 
     # Combine the user input with the system information
-    combined_text = f"{text}\n\nCurrent squeue output:\n{squeue_output}"
+    combined_text = f"{text}\n\nCurrent squeue output:\n{squeue_output}\n\n\Prior log messages: {log_output}"
+    print(f"combined text: {combined_text}", file=open(LOG_FILE, "a"))
 
     # Now call copilot with the combined text
     copilot_response = chat_with_copilot(combined_text)

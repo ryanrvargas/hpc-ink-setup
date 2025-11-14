@@ -7,7 +7,7 @@ Actions:
   1) Ensure nvm + latest LTS Node via bash -lc
   2) Configure npm user prefix (~/.npm-global) & PATH
   3) npm i -g @github/copilot
-  4) Install safe 'inkly' wrapper (so: inkly "prompt" == copilot -p "prompt")
+  4) Install safe 'inkly' wrapper (so inkly "prompt" == copilot -p "prompt")
   5) Install 'ink' launcher that runs your ink.sh with cluster context
   6) Patch ~/.bashrc if its top 'if ! shopt -oq posix; then' lacks a closing 'fi'
 """
@@ -38,7 +38,7 @@ def ensure_nvm_and_node():
     print("[1/6] Ensuring Node (nvm) is available (user-space)…")
     node_exists = shutil.which("node") is not None
     if not node_exists and not NVM_DIR.exists():
-        print("→ Installing nvm…")
+        print("Installing nvm…")
         curl = shutil.which("curl")
         wget = shutil.which("wget")
         if curl:

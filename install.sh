@@ -143,6 +143,9 @@ echo "[6/6] Installing ink launcher…"
 # Determine where install.sh actually lives
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Ensure ink.sh is executable
+chmod +x "$INSTALL_DIR/ink.sh" 2>/dev/null || true
+
 mkdir -p "$HOME/.npm-global/bin"
 cat <<LAUNCH > "$HOME/.npm-global/bin/ink"
 #!/bin/bash

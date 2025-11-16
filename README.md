@@ -9,3 +9,10 @@ Use tester branch to test new features
 git clone https://github.com/ryanrvargas/hpc-ink-setup.git
 bash install.sh
 ```
+
+## Example on how to use ink/inkly
+```bash
+ink "Write a Slurm sbatch script for 2 GPU nodes for 24 hours"
+```
+Ink(Copilot) will automatically read your cluster’s slurm.conf, os-release, and available modules to tailor its output.
+

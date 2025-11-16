@@ -98,15 +98,16 @@ if [ -z "$COPILOT_BIN" ]; then
 fi
 
 deny_flags=(
-  --deny-tool 'shell(rm:*)'    # Disallow deletion commands.
-  --deny-tool 'shell(sudo:*)'  # Disallow privilege escalation.
-  --deny-tool 'shell(chmod:*)' # Disallow permission changes.
-  --deny-tool 'shell(chown:*)' # Disallow ownership changes.
-  --deny-tool 'shell(rmdir:*)' # Disallow directory removal.
-  --deny-tool 'shell(unlink:*)'# Disallow file unlinking.
-  --deny-tool 'shell(cp:*)'    # Disallow copying (conservative default).
-  --deny-tool 'shell(mv:*)'    # Disallow moving/renaming (conservative default).
+  --deny-tool 'shell(rm:*)'      # Disallow deletion commands.
+  --deny-tool 'shell(sudo:*)'    # Disallow privilege escalation.
+  --deny-tool 'shell(chmod:*)'   # Disallow permission changes.
+  --deny-tool 'shell(chown:*)'   # Disallow ownership changes.
+  --deny-tool 'shell(rmdir:*)'   # Disallow directory removal.
+  --deny-tool 'shell(unlink:*)'  # Disallow file unlinking.
+  --deny-tool 'shell(cp:*)'      # Disallow copying (conservative default).
+  --deny-tool 'shell(mv:*)'      # Disallow moving/renaming (conservative default).
 )
+
 
 # No arguments -> interactive copilot with deny flags
 if [ "$#" -eq 0 ]; then

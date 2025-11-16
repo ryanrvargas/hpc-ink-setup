@@ -137,25 +137,19 @@ EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
-# [6/6] Install "ink" launcher (do NOT source ink.sh at login)
+# [6/6] Install "ink" launcher (auto-detect repo path)
 echo "[6/6] Installing ink launcher…"
 
-# --- SAFETY PATCH: fix unterminated if-block in .bashrc (Ubuntu quirk) ---
-if grep -q '^if ! shopt -oq posix; then' "$HOME/.bashrc" && ! grep -q '^fi$' "$HOME/.bashrc"; then
-  echo "→ Patching .bashrc: adding missing 'fi' at end of file"
-  echo "fi" >> "$HOME/.bashrc"
-fi
+# Determine where install.sh actually lives
+INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-sed -i '/hpc-ink-setup\/ink.sh/d' "$HOME/.bashrc"     # Remove any old “source ink.sh” lines to avoid autoload.
-
-mkdir -p "$HOME/.npm-global/bin"                       # Ensure bin dir exists for the ink launcher.
-cat <<'LAUNCH' > "$HOME/.npm-global/bin/ink"           # Create a thin launcher that executes ink.sh with args.
+mkdir -p "$HOME/.npm-global/bin"
+cat <<LAUNCH > "$HOME/.npm-global/bin/ink"
 #!/bin/bash
-exec "$HOME/hpc-ink-setup/hpc-ink-setup/ink.sh" "$@"
+exec "$INSTALL_DIR/ink.sh" "\$@"
 LAUNCH
-chmod +x "$HOME/.npm-global/bin/ink"                  # Make the launcher executable.
 
-nvm use --delete-prefix v$(node -v | tr -d 'v') --silent # Strip npm prefix warnings and ensure active Node.
+chmod +x "$HOME/.npm-global/bin/ink"
 
 # --- Verification ---
 echo
@@ -180,5 +174,5 @@ echo "Type 'inkly' and log in with GitHub."
 
 # --- Refresh parent shell environment for immediate use ---
 echo
-echo "Reloading environment so Node and Inkly are active now..."
+echo "Reloading environment so Node and Inkly are active now..."x
 exec bash -l                                           # Start a login shell so PATH/nvm are fully applied.

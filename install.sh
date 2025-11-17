@@ -20,8 +20,8 @@ set -eo pipefail                              # Exit on error and fail a pipelin
 
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
-# [1/6] Ensure Node (nvm)
-echo "[1/6] Ensuring Node (nvm) is available (user-space)…"
+# [1/5] Ensure Node (nvm)
+echo "[1/5] Ensuring Node (nvm) is available (user-space)…"
 if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, install via nvm.
   if [ ! -d "$HOME/.nvm" ]; then              # Install nvm only if not already present.
     echo "→ Installing nvm..."
@@ -48,8 +48,8 @@ else
   echo "Node detected: $(node -v)"
 fi
 
-# [2/6] Configure npm (no nvm conflict)
-echo "[2/6] Configuring npm for user-space installs…"
+# [2/5] Configure npm (no nvm conflict)
+echo "[2/5] Configuring npm for user-space installs…"
 
 mkdir -p "$HOME/.npm-global"                  # Create a user-writable global prefix for npm.
 
@@ -67,14 +67,14 @@ if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"  # Persist in future shells.
 fi
 
-# [3/6] Install GitHub Copilot CLI
-echo "[3/6] Installing GitHub Copilot CLI via npm…"
+# [3/5] Install GitHub Copilot CLI
+echo "[3/5] Installing GitHub Copilot CLI via npm…"
 npm install -g @github/copilot                # Install Copilot CLI into the user prefix.
 
 unset NPM_CONFIG_PREFIX                       # Unset prefix env so nvm remains fully happy afterward.
 
-# [4/6] Create secure 'inkly' wrapper…
-echo "[4/6] Creating secure 'inkly' wrapper…"
+# [4/5] Create secure 'inkly' wrapper…
+echo "[4/5] Creating secure 'inkly' wrapper…"
 COPILOT_BIN="$(command -v copilot || true)"   # Locate the Copilot binary we just installed.
 if [ -z "$COPILOT_BIN" ]; then
   echo "Error: Copilot CLI not found after npm install." >&2
@@ -137,8 +137,8 @@ EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
-# [6/6] Install "ink" launcher (auto-detect repo path)
-echo "[6/6] Installing ink launcher…"
+# [5/5] Install "ink" launcher (auto-detect repo path)
+echo "[5/5] Installing ink launcher…"
 
 # Determine where install.sh actually lives
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -153,6 +153,27 @@ exec "$INSTALL_DIR/ink.sh" "\$@"
 LAUNCH
 
 chmod +x "$HOME/.npm-global/bin/ink"
+
+echo "[X] Applying Inkly/Copilot HPC-safe terminal settings…"
+
+# Disable OSC color sequences and broken terminal features
+export COPILOT_NO_COLOR=1
+export COPILOT_THEME=plain
+export NO_COLOR=1
+
+# Silence Copilot usage logs / footer spam
+export COPILOT_LOG_LEVEL=none
+
+# Persist for future shells
+cat <<'EOF' >> "$HOME/.bashrc"
+
+# --- Inkly/Copilot HPC-safe settings ---
+export COPILOT_NO_COLOR=1
+export COPILOT_THEME=plain
+export NO_COLOR=1
+export COPILOT_LOG_LEVEL=none
+EOF
+
 
 # --- Verification ---
 echo
@@ -175,7 +196,8 @@ echo "Activating Ink function for this shell..."
 source ~/.bashrc                                       # Load PATH changes in the current session.
 echo "Type 'inkly' and log in with GitHub."
 
+
 # --- Refresh parent shell environment for immediate use ---
 echo
-echo "Reloading environment so Node and Inkly are active now..."x
+echo "Reloading environment so Node and Inkly are active now..."
 exec bash -l                                           # Start a login shell so PATH/nvm are fully applied.

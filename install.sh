@@ -6,8 +6,6 @@
 # Creates an 'inkly' alias (symlink) to the 'copilot' binary
 # Sources Ink wrapper function (ink.sh) for the current user
 # Verifies setup at the end
-# For testing
-
 
 # --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then          # Detect Windows line endings so Bash won’t choke.

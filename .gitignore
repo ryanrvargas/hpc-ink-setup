@@ -1,3 +1,4 @@
 logs
 *.zip
 hpc-ink-setup.code-workspace
+hpc-ink-setup/uninstall_ink.sh

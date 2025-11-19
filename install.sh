@@ -84,7 +84,7 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
 set -euo pipefail
 
-# Force Inkly to use the npm-installed Copilot, not the system one
+# Force Inkly to use the npm-installed Copilot
 COPILOT_BIN="$HOME/.npm-global/bin/copilot"
 
 if [ ! -x "$COPILOT_BIN" ]; then
@@ -103,27 +103,38 @@ deny_flags=(
   --deny-tool 'shell(mv:*)'
 )
 
+clean_output() {
+  sed -e '/^Total usage est:/,/^Usage by model:/d' \
+      -e '/^Usage by model:/d' \
+      -e '/^[[:space:]]*claude-.*Premium request)/d'
+}
+
+
 # No args → interactive Copilot
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"
+  "$COPILOT_BIN" "${deny_flags[@]}" 2>&1 | clean_output
+  exit $?
 fi
 
 case "$1" in
   -*)
-      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
   help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
-      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
 esac
 
 prompt="$*"
 
+# Block dangerous commands
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "Operation blocked: destructive command detected in prompt."
   exit 1
 fi
 
-exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"
+"$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
+exit $?
 EOF
+
 
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
@@ -152,10 +163,13 @@ export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
 
-# Silence Copilot usage logs / footer spam
+# Silence Copilot usage logs / footer spam. This doesn't seem to work
 export COPILOT_LOG_LEVEL=none
+# Disable the footer message about feedback 
+export COPILOT_DISABLE_USAGE_FOOTER=1
 
-# Persist for future shells
+# Persist for future shells (append only if not already present)
+if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
 cat <<'EOF' >> "$HOME/.bashrc"
 
 # --- Inkly/Copilot HPC-safe settings ---
@@ -163,7 +177,10 @@ export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
 export COPILOT_LOG_LEVEL=none
+export COPILOT_DISABLE_USAGE_FOOTER=1
+
 EOF
+fi
 
 
 # --- Verification ---

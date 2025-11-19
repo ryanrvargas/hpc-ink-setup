@@ -75,11 +75,7 @@ unset NPM_CONFIG_PREFIX                       # Unset prefix env so nvm remains 
 
 # [4/5] Create secure 'inkly' wrapper…
 echo "[4/5] Creating secure 'inkly' wrapper…"
-COPILOT_BIN="$(command -v copilot || true)"   # Locate the Copilot binary we just installed.
-if [ -z "$COPILOT_BIN" ]; then
-  echo "Error: Copilot CLI not found after npm install." >&2
-  exit 1
-fi
+
 
 mkdir -p "$HOME/.npm-global/bin"              # Ensure the bin dir for our wrapper exists.
 

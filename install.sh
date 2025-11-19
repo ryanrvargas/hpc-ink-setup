@@ -123,7 +123,7 @@ if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)
 fi
 
 # Final exec — run prompt and strip the Copilot usage footer
-exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" \
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 \
     | sed '/^Total usage est:/,/^Usage by model:/d'
 
 EOF
@@ -160,7 +160,8 @@ export COPILOT_LOG_LEVEL=none
 # Disable the footer message about feedback 
 export COPILOT_DISABLE_USAGE_FOOTER=1
 
-# Persist for future shells
+# Persist for future shells (append only if not already present)
+if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
 cat <<'EOF' >> "$HOME/.bashrc"
 
 # --- Inkly/Copilot HPC-safe settings ---
@@ -169,7 +170,9 @@ export COPILOT_THEME=plain
 export NO_COLOR=1
 export COPILOT_LOG_LEVEL=none
 export COPILOT_DISABLE_USAGE_FOOTER=1
+
 EOF
+fi
 
 
 # --- Verification ---

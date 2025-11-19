@@ -123,6 +123,9 @@ if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)
 fi
 
 exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"
+# Suppress usage footer added by Copilot CLI
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" | sed '/^Total usage est:/,/^$/d'
+
 EOF
 
 
@@ -166,6 +169,8 @@ export COPILOT_THEME=plain
 export NO_COLOR=1
 export COPILOT_LOG_LEVEL=none
 export COPILOT_DISABLE_USAGE_FOOTER=1
+# Suppress usage footer added by Copilot CLI
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" | sed '/^Total usage est:/,/^$/d'
 EOF
 
 

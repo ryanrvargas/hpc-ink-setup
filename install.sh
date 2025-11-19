@@ -154,6 +154,8 @@ export NO_COLOR=1
 
 # Silence Copilot usage logs / footer spam
 export COPILOT_LOG_LEVEL=none
+# Disable the footer message about feedback
+export COPILOT_DISABLE_FOOTER=1
 
 # Persist for future shells
 cat <<'EOF' >> "$HOME/.bashrc"

@@ -155,7 +155,6 @@ export NO_COLOR=1
 # Silence Copilot usage logs / footer spam. This doesn't seem to work
 export COPILOT_LOG_LEVEL=none
 # Disable the footer message about feedback 
-export COPILOT_DISABLE_FOOTER=1
 export COPILOT_DISABLE_USAGE_FOOTER=1
 
 # Persist for future shells

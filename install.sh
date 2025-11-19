@@ -3,8 +3,8 @@
 # Installs Node via nvm if missing (using curl or wget)
 # Configures npm for a home-local prefix (~/.npm-global) without nvm conflicts
 # Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
-# Creates an 'inkly' alias (symlink) to the 'copilot' binary
-# Sources Ink wrapper function (ink.sh) for the current user
+# Creates an 'inkly' alias/wrapper around the 'copilot' binary
+# Installs 'ink' HPC-aware wrapper (ink.sh)
 # Verifies setup at the end
 
 # --- CRLF self-fix ---
@@ -35,10 +35,12 @@ if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, insta
     fi
   fi
 
-  (                                           # Use a subshell so nvm env tweaks don’t leak if set -u later.
+  (
+    # Use a subshell so nvm env tweaks don’t leak if set -u later.
     set +u                                    # Loosen undefined-var checks for nvm’s scripts.
     export NVM_DIR="$HOME/.nvm"               # Tell nvm where it lives.
     . "$NVM_DIR/nvm.sh"                       # Load nvm into the shell.
+    echo "Installing latest LTS Node via nvm..."
     nvm install --lts                         # Install latest LTS Node for stability.
     nvm use --lts                             # Activate that Node version for this shell.
   )
@@ -76,7 +78,6 @@ unset NPM_CONFIG_PREFIX                       # Unset prefix env so nvm remains 
 # [4/5] Create secure 'inkly' wrapper…
 echo "[4/5] Creating secure 'inkly' wrapper…"
 
-
 mkdir -p "$HOME/.npm-global/bin"              # Ensure the bin dir for our wrapper exists.
 
 # Generate the inkly wrapper script that safely fronts Copilot.
@@ -109,11 +110,9 @@ clean_output() {
       -e '/^[[:space:]]*claude-.*Premium request)/d'
 }
 
-
-# No args → interactive Copilot
+# No args → fully interactive Copilot (preserve TUI; do NOT pipe through clean_output)
 if [ "$#" -eq 0 ]; then
-  "$COPILOT_BIN" "${deny_flags[@]}" 2>&1 | clean_output
-  exit $?
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
 case "$1" in
@@ -131,11 +130,10 @@ if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)
   exit 1
 fi
 
+# Prompt mode: run Copilot then strip usage footer / model stats
 "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
 exit $?
 EOF
-
-
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
@@ -163,9 +161,8 @@ export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
 
-# Silence Copilot usage logs / footer spam. This doesn't seem to work
+# Try to reduce Copilot noise (may or may not be respected by CLI)
 export COPILOT_LOG_LEVEL=none
-# Disable the footer message about feedback 
 export COPILOT_DISABLE_USAGE_FOOTER=1
 
 # Persist for future shells (append only if not already present)
@@ -182,7 +179,6 @@ export COPILOT_DISABLE_USAGE_FOOTER=1
 EOF
 fi
 
-
 # --- Verification ---
 echo
 echo "=== Verification ==="
@@ -197,13 +193,14 @@ echo "Installation complete — open a new shell or run 'source ~/.bashrc' to ac
 echo
 echo "Try:"
 echo "  inkly -p \"Say hello\""                         # Example of direct Copilot prompt mode.
-echo "  ink  \"Say hello\""                             # Example using the HPC-aware wrapper.
+echo "  ink  \"Write a Slurm sbatch for 4 CPU tasks and 1 GPU on partition gpu for 12h\"" 
 
 echo
 echo "Activating Ink function for this shell..."
-source ~/.bashrc                                       # Load PATH changes in the current session.
-echo "Type 'inkly' and log in with GitHub."
-
+# This will re-load PATH, nvm, and the HPC-safe env into the current shell
+# WITHOUT writing anything new to ~/.bashrc.
+source "$HOME/.bashrc" || true
+echo "Type 'inkly' to log in with GitHub (if you haven't already)."
 
 # --- Refresh parent shell environment for immediate use ---
 echo

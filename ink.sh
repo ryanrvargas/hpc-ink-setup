@@ -15,6 +15,7 @@ fi
 ctx=""
 append() { printf -v ctx '%s%s%s' "$ctx" "$1" $'\n'; }
 
+# Host + OS ---------------------------------------------------------
 command -v hostname >/dev/null 2>&1 && append "Hostname: $(hostname)"
 
 if [ -f /etc/os-release ]; then
@@ -22,27 +23,55 @@ if [ -f /etc/os-release ]; then
   append "OS: ${os_name}"
 fi
 
+# SLURM availability ------------------------------------------------
 if command -v sinfo >/dev/null 2>&1; then
   append "SLURM Queues (top):"
   while IFS= read -r line; do
     append "  ${line}"
   done < <(sinfo -h -o '%P %D %C' | head -n 3)
+else
+  append "SLURM: Not available (likely login node or container)."
 fi
 
 [ -f /etc/slurm/slurm.conf ] && append "SLURM Config Path: /etc/slurm/slurm.conf"
 
-#Lower our over head only by a little. Avoid check run nvidia-smi every login. Check driver availability first
+# GPU detection -----------------------------------------------------
+# Safe: avoids heavy nvidia-smi checks if driver isn't loaded.
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
   gpu_line=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -n 1)
   [ -n "$gpu_line" ] && append "GPU: ${gpu_line}"
 fi
 
+# Trim empty lines from ctx -----------------------------------------
+ctx=$(printf "%s" "$ctx" | sed '/^[[:space:]]*$/d')
+
 # --- Args handling ---
 if [ "$#" -eq 0 ]; then
-  # Let inkly handle true interactive mode
+  # Fully interactive mode (preserves Copilot menu UI)
   exec "$INKLY_BIN"
 fi
 
-# --- Compose prompt (true newlines) and call inkly ---
-prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\nNow: '"$*"
+# Safety checks -----------------------------------------------------
+prompt_input="$*"
+
+# Prevent dangerous shell-like prompts BEFORE they reach Copilot
+if printf '%s' "$prompt_input" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|sudo|rmdir)\b|cp[[:space:]]+-r'; then
+  echo "Operation blocked: destructive command detected in prompt."
+  exit 1
+fi
+
+# Avoid accidental large pastes or binary dumps
+if [ "${#prompt_input}" -gt 5000 ]; then
+  echo "Input too large (over 5000 chars). Aborting to protect cluster."
+  exit 1
+fi
+if printf '%s' "$prompt_input" | grep -Eq '[[:cntrl:]]'; then
+  echo "Input contains control/binary characters — rejecting."
+  exit 1
+fi
+
+# --- Compose final prompt with real newlines ---
+prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\n\nNow: '"${prompt_input}"
+
+# --- Call Inkly ---
 exec "$INKLY_BIN" -p "$prompt"

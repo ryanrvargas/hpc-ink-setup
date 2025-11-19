@@ -16,6 +16,8 @@ fi
 
 set -eo pipefail                              # Exit on error and fail a pipeline if any command fails.
 
+export PATH="$HOME/.npm-global/bin:$PATH"     # Ensure user-global npm bin is in PATH for the install session.
+
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
 # [1/5] Ensure Node (nvm)
@@ -84,54 +86,49 @@ mkdir -p "$HOME/.npm-global/bin"              # Ensure the bin dir for our wrapp
 # Generate the inkly wrapper script that safely fronts Copilot.
 cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-# Inkly secure wrapper — supports both:
-#   inkly "prompt here"        -> copilot -p "prompt here"
-#   inkly --flag … / subcmd …  -> copilot <as-is>
 set -euo pipefail
 
-COPILOT_BIN="$(command -v copilot || true)"
-if [ -z "$COPILOT_BIN" ]; then
-  echo "Error: GitHub Copilot CLI not found." >&2
+# Force Inkly to use the npm-installed Copilot, not the system one
+COPILOT_BIN="$HOME/.npm-global/bin/copilot"
+
+if [ ! -x "$COPILOT_BIN" ]; then
+  echo "Error: GitHub Copilot CLI not found at $COPILOT_BIN" >&2
   exit 1
 fi
 
 deny_flags=(
-  --deny-tool 'shell(rm:*)'      # Disallow deletion commands.
-  --deny-tool 'shell(sudo:*)'    # Disallow privilege escalation.
-  --deny-tool 'shell(chmod:*)'   # Disallow permission changes.
-  --deny-tool 'shell(chown:*)'   # Disallow ownership changes.
-  --deny-tool 'shell(rmdir:*)'   # Disallow directory removal.
-  --deny-tool 'shell(unlink:*)'  # Disallow file unlinking.
-  --deny-tool 'shell(cp:*)'      # Disallow copying (conservative default).
-  --deny-tool 'shell(mv:*)'      # Disallow moving/renaming (conservative default).
+  --deny-tool 'shell(rm:*)'
+  --deny-tool 'shell(sudo:*)'
+  --deny-tool 'shell(chmod:*)'
+  --deny-tool 'shell(chown:*)'
+  --deny-tool 'shell(rmdir:*)'
+  --deny-tool 'shell(unlink:*)'
+  --deny-tool 'shell(cp:*)'
+  --deny-tool 'shell(mv:*)'
 )
 
-
-# No arguments -> interactive copilot with deny flags
+# No args → interactive Copilot
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"      # Drop into Copilot CLI interactive with guardrails.
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
-# If first token looks like a flag/subcommand, pass-through (keeps existing workflows)
 case "$1" in
-  -*)        exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;  # Forward flags directly to Copilot.
+  -*)
+      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
   help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
-             exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;  # Allow common subcommands unchanged.
+      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
 esac
 
-# Otherwise, treat the whole argument list as a natural-language prompt
-prompt="$*"                                    # Combine args into a single prompt string.
+prompt="$*"
 
-# Extra safety filter against destructive requests in the prompt text
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "Operation blocked: destructive command detected in prompt."
-  echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
 
-# Call copilot with -p and our deny flags
-exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"   # Use -p mode so natural text runs as a prompt.
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"
 EOF
+
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 

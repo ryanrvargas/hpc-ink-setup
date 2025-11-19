@@ -84,7 +84,7 @@ cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
 set -euo pipefail
 
-# Force Inkly to use the npm-installed Copilot, not the system one
+# Force Inkly to use the npm-installed Copilot
 COPILOT_BIN="$HOME/.npm-global/bin/copilot"
 
 if [ ! -x "$COPILOT_BIN" ]; then
@@ -103,30 +103,38 @@ deny_flags=(
   --deny-tool 'shell(mv:*)'
 )
 
+clean_output() {
+  sed -e '/^Total usage est:/,/^Usage by model:/d' \
+      -e '/^Usage by model:/d' \
+      -e '/^[[:space:]]*claude-.*Premium request)/d'
+}
+
+
 # No args → interactive Copilot
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}" | sed '/^Total usage est:/,/^Usage by model:/d'
+  "$COPILOT_BIN" "${deny_flags[@]}" 2>&1 | clean_output
+  exit $?
 fi
 
 case "$1" in
   -*)
-      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
   help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
-      exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
 esac
 
 prompt="$*"
 
+# Block dangerous commands
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "Operation blocked: destructive command detected in prompt."
   exit 1
 fi
 
-# Final exec — run prompt and strip the Copilot usage footer
-exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 \
-    | sed '/^Total usage est:/,/^Usage by model:/d'
-
+"$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
+exit $?
 EOF
+
 
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.

@@ -152,10 +152,11 @@ export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
 
-# Silence Copilot usage logs / footer spam
+# Silence Copilot usage logs / footer spam. This doesn't seem to work
 export COPILOT_LOG_LEVEL=none
-# Disable the footer message about feedback
+# Disable the footer message about feedback 
 export COPILOT_DISABLE_FOOTER=1
+export COPILOT_DISABLE_USAGE_FOOTER=1
 
 # Persist for future shells
 cat <<'EOF' >> "$HOME/.bashrc"
@@ -165,6 +166,7 @@ export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
 export COPILOT_LOG_LEVEL=none
+export COPILOT_DISABLE_USAGE_FOOTER=1
 EOF
 
 

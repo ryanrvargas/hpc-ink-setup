@@ -105,7 +105,7 @@ deny_flags=(
 
 # No args → interactive Copilot
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"
+  exec "$COPILOT_BIN" "${deny_flags[@]}" | sed '/^Total usage est:/,/^Usage by model:/d'
 fi
 
 case "$1" in

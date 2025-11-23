@@ -1,0 +1,119 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author Ryan
+    Description "Self-contained Inkly + Ink container for HPC clusters."
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export NO_COLOR=1
+    export COPILOT_NO_COLOR=1
+    export COPILOT_THEME=plain
+    export COPILOT_LOG_LEVEL=none
+    export COPILOT_DISABLE_USAGE_FOOTER=1
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends \
+        curl wget git python3 python3-pip jq \
+        ca-certificates build-essential
+
+    # Install Node manually (no NVM)
+    NODE_VERSION="24.11.1"
+    curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
+      -o /tmp/node.tar.xz
+
+    tar -xf /tmp/node.tar.xz -C /usr/local --strip-components=1
+    rm /tmp/node.tar.xz
+
+    # Install Copilot CLI
+    npm install -g @github/copilot
+
+    # Install inkly wrapper
+    cat <<'EOF' >/usr/local/bin/inkly
+#!/bin/bash
+set -euo pipefail
+
+COPILOT_BIN="/usr/local/bin/copilot"
+
+deny_flags=(
+  --deny-tool 'shell(rm:*)'
+  --deny-tool 'shell(sudo:*)'
+  --deny-tool 'shell(chmod:*)'
+  --deny-tool 'shell(chown:*)'
+  --deny-tool 'shell(rmdir:*)'
+  --deny-tool 'shell(unlink:*)'
+  --deny-tool 'shell(cp:*)'
+  --deny-tool 'shell(mv:*)'
+)
+
+clean_output() {
+  sed -e '/^Total usage est:/,/^Usage by model:/d' \
+      -e '/^Usage by model:/d' \
+      -e '/^[[:space:]]*claude-.*Premium request)/d'
+}
+
+if [ "$#" -eq 0 ]; then
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
+fi
+
+case "$1" in
+  -*|help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}"
+esac
+
+prompt="$*"
+printf '%s' "$prompt" | grep -Eiq '\b(rm|unlink|dd|sudo|chmod|chown)\b|cp[[:space:]]+-r' && {
+  echo "Blocked dangerous command."
+  exit 1
+}
+
+"$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
+EOF
+    chmod +x /usr/local/bin/inkly
+
+    # Install ink wrapper
+    cat <<'EOF' >/usr/local/bin/ink
+#!/bin/bash
+set -euo pipefail
+
+INKLY_BIN="/usr/local/bin/inkly"
+
+ctx=""
+append() { printf -v ctx '%s%s%s' "$ctx" "$1" $'\n'; }
+
+command -v hostname >/dev/null && append "Hostname: $(hostname)"
+
+if [ -f /etc/os-release ]; then
+  os_name=$(grep -m1 '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
+  append "OS: ${os_name}"
+fi
+
+command -v sinfo >/dev/null && {
+  append "SLURM Queues (top):"
+  sinfo -h -o '%P %D %C' | head -n 3 | while read -r line; do
+    append "  ${line}"
+  done
+}
+
+[ -f /etc/slurm/slurm.conf ] && append "SLURM Config Path: /etc/slurm/slurm.conf"
+
+if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then
+  gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -n 1)
+  [ -n "$gpu" ] && append "GPU: $gpu"
+fi
+
+if [ "$#" -eq 0 ]; then
+  exec "$INKLY_BIN"
+fi
+
+prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\nNow: '"$*"
+exec "$INKLY_BIN" -p "$prompt"
+EOF
+    chmod +x /usr/local/bin/ink
+
+%runscript
+    exec ink "$@"
+    exec /usr/bin/env \
+        SINGULARITYENV_APPEND_PATH=/usr/sbin:/usr/bin \
+        "$@"

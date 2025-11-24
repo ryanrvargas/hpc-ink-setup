@@ -1,0 +1,93 @@
+Bootstrap: docker
+From: rocky:9
+
+%labels
+    Author "Ryan"
+    Description "Inkly container with Python HPC stdin entrypoint."
+
+%environment
+    # Inside the container, HOME is isolated to /opt/inkhome, This will prevent reading host HOME
+    export HOME=/opt/inkhome
+    # Location of NVM Node
+    export NVM_DIR=/opt/inkhome/.nvm
+    # Adding the Inkly/ System binaries to path inside container
+    export PATH=/opt/inkhome/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+
+%post
+    echo "=== Installing base system dependencies ==="
+
+    # Required tools for install.sh and Copilot CLI
+    yum -y install \
+        curl \
+        wget \
+        git \
+        python3 \
+        python3-pip \
+        nano \
+        findutils \
+        bash \
+        which \
+        gcc \
+        gcc-c++ \
+        make \
+        ca-certificates \
+        gnupg
+
+    # Create isolated "HOME" directory
+    mkdir -p /opt/inkhome
+    chmod 777 /opt/inkhome # Writable by contianer user
+
+    # Create build directory inside the container
+    mkdir -p /opt/build
+    # Copy install.sh from build context into container
+    cp install.sh /opt/build/install.sh
+    chmod +x /opt/build/install.sh # Make sure installer is executable
+
+    echo "=== Patching install.sh to disable .bashrc sourcing & exec bash -l ==="
+
+    # Remove comments from install.sh that call '. ~/.bashrc', This will break the
+    # Apptainer build becasue .bashrc doesn't exist yet
+    sed -i '/source ~\/.bashrc/d' /opt/build/install.sh
+    # Remove this command since it will break the build
+    sed -i '/exec bash -l/d' /opt/build/install.sh
+
+    echo "=== Running install.sh inside container ==="
+
+    # Run inkly/Copilot installer with HOME set to set to opt/inkhome
+    cd /opt
+    HOME=/opt/inkhome bash /opt/build/install.sh
+
+    echo "=== Creating Python Inkly Entrypoint ==="
+
+    # This script below serves as the container's runtime entrypoint
+    # This will read HPC Context from STDIN and foward it to inkly inside the container
+    cat << 'EOF' > /usr/local/bin/inkly_entrypoint.py
+#!/usr/bin/env python3
+import sys
+import subprocess
+
+def main():
+    # Read HPC context file from stdin
+    context = sys.stdin.read()
+    # Combine all container args into one prompt
+    prompt = " ".join(sys.argv[1:])
+    # Build the final combined propmt given to inkly
+    full_prompt = f"""Using the following HPC context:
+{context}
+
+Now, {prompt}
+"""
+
+    # Call inkly (installed by your install.sh) this will execute our full prompt
+    # in prompt mode (-p)
+    subprocess.run(["inkly", "-p", full_prompt])
+
+if __name__ == "__main__":
+    main()
+EOF
+
+    chmod +x /usr/local/bin/inkly_entrypoint.py # an executable entrypoint
+
+%runscript
+    # When container is ran, execute the python entrypoint
+    exec /usr/local/bin/inkly_entrypoint.py "$@"

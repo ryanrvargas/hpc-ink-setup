@@ -12,7 +12,7 @@ import subprocess
 
 def run(cmd):
     "Run a command and return its output safely."
-    # Execute the external command 'cmd', capture stdout and refirect stderr into stdout
+    # Execute the external command 'cmd', capture stdout and redirect stderr into stdout
     # text=True makes sure we get a string back instead of bytes
     try:
         return subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)

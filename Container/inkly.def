@@ -89,5 +89,5 @@ EOF
     chmod +x /usr/local/bin/inkly_entrypoint.py # an executable entrypoint
 
 %runscript
-    # When container is ran, execute the python entrypoint
-    exec /usr/local/bin/inkly_entrypoint.py "$@"
+# When container is ran, execute the python entrypoint
+exec /usr/local/bin/inkly_entrypoint.py "$@"

@@ -110,7 +110,7 @@ clean_output() {
       -e '/^[[:space:]]*claude-.*Premium request)/d'
 }
 
-# No args → fully interactive Copilot (preserve TUI; do NOT pipe through clean_output)
+# No args, fully interactive Copilot (preserve TUI; do NOT pipe through clean_output)
 if [ "$#" -eq 0 ]; then
   exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi

@@ -39,6 +39,7 @@ def main():
         "squeue": run(["squeue"]),
         "sinfo": run(["sinfo"]),
         "slurm_conf": safe_read("/etc/slurm/slurm.conf"),
+        # Flatten all environment variables into "KEY=VALUE" lines joined by newlines
         "environment": "\n".join([f"{k}={v}" for k, v in os.environ.items()])
     }
     # Print the JSON data to stdout for the container to consume as stdin

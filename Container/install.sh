@@ -1,91 +1,115 @@
 #!/bin/bash
-# Inkly CLI Installer for HPC (user-space, no sudo)
-# Installs Node via nvm if missing (using curl or wget)
-# Configures npm for a home-local prefix (~/.npm-global) without nvm conflicts
-# Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
-# Creates an 'inkly' alias/wrapper around the 'copilot' binary
-# Installs 'ink' HPC-aware wrapper (ink.sh)
-# Verifies setup at the end
+# Inkly CLI installer for container use
+# - Installs Node via nvm into $HOME/.nvm
+# - Configures npm global prefix at $HOME/.npm-global
+# - Installs GitHub Copilot CLI globally
+# - Creates an 'inkly' wrapper with HPC-safe defaults
+# - Optionally creates an 'ink' launcher if ink.sh is present
 
-# --- CRLF self-fix ---
-if file "$0" | grep -q "CRLF"; then          # Detect Windows line endings so Bash won’t choke.
-  echo "Converting Windows line endings to Unix (LF)..."
-  sed -i 's/\r$//' "$0"                      # Strip carriage returns in place.
-  exec bash "$0" "$@"                        # Re-exec the now-fixed script.
-fi
+set -eo pipefail
 
-set -eo pipefail                              # Exit on error and fail a pipeline if any command fails.
+# Ensure HOME is set correctly (in container %post this is /opt/inkhome)
+HOME="${HOME:-/opt/inkhome}"
+export HOME
 
-export PATH="$HOME/.npm-global/bin:$PATH"     # Ensure user-global npm bin is in PATH for the install session.
+# Paths inside the container "home"
+export NVM_DIR="$HOME/.nvm"
+export PATH="$HOME/.npm-global/bin:$PATH"
 
-echo "Installing Ink CLI (powered by GitHub Copilot)..."
+echo "Installing Inkly (GitHub Copilot CLI environment) into $HOME"
+echo
 
-# [1/5] Ensure Node (nvm)
-echo "[1/5] Ensuring Node (nvm) is available (user-space)…"
-if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, install via nvm.
-  if [ ! -d "$HOME/.nvm" ]; then              # Install nvm only if not already present.
-    echo "→ Installing nvm..."
-    if command -v curl >/dev/null 2>&1; then  # Prefer curl if available.
+########################################
+# [1/4] Install Node via nvm if needed #
+########################################
+
+echo "[1/4] Ensuring Node (nvm) is available in user space..."
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "  Node not found - installing nvm and Node LTS into $NVM_DIR"
+
+  if [ ! -d "$NVM_DIR" ]; then
+    echo "  Downloading nvm..."
+    if command -v curl >/dev/null 2>&1; then
       curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-    elif command -v wget >/dev/null 2>&1; then  # Fall back to wget if curl is missing.
+    elif command -v wget >/dev/null 2>&1; then
       wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     else
-      echo "Error: neither curl nor wget is available — please install one first." >&2
+      echo "Error: neither curl nor wget is available for nvm install." >&2
       exit 1
     fi
   fi
 
-  (
-    # Use a subshell so nvm env tweaks don’t leak if set -u later.
-    set +u                                    # Loosen undefined-var checks for nvm’s scripts.
-    export NVM_DIR="$HOME/.nvm"               # Tell nvm where it lives.
-    . "$NVM_DIR/nvm.sh"                       # Load nvm into the shell.
-    echo "Installing latest LTS Node via nvm..."
-    nvm install --lts                         # Install latest LTS Node for stability.
-    nvm use --lts                             # Activate that Node version for this shell.
-  )
-  export NVM_DIR="$HOME/.nvm"                 # Persist nvm path for parent shell.
-  . "$NVM_DIR/nvm.sh"                         # Reload nvm so node/npm are available now.
+  # Load nvm and install Node LTS
+  if [ -f "$NVM_DIR/nvm.sh" ]; then
+    # Avoid nounset issues inside nvm scripts
+    set +u
+    . "$NVM_DIR/nvm.sh"
+    echo "  Installing latest LTS Node..."
+    nvm install --lts
+    nvm use --lts
+    set -u || true 2>/dev/null || true
+  else
+    echo "Error: nvm.sh not found at $NVM_DIR/nvm.sh after install." >&2
+    exit 1
+  fi
 else
-  echo "Node detected: $(node -v)"
+  echo "  Node detected: $(node -v)"
 fi
 
-# [2/5] Configure npm (no nvm conflict)
-echo "[2/5] Configuring npm for user-space installs…"
+# Make sure nvm environment is loaded for the rest of the script
+if [ -f "$NVM_DIR/nvm.sh" ]; then
+  set +u
+  . "$NVM_DIR/nvm.sh"
+  set -u || true 2>/dev/null || true
+fi
 
-mkdir -p "$HOME/.npm-global"                  # Create a user-writable global prefix for npm.
+###########################################
+# [2/4] Configure npm global install path #
+###########################################
 
-# Clean up any conflicting prefix/globalconfig in .npmrc
+echo
+echo "[2/4] Configuring npm prefix in $HOME/.npm-global..."
+
+mkdir -p "$HOME/.npm-global"
+
+# Clean conflicting prefix/globalconfig from .npmrc if present
 if [ -f "$HOME/.npmrc" ]; then
-  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" || true  # Remove settings that fight nvm.
+  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" || true
   mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
 fi
 
-export NPM_CONFIG_PREFIX="$HOME/.npm-global"  # Use env var prefix to avoid nvm’s “prefix” warning.
+# Use env var prefix to avoid nvm prefix warnings
+export NPM_CONFIG_PREFIX="$HOME/.npm-global"
 
-# Ensure ~/.npm-global/bin is in PATH
+# Ensure ~/.npm-global/bin is in PATH for future shells
 if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
-  export PATH="$HOME/.npm-global/bin:$PATH"   # Make globally installed npm binaries runnable.
-  echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"  # Persist in future shells.
+  export PATH="$HOME/.npm-global/bin:$PATH"
 fi
 
-# [3/5] Install GitHub Copilot CLI
-echo "[3/5] Installing GitHub Copilot CLI via npm…"
-npm install -g @github/copilot                # Install Copilot CLI into the user prefix.
+################################
+# [3/4] Install Copilot and wrapper #
+################################
 
-unset NPM_CONFIG_PREFIX                       # Unset prefix env so nvm remains fully happy afterward.
+echo
+echo "[3/4] Installing GitHub Copilot CLI with HPC-safe wrapper..."
 
-# [4/5] Create secure 'inkly' wrapper…
-echo "[4/5] Creating secure 'inkly' wrapper…"
+npm install -g @github/copilot
 
-mkdir -p "$HOME/.npm-global/bin"              # Ensure the bin dir for our wrapper exists.
+COPILOT_BIN="$HOME/.npm-global/bin/copilot"
+if [ ! -x "$COPILOT_BIN" ]; then
+  echo "Error: Copilot CLI not found at $COPILOT_BIN after npm install." >&2
+  exit 1
+fi
 
-# Generate the inkly wrapper script that safely fronts Copilot.
+mkdir -p "$HOME/.npm-global/bin"
+
+# Create 'inkly' wrapper
 cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
 set -euo pipefail
 
-# Force Inkly to use the npm-installed Copilot
+# Runtime HOME is expected to be /opt/inkhome inside container
 COPILOT_BIN="$HOME/.npm-global/bin/copilot"
 
 if [ ! -x "$COPILOT_BIN" ]; then
@@ -110,7 +134,7 @@ clean_output() {
       -e '/^[[:space:]]*claude-.*Premium request)/d'
 }
 
-# No args, fully interactive Copilot (preserve TUI; do NOT pipe through clean_output)
+# No args: interactive Copilot, do not pipe through clean_output
 if [ "$#" -eq 0 ]; then
   exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi
@@ -118,58 +142,56 @@ fi
 case "$1" in
   -*)
     exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
-  help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
+  help|--help|-h|login|logout|whoami|version|update|terms)
     exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
 esac
 
 prompt="$*"
 
-# Block dangerous commands
+# Block obviously dangerous prompts
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "Operation blocked: destructive command detected in prompt."
   exit 1
 fi
 
-# Prompt mode: run Copilot then strip usage footer / model stats
+# Prompt mode with cleaned output
 "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
 exit $?
 EOF
 
-chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
+chmod +x "$HOME/.npm-global/bin/inkly"
 
-# [5/5] Install "ink" launcher (auto-detect repo path)
-echo "[5/5] Installing ink launcher…"
+##########################################
+# [4/4] Optional 'ink' launcher for ink.sh #
+##########################################
 
-# Determine where install.sh actually lives
+echo
+echo "[4/4] Setting up optional 'ink' launcher if ink.sh is present..."
+
+# If an ink.sh script is present next to install.sh inside container, wire it up
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Ensure ink.sh is executable
-chmod +x "$INSTALL_DIR/ink.sh" 2>/dev/null || true
-
-mkdir -p "$HOME/.npm-global/bin"
-cat <<LAUNCH > "$HOME/.npm-global/bin/ink"
+if [ -f "$INSTALL_DIR/ink.sh" ]; then
+  chmod +x "$INSTALL_DIR/ink.sh" || true
+  cat <<LAUNCH > "$HOME/.npm-global/bin/ink"
 #!/bin/bash
 exec "$INSTALL_DIR/ink.sh" "\$@"
 LAUNCH
+  chmod +x "$HOME/.npm-global/bin/ink"
+  echo "  'ink' launcher installed to $HOME/.npm-global/bin/ink"
+else
+  echo "  No ink.sh found at $INSTALL_DIR/ink.sh - skipping 'ink' launcher."
+fi
 
-chmod +x "$HOME/.npm-global/bin/ink"
+########################################
+# HPC-safe environment hints (optional) #
+########################################
 
-echo "[X] Applying Inkly/Copilot HPC-safe terminal settings…"
+# You can also hardwire these in %environment in the .def, but they do not hurt here.
+if [ -f "$HOME/.bashrc" ]; then
+  if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
+    cat <<'EOF' >> "$HOME/.bashrc"
 
-# Disable OSC color sequences and broken terminal features
-export COPILOT_NO_COLOR=1
-export COPILOT_THEME=plain
-export NO_COLOR=1
-
-# Try to reduce Copilot noise (may or may not be respected by CLI)
-export COPILOT_LOG_LEVEL=none
-export COPILOT_DISABLE_USAGE_FOOTER=1
-
-# Persist for future shells (append only if not already present)
-if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
-cat <<'EOF' >> "$HOME/.bashrc"
-
-# --- Inkly/Copilot HPC-safe settings ---
+# Inkly/Copilot HPC-safe settings
 export COPILOT_NO_COLOR=1
 export COPILOT_THEME=plain
 export NO_COLOR=1
@@ -177,32 +199,21 @@ export COPILOT_LOG_LEVEL=none
 export COPILOT_DISABLE_USAGE_FOOTER=1
 
 EOF
+  fi
 fi
 
-# --- Verification ---
+unset NPM_CONFIG_PREFIX || true
+
 echo
 echo "=== Verification ==="
-echo "node:      $(node -v)"                            # Show Node version to confirm availability.
-echo "npm:       $(npm -v)"                             # Show npm version to confirm availability.
-echo "copilot:   $(copilot --version || true)"          # Show Copilot CLI version if present.
-echo "inkly:     $(inkly --version || true)"            # Show Inkly wrapper version (proxies Copilot).
+echo "HOME:      $HOME"
+echo "node:      $(node -v || echo 'not found')"
+echo "npm:       $(npm -v || echo 'not found')"
+echo "copilot:   $("$COPILOT_BIN" --version || echo 'not available')"
+echo "inkly:     $("$HOME/.npm-global/bin/inkly" --version 2>/dev/null || echo 'inkly wrapper ready')"
 
 echo
-echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
-
-echo
-echo "Try:"
-echo "  inkly -p \"Say hello\""                         # Example of direct Copilot prompt mode.
-echo "  ink  \"Write a Slurm sbatch for 4 CPU tasks and 1 GPU on partition gpu for 12h\"" 
-
-echo
-echo "Activating Ink function for this shell..."
-# This will re-load PATH, nvm, and the HPC-safe env into the current shell
-# WITHOUT writing anything new to ~/.bashrc.
-source "$HOME/.bashrc" || true
-echo "Type 'inkly' to log in with GitHub (if you haven't already)."
-
-# --- Refresh parent shell environment for immediate use ---
-echo
-echo "Reloading environment so Node and Inkly are active now..."
-exec bash -l                                           # Start a login shell so PATH/nvm are fully applied.
+echo "Installation finished inside container image."
+echo "At runtime you can use:"
+echo "  inkly -p \"Say hello\""
+echo "  ink \"Write a Slurm sbatch for gpu partition\"  (if ink.sh was provided)"

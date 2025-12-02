@@ -24,13 +24,37 @@ if [ -f /etc/os-release ]; then
 fi
 
 # SLURM availability ------------------------------------------------
-if command -v sinfo >/dev/null 2>&1; then
-  append "SLURM Queues (top):"
+# Per-user queue summary --------------------------------------------
+if command -v squeue >/dev/null 2>&1; then
+  # Show only a few lines to keep context small.
+  append "SLURM Queue (current user: ${USER}):"
   while IFS= read -r line; do
     append "  ${line}"
-  done < <(sinfo -h -o '%P %D %C' | head -n 3)
-else
-  append "SLURM: Not available (likely login node or container)."
+  done < <(squeue -u "${USER}" -o '%i %t %M %D %R' 2>/dev/null | head -n 10)
+fi
+
+# Recent job history via sacct --------------------------------------
+if command -v sacct >/dev/null 2>&1; then
+  # Last 1 day of history; trim to a few lines.
+  append "Recent jobs (sacct, last day):"
+  while IFS= read -r line; do
+    append "  ${line}"
+  done < <(
+    sacct -u "${USER}" \
+      --format=JobID,State,Elapsed,AllocCPUS,ReqMem \
+      -S "$(date -d '1 day ago' '+%Y-%m-%d')" 2>/dev/null \
+      | head -n 10
+  )
+fi
+
+# Module environment -------------------------------------------------
+if command -v module >/dev/null 2>&1; then
+  # 'module list' is cheaper than 'module avail'; trim header noise.
+  append "Loaded modules:"
+  # Skip the banner line, keep only a small window of modules.
+  module list 2>&1 | sed -n '2,12p' | while IFS= read -r line; do
+    append "  ${line}"
+  done
 fi
 
 [ -f /etc/slurm/slurm.conf ] && append "SLURM Config Path: /etc/slurm/slurm.conf"

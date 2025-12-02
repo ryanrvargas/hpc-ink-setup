@@ -97,5 +97,10 @@ fi
 # --- Compose final prompt with real newlines ---
 prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\n\nNow: '"${prompt_input}"
 
+echo "===DEBUG CONTEXT START==="
+printf '%s\n' "$ctx"
+echo "===DEBUG CONTEXT END==="
+
+
 # --- Call Inkly ---
 exec "$INKLY_BIN" -p "$prompt"

@@ -94,6 +94,7 @@ if [ ! -x "$COPILOT_BIN" ]; then
 fi
 
 deny_flags=(
+  --disable-parallel-tools-execution
   --deny-tool 'shell(rm:*)'
   --deny-tool 'shell(sudo:*)'
   --deny-tool 'shell(chmod:*)'

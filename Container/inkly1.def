@@ -1,0 +1,239 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+# Run fully isolated (no host home, clean env, ephemeral writes)
+# apptainer exec --containall --cleanenv --no-home inkly1.sif bash
+
+%labels
+    Author "Ryan"
+    Description "Fully isolated Inkly container with embedded install.sh + ink.sh"
+
+%environment
+    # Container-local HOME used by Inkly runtime
+    export HOME=/opt/inkhome
+
+    # User-space binaries (npm globals)
+    export PATH=/opt/inkhome/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+
+    # Explicit Copilot config location (bound at runtime)
+    export COPILOT_CONFIG_DIR=/opt/inkhome/.config/.copilot
+
+    # nvm install location
+    export NVM_DIR=/opt/inkhome/.nvm
+
+    # Force all XDG config into isolated HOME
+    export XDG_CONFIG_HOME=/opt/inkhome/.config
+
+
+%post
+    set -eux
+
+    # Establish isolated HOME during build
+    export HOME=/opt/inkhome
+    export NVM_DIR=/opt/inkhome/.nvm
+
+    # Create Inkly runtime directories
+    mkdir -p /opt/inkhome
+    mkdir -p /opt/inkhome/.npm-global
+    mkdir -p /opt/inkhome/.nvm
+    mkdir -p /opt/inkhome/.config/.copilot
+
+    # Lock down permissions (tokens must be private)
+    chmod 755 /opt/inkhome
+    chmod -R 755 /opt/inkhome/.npm-global
+    chmod -R 755 /opt/inkhome/.nvm
+    chmod 755 /opt/inkhome/.config
+    chmod 700 /opt/inkhome/.config/.copilot
+
+    # Base system dependencies (minimal)
+    apt-get update -y
+    apt-get install -y --no-install-recommends \
+        curl wget git nano bash ca-certificates gnupg \
+        build-essential python3 python3-pip
+
+
+    ############################################################
+    # Embed install.sh (runs at build time)
+    ############################################################
+    echo "=== Embedding install.sh ==="
+cat << 'EOF' > /opt/install.sh
+#!/bin/bash
+
+# Inkly installer (user-space, no sudo)
+# - Installs Node via nvm
+# - Configures npm globals
+# - Installs Copilot CLI
+# - Creates inkly + ink entrypoints
+
+# Fix Windows line endings if present
+if file "$0" | grep -q "CRLF"; then
+  sed -i 's/\r$//' "$0"
+  exec bash "$0" "$@"
+fi
+
+set -euo pipefail
+
+# Ensure Copilot config path exists
+mkdir -p "$HOME/.config/.copilot"
+chmod 700 "$HOME/.config"
+chmod 700 "$HOME/.config/.copilot"
+
+echo "Installing Ink CLI (powered by GitHub Copilot)..."
+
+# Ensure Node via nvm (user-space)
+if ! command -v node >/dev/null 2>&1; then
+  if [ ! -s "$HOME/.nvm/nvm.sh" ]; then
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    else
+      echo "curl or wget required" >&2
+      exit 1
+    fi
+  fi
+
+  export NVM_DIR="$HOME/.nvm"
+  set +u
+  . "$NVM_DIR/nvm.sh"
+  nvm install --lts
+  nvm use --lts
+  set -u
+fi
+
+# Configure npm globals inside isolated HOME
+mkdir -p "$HOME/.npm-global"
+
+if [ -f "$HOME/.npmrc" ]; then
+  grep -Ev '^(globalconfig|prefix)' "$HOME/.npmrc" > "$HOME/.npmrc.tmp" || true
+  mv "$HOME/.npmrc.tmp" "$HOME/.npmrc"
+fi
+
+export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+
+if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
+  echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+
+# Install GitHub Copilot CLI
+npm install -g @github/copilot
+unset NPM_CONFIG_PREFIX
+
+# Create hardened inkly wrapper
+mkdir -p "$HOME/.npm-global/bin"
+
+cat << 'WRAP' > "$HOME/.npm-global/bin/inkly"
+#!/bin/bash
+set -euo pipefail
+
+# Ensure Copilot config exists at runtime
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/.copilot"
+chmod 700 "${XDG_CONFIG_HOME:-$HOME/.config}/.copilot"
+
+COPILOT_BIN="$(command -v copilot || true)"
+[ -z "$COPILOT_BIN" ] && { echo "Copilot CLI not found"; exit 1; }
+
+deny_flags=(
+  --deny-tool 'shell(rm:*)'
+  --deny-tool 'shell(sudo:*)'
+  --deny-tool 'shell(chmod:*)'
+  --deny-tool 'shell(chown:*)'
+  --deny-tool 'shell(rmdir:*)'
+  --deny-tool 'shell(unlink:*)'
+  --deny-tool 'shell(cp:*)'
+  --deny-tool 'shell(mv:*)'
+)
+
+[ "$#" -eq 0 ] && exec "$COPILOT_BIN" "${deny_flags[@]}"
+
+case "$1" in
+  -*) exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+  help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
+       exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;
+esac
+
+prompt="$*"
+
+# Block destructive intent at prompt level
+if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
+  echo "Operation blocked"
+  exit 1
+fi
+
+exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"
+WRAP
+
+chmod +x "$HOME/.npm-global/bin/inkly"
+
+# Install ink launcher (HPC-aware wrapper)
+INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+cat << 'LAUNCH' > "$HOME/.npm-global/bin/ink"
+#!/bin/bash
+exec "$INSTALL_DIR/ink.sh" "\$@"
+LAUNCH
+
+chmod +x "$HOME/.npm-global/bin/ink"
+
+# Sanity check
+echo "node: $(node -v)"
+echo "npm: $(npm -v)"
+echo "copilot: $(copilot --version || true)"
+echo "inkly: $(inkly --version || true)"
+
+echo "Installation complete."
+EOF
+
+    chmod +x /opt/install.sh
+
+
+    ############################################################
+    # Embed ink.sh (runtime entrypoint)
+    ############################################################
+    echo "=== Embedding ink.sh ==="
+cat << 'EOF' > /opt/ink.sh
+#!/bin/bash
+# Inject HPC context before forwarding to inkly
+
+set -euo pipefail
+
+INKLY_BIN="$HOME/.npm-global/bin/inkly"
+[ ! -x "$INKLY_BIN" ] && { echo "Inkly not installed"; exit 1; }
+
+ctx=""
+append() { printf -v ctx '%s%s%s' "$ctx" "$1" $'\n'; }
+
+command -v hostname >/dev/null && append "Hostname: $(hostname)"
+
+if [ -f /etc/os-release ]; then
+  append "OS: $(grep -m1 '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')"
+fi
+
+command -v sinfo >/dev/null && {
+  append "SLURM Queues (top):"
+  sinfo -h -o '%P %D %C' | head -n 3 | while read -r l; do append "  $l"; done
+}
+
+[ -f /etc/slurm/slurm.conf ] && append "SLURM Config Path: /etc/slurm/slurm.conf"
+
+command -v nvidia-smi >/dev/null && {
+  gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -n 1 || true)
+  [ -n "$gpu" ] && append "GPU: $gpu"
+}
+
+[ "$#" -eq 0 ] && { echo 'Usage: ink "prompt"'; exit 1; }
+
+prompt=$'Using the following HPC environment context:\n'"$ctx"$'\nNow: '"$*"
+exec "$INKLY_BIN" -p "$prompt"
+EOF
+
+    chmod +x /opt/ink.sh
+
+    # Ensure bashrc exists for nvm
+    touch /opt/inkhome/.bashrc
+    chmod 644 /opt/inkhome/.bashrc
+
+    # Run installer during build
+    bash /opt/install.sh
+
+    # Keep image clean
+    rm -rf /var/lib/apt/lists/*

@@ -52,9 +52,9 @@ From: ubuntu:22.04
         build-essential python3 python3-pip
 
 
-    ############################################################
+    
     # Embed install.sh (runs at build time)
-    ############################################################
+    
     echo "=== Embedding install.sh ==="
 cat << 'EOF' > /opt/install.sh
 #!/bin/bash

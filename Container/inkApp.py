@@ -1,5 +1,5 @@
-#inkApp.py
 #!/usr/bin/env python3
+#inkApp.py
 
 import os
 import sys

@@ -98,6 +98,13 @@ if ! command -v node >/dev/null 2>&1; then
   . "$NVM_DIR/nvm.sh"
   nvm install --lts
   nvm use --lts
+
+  # Capture Node binary path for runtime use
+  NODE_BIN_DIR="$(dirname "$(command -v node)")"
+
+  # Persist Node path for non-interactive shells
+  echo "export PATH=$NODE_BIN_DIR:\$PATH" >> "$HOME/.bashrc"
+
   set -u
 fi
 
@@ -125,6 +132,9 @@ mkdir -p "$HOME/.npm-global/bin"
 cat << 'WRAP' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
 set -euo pipefail
+# Ensure Node (nvm) is available at runtime
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 # Ensure Copilot config exists at runtime
 mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/.copilot"
@@ -169,7 +179,7 @@ chmod +x "$HOME/.npm-global/bin/inkly"
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 cat << 'LAUNCH' > "$HOME/.npm-global/bin/ink"
 #!/bin/bash
-exec "$INSTALL_DIR/ink.sh" "\$@"
+exec /opt/ink.sh "$@"
 LAUNCH
 
 chmod +x "$HOME/.npm-global/bin/ink"
@@ -195,6 +205,10 @@ cat << 'EOF' > /opt/ink.sh
 # Inject HPC context before forwarding to inkly
 
 set -euo pipefail
+
+# Ensure Node (nvm) is available at runtime
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 INKLY_BIN="$HOME/.npm-global/bin/inkly"
 [ ! -x "$INKLY_BIN" ] && { echo "Inkly not installed"; exit 1; }

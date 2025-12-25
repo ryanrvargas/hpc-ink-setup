@@ -1,17 +1,13 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "==> Installing ink launcher"
+echo "Installing ink launcher"
 
 mkdir -p "$HOME/.local/bin"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 ln -sf "$SCRIPT_DIR/ink" "$HOME/.local/bin/ink"
-chmod +x "$SCRIPT_DIR/ink"
 
-echo "==> ink installed to ~/.local/bin/ink"
-
-echo ""
-echo "Make sure ~/.local/bin is in your PATH:"
-echo "export PATH=\"\$HOME/.local/bin:\$PATH\""
+echo "ink installed to $HOME/.local/bin/ink"
+echo "Ensure ~/.local/bin is in your PATH"

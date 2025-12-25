@@ -31,13 +31,13 @@ REMOVE_DIRS = [
     HOME / ".npm-global",
     HOME / ".npm",
     HOME / ".copilot",
-    HOME / ".inkly",                 # ✅ NEW
+    HOME / ".inkly",                 #NEW
 ]
 
 REMOVE_FILES = [
     HOME / ".npmrc",
     HOME / ".npm/_logs",
-    HOME / ".local/bin/ink",          # ✅ NEW
+    HOME / ".local/bin/ink",          #NEW
 ]
 
 REPO_DIR = HOME / "hpc-ink-setup"

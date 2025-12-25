@@ -97,8 +97,9 @@ if ! command -v node >/dev/null 2>&1; then
   export NVM_DIR="$HOME/.nvm"
   set +u
   . "$NVM_DIR/nvm.sh"
-  nvm install --lts
-  nvm use --lts
+  nvm install 20
+  nvm alias default 20
+  nvm use 20
 
   # Capture Node binary path for runtime use
   NODE_BIN_DIR="$(dirname "$(command -v node)")"

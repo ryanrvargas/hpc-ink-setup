@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#inkApp.py
 
 import os
 import sys
@@ -32,7 +31,6 @@ cmd = [
     "--cleanenv",
     "--no-home",
     "--writable-tmpfs",
-    #ADD Root User Privileges, Find that Flag
     f"--bind={COPILOT_STATE}:/opt/inkhome/.config/.copilot",
     str(IMAGE),
     "ink",
@@ -41,11 +39,9 @@ cmd = [
 # Pass user prompt directly to the ink entrypoint
 cmd.extend(sys.argv[1:])
 
-
 # Replace the current process with Apptainer
 try:
-    os.execvp(cmd[0], cmd)
+    subprocess.execvp(cmd[0], cmd)
 except FileNotFoundError:
     print("Apptainer not found in PATH.", file=sys.stderr)
     sys.exit(1)
-

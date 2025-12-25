@@ -108,9 +108,9 @@ def sanity_check():
     print("\nSanity check:")
     for cmd in ("ink", "inkly", "node", "npm", "copilot"):
         if shutil.which(cmd):
-            print(f"  ⚠️ {cmd} still found in PATH")
+            print(f"{cmd} still found in PATH")
         else:
-            print(f"  ✓ {cmd} not found")
+            print(f"{cmd} not found")
 
 
 def main():

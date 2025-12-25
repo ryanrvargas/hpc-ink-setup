@@ -2,7 +2,7 @@ Bootstrap: docker
 From: ubuntu:22.04
 
 # Run fully isolated (no host home, clean env, ephemeral writes)
-# apptainer exec --containall --cleanenv --no-home inkly1.sif bash
+# inkly1.def
 
 %labels
     Author "Ryan"
@@ -48,8 +48,9 @@ From: ubuntu:22.04
     # Base system dependencies (minimal)
     apt-get update -y
     apt-get install -y --no-install-recommends \
-        curl wget git nano bash ca-certificates gnupg \
+        curl wget git nano bash ca-certificates gnupg file \
         build-essential python3 python3-pip
+
 
 
     
@@ -102,11 +103,11 @@ if ! command -v node >/dev/null 2>&1; then
   # Capture Node binary path for runtime use
   NODE_BIN_DIR="$(dirname "$(command -v node)")"
 
-  # Persist Node path for non-interactive shells
-  echo "export PATH=$NODE_BIN_DIR:\$PATH" >> "$HOME/.bashrc"
-
   set -u
 fi
+
+export PATH="$HOME/.npm-global/bin:$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
+
 
 # Configure npm globals inside isolated HOME
 mkdir -p "$HOME/.npm-global"
@@ -117,10 +118,6 @@ if [ -f "$HOME/.npmrc" ]; then
 fi
 
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-
-if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
-  echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
-fi
 
 # Install GitHub Copilot CLI
 npm install -g @github/copilot

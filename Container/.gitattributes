@@ -1,0 +1,2 @@
+*.sif filter=lfs diff=lfs merge=lfs -text
+*.sif.filepart filter=lfs diff=lfs merge=lfs -text

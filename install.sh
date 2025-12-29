@@ -3,11 +3,9 @@
 # Installs Node via nvm if missing (using curl or wget)
 # Configures npm for a home-local prefix (~/.npm-global) without nvm conflicts
 # Installs GitHub Copilot CLI globally (to ~/.npm-global/bin)
-# Creates an 'inkly' alias (symlink) to the 'copilot' binary
-# Sources Ink wrapper function (ink.sh) for the current user
+# Creates an 'inkly' alias/wrapper around the 'copilot' binary
+# Installs 'ink' HPC-aware wrapper (ink.sh)
 # Verifies setup at the end
-# For testing
-
 
 # --- CRLF self-fix ---
 if file "$0" | grep -q "CRLF"; then          # Detect Windows line endings so Bash won’t choke.
@@ -18,10 +16,12 @@ fi
 
 set -eo pipefail                              # Exit on error and fail a pipeline if any command fails.
 
+export PATH="$HOME/.npm-global/bin:$PATH"     # Ensure user-global npm bin is in PATH for the install session.
+
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
 
-# [1/6] Ensure Node (nvm)
-echo "[1/6] Ensuring Node (nvm) is available (user-space)…"
+# [1/5] Ensure Node (nvm)
+echo "[1/5] Ensuring Node (nvm) is available (user-space)…"
 if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, install via nvm.
   if [ ! -d "$HOME/.nvm" ]; then              # Install nvm only if not already present.
     echo "→ Installing nvm..."
@@ -35,10 +35,12 @@ if ! command -v node >/dev/null 2>&1; then    # If Node isn’t available, insta
     fi
   fi
 
-  (                                           # Use a subshell so nvm env tweaks don’t leak if set -u later.
+  (
+    # Use a subshell so nvm env tweaks don’t leak if set -u later.
     set +u                                    # Loosen undefined-var checks for nvm’s scripts.
     export NVM_DIR="$HOME/.nvm"               # Tell nvm where it lives.
     . "$NVM_DIR/nvm.sh"                       # Load nvm into the shell.
+    echo "Installing latest LTS Node via nvm..."
     nvm install --lts                         # Install latest LTS Node for stability.
     nvm use --lts                             # Activate that Node version for this shell.
   )
@@ -48,8 +50,8 @@ else
   echo "Node detected: $(node -v)"
 fi
 
-# [2/6] Configure npm (no nvm conflict)
-echo "[2/6] Configuring npm for user-space installs…"
+# [2/5] Configure npm (no nvm conflict)
+echo "[2/5] Configuring npm for user-space installs…"
 
 mkdir -p "$HOME/.npm-global"                  # Create a user-writable global prefix for npm.
 
@@ -67,78 +69,77 @@ if ! echo "$PATH" | grep -q "$HOME/.npm-global/bin"; then
   echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"  # Persist in future shells.
 fi
 
-# [3/6] Install GitHub Copilot CLI
-echo "[3/6] Installing GitHub Copilot CLI via npm…"
+# [3/5] Install GitHub Copilot CLI
+echo "[3/5] Installing GitHub Copilot CLI via npm…"
 npm install -g @github/copilot                # Install Copilot CLI into the user prefix.
 
 unset NPM_CONFIG_PREFIX                       # Unset prefix env so nvm remains fully happy afterward.
 
-# [4/6] Create secure 'inkly' wrapper…
-echo "[4/6] Creating secure 'inkly' wrapper…"
-COPILOT_BIN="$(command -v copilot || true)"   # Locate the Copilot binary we just installed.
-if [ -z "$COPILOT_BIN" ]; then
-  echo "Error: Copilot CLI not found after npm install." >&2
-  exit 1
-fi
+# [4/5] Create secure 'inkly' wrapper…
+echo "[4/5] Creating secure 'inkly' wrapper…"
 
 mkdir -p "$HOME/.npm-global/bin"              # Ensure the bin dir for our wrapper exists.
 
 # Generate the inkly wrapper script that safely fronts Copilot.
 cat <<'EOF' > "$HOME/.npm-global/bin/inkly"
 #!/bin/bash
-# Inkly secure wrapper — supports both:
-#   inkly "prompt here"        -> copilot -p "prompt here"
-#   inkly --flag … / subcmd …  -> copilot <as-is>
 set -euo pipefail
 
-COPILOT_BIN="$(command -v copilot || true)"
-if [ -z "$COPILOT_BIN" ]; then
-  echo "Error: GitHub Copilot CLI not found." >&2
+# Force Inkly to use the npm-installed Copilot
+COPILOT_BIN="$HOME/.npm-global/bin/copilot"
+
+if [ ! -x "$COPILOT_BIN" ]; then
+  echo "Error: GitHub Copilot CLI not found at $COPILOT_BIN" >&2
   exit 1
 fi
 
 deny_flags=(
-  --deny-tool 'shell(rm:*)'      # Disallow deletion commands.
-  --deny-tool 'shell(sudo:*)'    # Disallow privilege escalation.
-  --deny-tool 'shell(chmod:*)'   # Disallow permission changes.
-  --deny-tool 'shell(chown:*)'   # Disallow ownership changes.
-  --deny-tool 'shell(rmdir:*)'   # Disallow directory removal.
-  --deny-tool 'shell(unlink:*)'  # Disallow file unlinking.
-  --deny-tool 'shell(cp:*)'      # Disallow copying (conservative default).
-  --deny-tool 'shell(mv:*)'      # Disallow moving/renaming (conservative default).
+  --disable-parallel-tools-execution
+  --deny-tool 'shell(rm:*)'
+  --deny-tool 'shell(sudo:*)'
+  --deny-tool 'shell(chmod:*)'
+  --deny-tool 'shell(chown:*)'
+  --deny-tool 'shell(rmdir:*)'
+  --deny-tool 'shell(unlink:*)'
+  --deny-tool 'shell(cp:*)'
+  --deny-tool 'shell(mv:*)'
 )
 
+clean_output() {
+  sed -e '/^Total usage est:/,/^Usage by model:/d' \
+      -e '/^Usage by model:/d' \
+      -e '/^[[:space:]]*claude-.*Premium request)/d'
+}
 
-# No arguments -> interactive copilot with deny flags
+# No args → fully interactive Copilot (preserve TUI; do NOT pipe through clean_output)
 if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"      # Drop into Copilot CLI interactive with guardrails.
+  exec "$COPILOT_BIN" "${deny_flags[@]}"
 fi
 
-# If first token looks like a flag/subcommand, pass-through (keeps existing workflows)
 case "$1" in
-  -*)        exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;  # Forward flags directly to Copilot.
+  -*)
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
   help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
-             exec "$COPILOT_BIN" "$@" "${deny_flags[@]}";;  # Allow common subcommands unchanged.
+    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
 esac
 
-# Otherwise, treat the whole argument list as a natural-language prompt
-prompt="$*"                                    # Combine args into a single prompt string.
+prompt="$*"
 
-# Extra safety filter against destructive requests in the prompt text
+# Block dangerous commands
 if printf '%s' "$prompt" | grep -Eiq '\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\b|cp[[:space:]]+-r'; then
   echo "Operation blocked: destructive command detected in prompt."
-  echo "Inkly runs in safe mode — deleting or modifying files is not allowed."
   exit 1
 fi
 
-# Call copilot with -p and our deny flags
-exec "$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}"   # Use -p mode so natural text runs as a prompt.
+# Prompt mode: run Copilot then strip usage footer / model stats
+"$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
+exit $?
 EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
-# [6/6] Install "ink" launcher (auto-detect repo path)
-echo "[6/6] Installing ink launcher…"
+# [5/5] Install "ink" launcher (auto-detect repo path)
+echo "[5/5] Installing ink launcher…"
 
 # Determine where install.sh actually lives
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -154,6 +155,31 @@ LAUNCH
 
 chmod +x "$HOME/.npm-global/bin/ink"
 
+echo "[X] Applying Inkly/Copilot HPC-safe terminal settings…"
+
+# Disable OSC color sequences and broken terminal features
+export COPILOT_NO_COLOR=1
+export COPILOT_THEME=plain
+export NO_COLOR=1
+
+# Try to reduce Copilot noise (may or may not be respected by CLI)
+export COPILOT_LOG_LEVEL=none
+export COPILOT_DISABLE_USAGE_FOOTER=1
+
+# Persist for future shells (append only if not already present)
+if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
+cat <<'EOF' >> "$HOME/.bashrc"
+
+# --- Inkly/Copilot HPC-safe settings ---
+export COPILOT_NO_COLOR=1
+export COPILOT_THEME=plain
+export NO_COLOR=1
+export COPILOT_LOG_LEVEL=none
+export COPILOT_DISABLE_USAGE_FOOTER=1
+
+EOF
+fi
+
 # --- Verification ---
 echo
 echo "=== Verification ==="
@@ -168,14 +194,16 @@ echo "Installation complete — open a new shell or run 'source ~/.bashrc' to ac
 echo
 echo "Try:"
 echo "  inkly -p \"Say hello\""                         # Example of direct Copilot prompt mode.
-echo "  ink  \"Say hello\""                             # Example using the HPC-aware wrapper.
+echo "  ink  \"Write a Slurm sbatch for 4 CPU tasks and 1 GPU on partition gpu for 12h\"" 
 
 echo
 echo "Activating Ink function for this shell..."
-source ~/.bashrc                                       # Load PATH changes in the current session.
-echo "Type 'inkly' and log in with GitHub."
+# This will re-load PATH, nvm, and the HPC-safe env into the current shell
+# WITHOUT writing anything new to ~/.bashrc.
+source "$HOME/.bashrc" || true
+echo "Type 'inkly' to log in with GitHub (if you haven't already)."
 
 # --- Refresh parent shell environment for immediate use ---
 echo
-echo "Reloading environment so Node and Inkly are active now..."x
+echo "Reloading environment so Node and Inkly are active now..."
 exec bash -l                                           # Start a login shell so PATH/nvm are fully applied.

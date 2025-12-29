@@ -127,8 +127,7 @@ Log into copilot using the /login command, once complete exit out using ctrl + c
 
 ```bash
 cd Container
-./build.sh
-./install.sh
+. run.sh
 ```
 
 ## 🚀 Usage Example

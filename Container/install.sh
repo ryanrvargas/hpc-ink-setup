@@ -7,8 +7,8 @@ mkdir -p "$HOME/.local/bin"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-ln -sf "$SCRIPT_DIR/ink" "$HOME/.local/bin/ink"
-chmod +x "$SCRIPT_DIR/ink"
+cp "$SCRIPT_DIR/ink" "$HOME/.local/bin/ink"
+chmod +x "$HOME/.local/bin/ink"
 
 echo "==> ink installed to ~/.local/bin/ink"
 

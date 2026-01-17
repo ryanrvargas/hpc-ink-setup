@@ -16,6 +16,14 @@ fi
 
 set -eo pipefail                              # Exit on error and fail a pipeline if any command fails.
 
+INKLY_HOME="$HOME/.inkly"
+COPILOT_STATE="$INKLY_HOME/copilot"
+
+mkdir -p "$COPILOT_STATE"
+
+# Force Copilot to use a persistent, explicit config dir
+export COPILOT_CONFIG_DIR="$COPILOT_STATE"
+
 export PATH="$HOME/.npm-global/bin:$PATH"     # Ensure user-global npm bin is in PATH for the install session.
 
 echo "Installing Ink CLI (powered by GitHub Copilot)..."
@@ -138,19 +146,19 @@ EOF
 
 chmod +x "$HOME/.npm-global/bin/inkly"        # Make the wrapper executable.
 
-# [5/5] Install "ink" launcher (auto-detect repo path)
 echo "[5/5] Installing ink launcher…"
 
-# Determine where install.sh actually lives
-INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+INKLY_BIN="$INKLY_HOME/bin"
+mkdir -p "$INKLY_BIN"
 
-# Ensure ink.sh is executable
-chmod +x "$INSTALL_DIR/ink.sh" 2>/dev/null || true
+# Copy ink.sh into persistent Inkly bin
+cp -f "$(cd "$(dirname "$0")" && pwd)/ink.sh" "$INKLY_BIN/ink.sh"
+chmod +x "$INKLY_BIN/ink.sh"
 
-mkdir -p "$HOME/.npm-global/bin"
-cat <<LAUNCH > "$HOME/.npm-global/bin/ink"
+# Install ink launcher
+cat <<'LAUNCH' > "$HOME/.npm-global/bin/ink"
 #!/bin/bash
-exec "$INSTALL_DIR/ink.sh" "\$@"
+exec "$HOME/.inkly/bin/ink.sh" "$@"
 LAUNCH
 
 chmod +x "$HOME/.npm-global/bin/ink"
@@ -167,8 +175,12 @@ export COPILOT_LOG_LEVEL=none
 export COPILOT_DISABLE_USAGE_FOOTER=1
 
 # Persist for future shells (append only if not already present)
-if ! grep -q 'Inkly/Copilot HPC-safe settings' "$HOME/.bashrc"; then
+if ! grep -q 'Inkly persistent state' "$HOME/.bashrc"; then
 cat <<'EOF' >> "$HOME/.bashrc"
+
+# --- Inkly persistent state ---
+export INKLY_HOME="$HOME/.inkly"
+export COPILOT_CONFIG_DIR="$INKLY_HOME/copilot"
 
 # --- Inkly/Copilot HPC-safe settings ---
 export COPILOT_NO_COLOR=1
@@ -180,6 +192,7 @@ export COPILOT_DISABLE_USAGE_FOOTER=1
 EOF
 fi
 
+
 # --- Verification ---
 echo
 echo "=== Verification ==="
@@ -189,21 +202,16 @@ echo "copilot:   $(copilot --version || true)"          # Show Copilot CLI versi
 echo "inkly:     $(inkly --version || true)"            # Show Inkly wrapper version (proxies Copilot).
 
 echo
-echo "Installation complete — open a new shell or run 'source ~/.bashrc' to activate Ink."
-
-echo
-echo "Try:"
-echo "  inkly -p \"Say hello\""                         # Example of direct Copilot prompt mode.
-echo "  ink  \"Write a Slurm sbatch for 4 CPU tasks and 1 GPU on partition gpu for 12h\"" 
-
-echo
 echo "Activating Ink function for this shell..."
 # This will re-load PATH, nvm, and the HPC-safe env into the current shell
 # WITHOUT writing anything new to ~/.bashrc.
 source "$HOME/.bashrc" || true
+
+echo
+echo "Installation complete — open a new shell or run '. ~/.bashrc' to activate Ink."
 echo "Type 'inkly' to log in with GitHub (if you haven't already)."
 
-# --- Refresh parent shell environment for immediate use ---
 echo
-echo "Reloading environment so Node and Inkly are active now..."
-exec bash -l                                           # Start a login shell so PATH/nvm are fully applied.
+echo "Try:"
+echo "  inkly \"Say hello\""                         # Example of direct Copilot prompt mode.
+echo "  ink  \"Write a Slurm sbatch for 4 CPU tasks and 1 GPU on partition gpu for 12h\"" 

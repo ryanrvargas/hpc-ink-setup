@@ -158,9 +158,14 @@ if [ "$#" -eq 0 ]; then
 fi
 
 case "$1" in
+  -p)
+    shift
+    prompt="$*"
+    ;;
   -*|help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
     exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
 esac
+
 
 prompt="$*"
 

@@ -125,7 +125,13 @@ def write_inkly_wrapper():
 set -euo pipefail
 
 # Force Copilot to run from the user npm prefix
-COPILOT_BIN="$HOME/.npm-global/bin/copilot"
+COPILOT_BIN="$(command -v copilot)"
+
+# Fail fast if Copilot is not available
+if [ -z "$COPILOT_BIN" ] || [ ! -x "$COPILOT_BIN" ]; then
+  echo "Error: copilot not found on PATH" >&2
+  exit 1
+fi
 
 # Guardrails against destructive operations
 deny_flags=(

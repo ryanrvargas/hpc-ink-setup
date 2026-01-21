@@ -40,9 +40,12 @@ def ensure_dirs():
 
 def ensure_nvm_and_node():
     # If Node already exists, do nothing
-    if command_exists("node"):
-        run(["node", "-v"])
+    # Check for node via nvm instead of Python PATH
+    try:
+        run_with_nvm("node -v")
         return
+    except subprocess.CalledProcessError:
+        pass
 
     # Node missing -> install via nvm
     print("Node not found. Installing via nvm.")
@@ -73,6 +76,17 @@ def ensure_nvm_and_node():
         shell=True
     )
 
+# Persist nvm environment for future shells, this sure fix a lot of issues
+def run_with_nvm(cmd, check=True):
+    run(
+        f"""
+        export NVM_DIR="{NVM_DIR}"
+        . "{NVM_DIR}/nvm.sh"
+        {cmd}
+        """,
+        check=check,
+        shell=True
+    )
 
 def configure_npm():
     # Ensure npm uses a user-writable prefix to avoid permission issues
@@ -87,15 +101,18 @@ def configure_npm():
         ]
         npmrc.write_text("\n".join(cleaned) + "\n")
 
-    # Persist ~/.npm-global/bin into PATH if missing
-    if str(BIN_DIR) not in os.environ.get("PATH", ""):
-        with BASHRC.open("a") as f:
-            f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
+    # Persist ~/.npm-global/bin into PATH for future shells
+    if BASHRC.exists():
+        bashrc_text = BASHRC.read_text()
+        if str(BIN_DIR) in bashrc_text:
+            return
 
-
+    with BASHRC.open("a") as f:
+        f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
+        
 def install_copilot():
-    # Install GitHub Copilot CLI into the user npm prefix
-    run(["npm", "install", "-g", "@github/copilot"])
+    # Install GitHub Copilot CLI using nvm-loaded environment
+    run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
@@ -197,10 +214,9 @@ export COPILOT_DISABLE_USAGE_FOOTER=1
 
 def verify():
     # Basic sanity checks after installation
-    run(["node", "-v"])
-    run(["npm", "-v"])
-    run(["copilot", "--version"], check=False)
-    run(["inkly", "--version"], check=False)
+    run_with_nvm("node -v")
+    run_with_nvm("npm -v")
+    run_with_nvm("copilot --version", check=False)
 
 
 def main():
@@ -221,6 +237,7 @@ def main():
 
     print("\nInstallation complete.")
     print("Open a new shell or run: source ~/.bashrc")
+    print("Then run: inkly\nThen /login to authenticate Copilot.")
 
 
 if __name__ == "__main__":

@@ -9,14 +9,14 @@ from pathlib import Path
 
 HOME = Path.home()
 
-INKLY_HOME = HOME / ".inkly"                  # Persistent Inkly state directory
-COPILOT_STATE = INKLY_HOME / "copilot"        # Copilot config + auth storage
+INKLY_HOME = HOME / ".inkly"  # Persistent Inkly state directory
+COPILOT_STATE = INKLY_HOME / "copilot"  # Copilot config + auth storage
 
-NVM_DIR = HOME / ".nvm"                       # User-space nvm install location
-NPM_GLOBAL = HOME / ".npm-global"             # User-space npm prefix
-BIN_DIR = NPM_GLOBAL / "bin"                  # Location for ink / inkly wrappers
+NVM_DIR = HOME / ".nvm"  # User-space nvm install location
+NPM_GLOBAL = HOME / ".npm-global"  # User-space npm prefix
+BIN_DIR = NPM_GLOBAL / "bin"  # Location for ink / inkly wrappers
 
-BASHRC = HOME / ".bashrc"                     # Shell persistence target
+BASHRC = HOME / ".bashrc"  # Shell persistence target
 
 
 def run(cmd, check=True, shell=False):
@@ -54,12 +54,12 @@ def ensure_nvm_and_node():
         if command_exists("curl"):
             run(
                 "curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
-                shell=True
+                shell=True,
             )
         elif command_exists("wget"):
             run(
                 "wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
-                shell=True
+                shell=True,
             )
         else:
             raise RuntimeError("curl or wget is required to install nvm")
@@ -72,8 +72,9 @@ def ensure_nvm_and_node():
         nvm install --lts
         nvm use --lts
         """,
-        shell=True
+        shell=True,
     )
+
 
 # Persist nvm environment for future shells, this sure fix a lot of issues
 def run_with_nvm(cmd, check=True):
@@ -84,8 +85,9 @@ def run_with_nvm(cmd, check=True):
         {cmd}
         """,
         check=check,
-        shell=True
+        shell=True,
     )
+
 
 def configure_npm():
     # Ensure npm uses a user-writable prefix to avoid permission issues
@@ -95,8 +97,7 @@ def configure_npm():
         # Remove conflicting prefix/globalconfig entries
         lines = npmrc.read_text().splitlines()
         cleaned = [
-            line for line in lines
-            if not line.startswith(("prefix=", "globalconfig="))
+            line for line in lines if not line.startswith(("prefix=", "globalconfig="))
         ]
         npmrc.write_text("\n".join(cleaned) + "\n")
 
@@ -108,11 +109,13 @@ def configure_npm():
 
     with BASHRC.open("a") as f:
         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
-        
+
+
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
+
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
 def write_inkly_wrapper():
@@ -191,10 +194,9 @@ def install_ink_launcher():
 
     # Create lightweight launcher in npm-global/bin
     launcher = BIN_DIR / "ink"
-    launcher.write_text(
-        '#!/bin/bash\nexec "$HOME/.inkly/bin/ink.sh" "$@"\n'
-    )
+    launcher.write_text('#!/bin/bash\nexec "$HOME/.inkly/bin/ink.sh" "$@"\n')
     launcher.chmod(0o755)
+
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
 def persist_env():

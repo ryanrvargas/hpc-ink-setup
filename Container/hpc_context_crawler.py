@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 
+
 def run(cmd):
     "Run a command and return its output safely."
     # Execute the external command 'cmd', capture stdout and refirect stderr into stdout
@@ -19,6 +20,7 @@ def run(cmd):
     except Exception as e:
         # On error, return the error message
         return f"ERROR running {cmd}: {e}"
+
 
 def safe_read(path):
     "Read a file safely without crashing."
@@ -30,6 +32,7 @@ def safe_read(path):
         # On error, return the error message
         return f"ERROR reading {path}: {e}"
 
+
 def main():
     # Collect HPC/Slurm context information
     # Store the collected data in a dictionary
@@ -40,10 +43,11 @@ def main():
         "sinfo": run(["sinfo"]),
         "slurm_conf": safe_read("/etc/slurm/slurm.conf"),
         # Flatten all environment variables into "KEY=VALUE" lines joined by newlines
-        "environment": "\n".join([f"{k}={v}" for k, v in os.environ.items()])
+        "environment": "\n".join([f"{k}={v}" for k, v in os.environ.items()]),
     }
     # Print the JSON data to stdout for the container to consume as stdin
     print(json.dumps(data, indent=2))
+
 
 if __name__ == "__main__":
     main()

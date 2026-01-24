@@ -17,6 +17,7 @@ Removes:
   - all ink.sh sourcing
   - ensures .bashrc is syntactically valid after cleanup
 """
+
 import re
 import shutil
 from pathlib import Path
@@ -29,13 +30,13 @@ REMOVE_DIRS = [
     HOME / ".npm-global",
     HOME / ".npm",
     HOME / ".copilot",
-    HOME / ".inkly",                 #NEW
+    HOME / ".inkly",  # NEW
 ]
 
 REMOVE_FILES = [
     HOME / ".npmrc",
     HOME / ".npm/_logs",
-    HOME / ".local/bin/ink",          #NEW
+    HOME / ".local/bin/ink",  # NEW
 ]
 
 REPO_DIR = HOME / "hpc-ink-setup"
@@ -73,20 +74,20 @@ def clean_bashrc():
     text = BASHRC.read_text()
 
     patterns = [
-        r'.*hpc-ink-setup\/hpc-ink-setup\/ink\.sh.*\n',
-        r'.*hpc-ink-setup\/ink\.sh.*\n',
+        r".*hpc-ink-setup\/hpc-ink-setup\/ink\.sh.*\n",
+        r".*hpc-ink-setup\/ink\.sh.*\n",
         r'export PATH="\$HOME/\.npm-global/bin:\$PATH".*\n',
-        r'.*\.npm-global/bin.*\n',
-        r'# --- INKLY START ---.*?# --- INKLY END ---\n?',
-        r'# --- INKLY FN START ---.*?# --- INKLY FN END ---\n?',
+        r".*\.npm-global/bin.*\n",
+        r"# --- INKLY START ---.*?# --- INKLY END ---\n?",
+        r"# --- INKLY FN START ---.*?# --- INKLY FN END ---\n?",
     ]
 
     for pat in patterns:
         text = re.sub(pat, "", text, flags=re.S)
 
     # Repair broken shell structure
-    text = re.sub(r'\nfi\nfi', '\nfi', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r"\nfi\nfi", "\nfi", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
     cleaned = text.strip() + "\n"
     BASHRC.write_text(cleaned)
@@ -121,7 +122,7 @@ def main():
         safe_remove(f)
 
     remove_stale_binaries()
-    #safe_remove(REPO_DIR)
+    # safe_remove(REPO_DIR)
     remove_copilot_cache()
     clean_bashrc()
     sanity_check()

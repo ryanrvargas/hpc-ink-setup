@@ -1,0 +1,119 @@
+# Inkly Global Configuration
+# This file defines policy, not implementation
+
+# Installation Policy
+[install]
+user_space_only = true
+allow_modify_shell_rc = true
+shell_rc = "~/.bashrc"
+allow_path_injection = true
+
+
+# Ntwork Assumptions
+[network]
+require_internet = true
+allowed_domains = [
+  "github.com",
+  "raw.githubusercontent.com",
+  "registry.npmjs.org"
+]
+
+
+# Node / NVM Configuration
+[node]
+install_method = "nvm"
+install_if_missing = true
+nvm_version = "0.39.7"
+node_version = "lts"
+
+allow_curl = true
+allow_wget = true
+
+
+# Persistent State
+[state]
+inkly_home = "~/.inkly"
+bin_dir = "~/.inkly/bin"
+copilot_config_dir = "~/.inkly/copilot"
+log_dir = "~/.inkly/logs"
+
+
+# Copilot UI & Behavior
+[copilot.ui]
+no_color = true
+theme = "plain"
+log_level = "none"
+disable_usage_footer = true
+
+
+# Copilot Guardrails (Tool-Level)
+[copilot.guardrails]
+disable_parallel_tools = true
+
+deny_shell_commands = [
+  "rm:*",
+  "sudo:*",
+  "chmod:*",
+  "chown:*",
+  "rmdir:*",
+  "unlink:*",
+  "cp:*",
+  "mv:*"
+]
+
+
+# Prompt-Level Intent Filtering
+[prompt_filter]
+enabled = true
+case_insensitive = true
+
+blocked_keywords = [
+  "rm",
+  "mv",
+  "unlink",
+  "dd",
+  "chmod",
+  "chown",
+  "rmdir",
+  "sudo"
+]
+
+blocked_regex = [
+  "cp\\s+-r"
+]
+
+
+# Output Sanitization
+[output]
+sanitize = true
+remove_usage_blocks = true
+
+remove_vendor_lines = [
+  "^\\s*claude-.*Premium request\\)"
+]
+
+
+# Wrapper Behavior
+[wrapper]
+interactive_passthrough = true
+require_login = true
+fail_on_missing_copilot = true
+
+
+# Logging & Research Controls
+[logging]
+enabled = true
+level = "info"
+
+log_user_prompts = true
+log_ai_responses = true
+log_job_outcomes = false
+
+per_user_logs = true
+global_log = false
+
+
+# Profile Support (Future)
+[profile]
+name = "default"
+description = "Safe default Inkly configuration"

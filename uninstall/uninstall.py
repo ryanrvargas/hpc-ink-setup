@@ -17,8 +17,6 @@ Removes:
   - all ink.sh sourcing
   - ensures .bashrc is syntactically valid after cleanup
 """
-
-import os
 import re
 import shutil
 from pathlib import Path

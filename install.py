@@ -63,6 +63,8 @@ def ensure_dirs():
     inkly_bin.mkdir(parents=True, exist_ok=True)
     copilot_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
+    USER_BIN.mkdir(parents=True, exist_ok=True)
+
 
 
 
@@ -103,14 +105,26 @@ def ensure_nvm_and_node():
     if not (NVM_DIR / "nvm.sh").exists():
         raise RuntimeError("NVM install completed but nvm.sh is missing")
     
+    if node_cfg["node_version"] in ("lts", "stable", "latest"):
+        raise RuntimeError(
+            "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
+            "Use an explicit Node version in config.toml."
+        )
+
+    version = node_cfg["node_version"]
+
     run(
-        f"""
-        export NVM_DIR="{NVM_DIR}"
-        . "{NVM_DIR}/nvm.sh"
-        nvm install {node_cfg['node_version']}
-        nvm use {node_cfg['node_version']}
-        """,
-        shell=True,
+    f"""
+    export NVM_DIR="{NVM_DIR}"
+    . "{NVM_DIR}/nvm.sh"
+
+    if ! nvm ls {version} >/dev/null 2>&1; then
+        nvm install {version}
+    fi
+
+    nvm use {version}
+    """,
+    shell=True,
     )
 
 # Persist nvm environment for future shells, this sure fix a lot of issues
@@ -159,6 +173,11 @@ def configure_npm():
 
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
+    if not (NVM_DIR / "nvm.sh").exists():
+        raise RuntimeError(
+            "Inkly requires an NVM-managed Node runtime to install Copilot. "
+            "Disable system Node or allow NVM install."
+        )
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 

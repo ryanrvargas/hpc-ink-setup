@@ -204,7 +204,7 @@ if [ -z "$COPILOT_BIN" ]; then
   exit 1
 fi
 
-exec "$COPILOT_BIN" "$@"
+exec "$COPILOT_BIN" -p "$@"
 """
     )
 

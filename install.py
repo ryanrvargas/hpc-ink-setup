@@ -22,9 +22,6 @@ NVM_DIR = HOME / ".nvm"  # User-space nvm install location
 NPM_GLOBAL = HOME / ".npm-global"  # User-space npm prefix
 USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
-
-BASHRC = HOME / ".bashrc"  # Shell persistence target
-
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
 def ensure_default_config():
@@ -71,18 +68,24 @@ def ensure_dirs():
 
 def ensure_nvm_and_node():
     node_cfg = CONFIG["node"]
-    nvm_dir = NVM_DIR
-
-    try:
-        run_with_nvm("node -v")
-        return
-    except subprocess.CalledProcessError:
-        pass
+    
+    # First, check if node exists at all (system, module, or user path)
+    if command_exists("node"):
+        try:
+            subprocess.run(
+                ["node", "-e", "require('child_process')"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return
+        except subprocess.CalledProcessError:
+            pass
 
     if not node_cfg.get("install_if_missing", True):
         raise RuntimeError("Node missing and auto-install disabled in config")
 
-    if not nvm_dir.exists():
+    if not NVM_DIR.exists():
         if node_cfg.get("allow_curl", True) and command_exists("curl"):
             run(
                 f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg['nvm_version']}/install.sh | bash",
@@ -95,11 +98,15 @@ def ensure_nvm_and_node():
             )
         else:
             raise RuntimeError("No permitted download method for nvm")
-
+            
+    # Now NVM must exist
+    if not (NVM_DIR / "nvm.sh").exists():
+        raise RuntimeError("NVM install completed but nvm.sh is missing")
+    
     run(
         f"""
-        export NVM_DIR="{nvm_dir}"
-        . "{nvm_dir}/nvm.sh"
+        export NVM_DIR="{NVM_DIR}"
+        . "{NVM_DIR}/nvm.sh"
         nvm install {node_cfg['node_version']}
         nvm use {node_cfg['node_version']}
         """,
@@ -199,9 +206,14 @@ def install_ink_launcher():
 
 def verify():
     # Basic sanity checks after installation
-    run_with_nvm("node -v")
-    run_with_nvm("npm -v")
-    run_with_nvm("copilot --version", check=False)
+    if (NVM_DIR / "nvm.sh").exists():
+        run_with_nvm("node -v")
+        run_with_nvm("npm -v")
+        run_with_nvm("copilot --version", check=False)
+    else:
+        run(["node", "-v"])
+        run(["npm", "-v"])
+        run(["copilot", "--version"], check=False)
 
 
 def main():

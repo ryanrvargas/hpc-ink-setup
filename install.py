@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import tomllib
 import subprocess
 import shutil
 from pathlib import Path
@@ -14,10 +15,28 @@ COPILOT_STATE = INKLY_HOME / "copilot"  # Copilot config + auth storage
 
 NVM_DIR = HOME / ".nvm"  # User-space nvm install location
 NPM_GLOBAL = HOME / ".npm-global"  # User-space npm prefix
-BIN_DIR = NPM_GLOBAL / "bin"  # Location for ink / inkly wrappers
+USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
+
 
 BASHRC = HOME / ".bashrc"  # Shell persistence target
 
+CONFIG_PATH = INKLY_HOME / "config.toml"
+
+def ensure_default_config():
+    INKLY_HOME.mkdir(parents=True, exist_ok=True)
+
+    if not CONFIG_PATH.exists():
+        shutil.copy2(
+            Path(__file__).parent / "config.toml",
+            CONFIG_PATH
+        )
+
+def load_config():
+    if not CONFIG_PATH.exists():
+        raise RuntimeError("Inkly config.toml not found at ~/.inkly/config.toml")
+
+    with CONFIG_PATH.open("rb") as f:
+        return tomllib.load(f)
 
 def run(cmd, check=True, shell=False):
     # Execute a command and fail fast on errors
@@ -31,53 +50,61 @@ def command_exists(cmd):
 
 
 def ensure_dirs():
-    # Create all persistent directories required by Inkly
-    COPILOT_STATE.mkdir(parents=True, exist_ok=True)
-    BIN_DIR.mkdir(parents=True, exist_ok=True)
-    (INKLY_HOME / "bin").mkdir(parents=True, exist_ok=True)
+    state = CONFIG["state"]
+
+    inkly_home = Path(os.path.expanduser(state["inkly_home"]))
+    inkly_bin = Path(os.path.expanduser(state["bin_dir"]))
+    copilot_dir = Path(os.path.expanduser(state["copilot_config_dir"]))
+    log_dir = Path(os.path.expanduser(state["log_dir"]))
+
+    inkly_home.mkdir(parents=True, exist_ok=True)
+    inkly_bin.mkdir(parents=True, exist_ok=True)
+    copilot_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+
 
 
 def ensure_nvm_and_node():
-    # If Node already exists, do nothing
-    # Check for node via nvm instead of Python PATH
+    node_cfg = CONFIG["node"]
+    nvm_dir = NVM_DIR
+
     try:
         run_with_nvm("node -v")
         return
     except subprocess.CalledProcessError:
         pass
 
-    # Node missing -> install via nvm
-    print("Node not found. Installing via nvm.")
+    if not node_cfg.get("install_if_missing", True):
+        raise RuntimeError("Node missing and auto-install disabled in config")
 
-    if not NVM_DIR.exists():
-        # Install nvm only if it is not already present
-        if command_exists("curl"):
+    if not nvm_dir.exists():
+        if node_cfg.get("allow_curl", True) and command_exists("curl"):
             run(
-                "curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
+                f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg['nvm_version']}/install.sh | bash",
                 shell=True,
             )
-        elif command_exists("wget"):
+        elif node_cfg.get("allow_wget", True) and command_exists("wget"):
             run(
-                "wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
+                f"wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg['nvm_version']}/install.sh | bash",
                 shell=True,
             )
         else:
-            raise RuntimeError("curl or wget is required to install nvm")
+            raise RuntimeError("No permitted download method for nvm")
 
-    # Load nvm and install latest LTS Node
     run(
         f"""
-        export NVM_DIR="{NVM_DIR}"
-        . "{NVM_DIR}/nvm.sh"
-        nvm install --lts
-        nvm use --lts
+        export NVM_DIR="{nvm_dir}"
+        . "{nvm_dir}/nvm.sh"
+        nvm install {node_cfg['node_version']}
+        nvm use {node_cfg['node_version']}
         """,
         shell=True,
     )
 
-
 # Persist nvm environment for future shells, this sure fix a lot of issues
 def run_with_nvm(cmd, check=True):
+    if not (NVM_DIR / "nvm.sh").exists():
+        raise RuntimeError("nvm.sh not found in NVM_DIR")
     run(
         f"""
         export NVM_DIR="{NVM_DIR}"
@@ -90,6 +117,13 @@ def run_with_nvm(cmd, check=True):
 
 
 def configure_npm():
+    install_cfg = CONFIG["install"]
+
+    if not install_cfg.get("allow_modify_shell_rc", True):
+        return
+
+    shell_rc = Path(os.path.expanduser(install_cfg["shell_rc"]))
+
     # Ensure npm uses a user-writable prefix to avoid permission issues
     npmrc = HOME / ".npmrc"
 
@@ -102,12 +136,12 @@ def configure_npm():
         npmrc.write_text("\n".join(cleaned) + "\n")
 
     # Persist ~/.npm-global/bin into PATH for future shells
-    if BASHRC.exists():
-        bashrc_text = BASHRC.read_text()
-        if str(BIN_DIR) in bashrc_text:
+    if shell_rc.exists():
+        rc_text = shell_rc.read_text()
+        if str(USER_BIN) in rc_text:
             return
 
-    with BASHRC.open("a") as f:
+    with shell_rc.open("a") as f:
         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
 
 
@@ -119,70 +153,31 @@ def install_copilot():
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
 def write_inkly_wrapper():
-    # Create the secure inkly wrapper that fronts Copilot
-    wrapper = BIN_DIR / "inkly"
+    wrapper = USER_BIN / "inkly"
 
     wrapper.write_text(
         """#!/bin/bash
 set -euo pipefail
 
-# Force Copilot to run from the user npm prefix
+CONFIG="$HOME/.inkly/config.toml"
+
+if [ ! -f "$CONFIG" ]; then
+  echo "Inkly config.toml not found" >&2
+  exit 1
+fi
+
 COPILOT_BIN="$(command -v copilot)"
 
-# Fail fast if Copilot is not available
-if [ -z "$COPILOT_BIN" ] || [ ! -x "$COPILOT_BIN" ]; then
-  echo "Error: copilot not found on PATH" >&2
+if [ -z "$COPILOT_BIN" ]; then
+  echo "copilot not found on PATH" >&2
   exit 1
 fi
 
-# Guardrails against destructive operations
-deny_flags=(
-  --disable-parallel-tools-execution
-  --deny-tool 'shell(rm:*)'
-  --deny-tool 'shell(sudo:*)'
-  --deny-tool 'shell(chmod:*)'
-  --deny-tool 'shell(chown:*)'
-  --deny-tool 'shell(rmdir:*)'
-  --deny-tool 'shell(unlink:*)'
-  --deny-tool 'shell(cp:*)'
-  --deny-tool 'shell(mv:*)'
-)
-
-clean_output() {
-  sed -e '/^Total usage est:/,/^Usage by model:/d' \
-      -e '/^Usage by model:/d' \
-      -e '/^[[:space:]]*claude-.*Premium request)/d'
-}
-
-# Interactive mode (preserve TUI)
-if [ "$#" -eq 0 ]; then
-  exec "$COPILOT_BIN" "${deny_flags[@]}"
-fi
-
-case "$1" in
-  -p)
-    shift
-    prompt="$*"
-    ;;
-  -*|help|--help|-h|login|logout|whoami|version|update|suggest|chat|terms)
-    exec "$COPILOT_BIN" "$@" "${deny_flags[@]}" ;;
-esac
-
-
-prompt="$*"
-
-# Block dangerous shell intent in prompt mode
-if printf '%s' "$prompt" | grep -Eiq '\\b(rm|mv|unlink|dd|chmod|chown|rmdir|sudo)\\b|cp[[:space:]]+-r'; then
-  echo "Operation blocked: destructive command detected."
-  exit 1
-fi
-
-"$COPILOT_BIN" -p "$prompt" "${deny_flags[@]}" 2>&1 | clean_output
+exec "$COPILOT_BIN" "$@"
 """
     )
 
     wrapper.chmod(0o755)
-
 
 def install_ink_launcher():
     # Copy ink.sh into persistent Inkly bin
@@ -193,36 +188,9 @@ def install_ink_launcher():
     ink_dst.chmod(0o755)
 
     # Create lightweight launcher in npm-global/bin
-    launcher = BIN_DIR / "ink"
+    launcher = USER_BIN / "ink"
     launcher.write_text('#!/bin/bash\nexec "$HOME/.inkly/bin/ink.sh" "$@"\n')
     launcher.chmod(0o755)
-
-
-# Going to remove this and make it into a Toml file later so users can configure it as they like
-def persist_env():
-    # Going to keep this part
-    # Avoid duplicating Inkly environment blocks
-    if BASHRC.exists() and "Inkly persistent state" in BASHRC.read_text():
-        return
-
-    # This part can be removed
-    # Persist Inkly and Copilot environment configuration
-    with BASHRC.open("a") as f:
-        f.write(
-            """
-# --- Inkly persistent state ---
-export INKLY_HOME="$HOME/.inkly"
-export COPILOT_CONFIG_DIR="$HOME/.inkly/copilot"
-
-# --- Inkly/Copilot HPC-safe settings ---
-export COPILOT_NO_COLOR=1
-export COPILOT_THEME=plain
-export NO_COLOR=1
-export COPILOT_LOG_LEVEL=none
-export COPILOT_DISABLE_USAGE_FOOTER=1
-"""
-        )
-
 
 def verify():
     # Basic sanity checks after installation
@@ -232,19 +200,22 @@ def verify():
 
 
 def main():
+    global CONFIG
+
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
     # Ensure Copilot always uses Inkly state directory
     os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
 
+    ensure_default_config()
+    CONFIG = load_config()
     ensure_dirs()
     ensure_nvm_and_node()
     configure_npm()
     install_copilot()
     write_inkly_wrapper()
     install_ink_launcher()
-    persist_env()
     verify()
 
     print("\nInstallation complete.")

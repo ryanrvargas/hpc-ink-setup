@@ -1,5 +1,7 @@
+################
 # Inkly Global Configuration
-# This file defines policy, not implementation
+# This file defines policy, not implementation.
+
 
 # Installation Policy
 [install]

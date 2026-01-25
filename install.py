@@ -204,8 +204,16 @@ if [ -z "$COPILOT_BIN" ]; then
   exit 1
 fi
 
-exec "$COPILOT_BIN" -p "$@"
+if [ "$#" -eq 0 ]; then
+  # Interactive mode
+  exec "$COPILOT_BIN"
+else
+  # Non-interactive prompt mode
+  exec "$COPILOT_BIN" -p "$*"
+fi
+
 """
+
     )
 
     wrapper.chmod(0o755)

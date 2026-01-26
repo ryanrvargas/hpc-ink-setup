@@ -19,5 +19,17 @@ except Exception as e:
     print(f"Inkly config error: {e}", file=sys.stderr)
     sys.exit(1)
 
-# apply guardrails, flags, etc. Later we can expand this to do more.
-subprocess.execvp("copilot", "-p" + sys.argv[1:])
+# Build copilot command
+cmd = ["copilot"]
+
+if len(sys.argv) > 1:
+    # Non-interactive prompt mode
+    cmd += ["-p"] + sys.argv[1:]
+# else: interactive mode (no flags)
+
+# Exec copilot directly
+try:
+    subprocess.execvp("copilot", cmd)
+except FileNotFoundError:
+    print("Inkly error: 'copilot' not found on PATH", file=sys.stderr)
+    sys.exit(1)

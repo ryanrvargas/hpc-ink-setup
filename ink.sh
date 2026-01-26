@@ -49,5 +49,4 @@ fi
 
 # --- Compose prompt (true newlines) and call inkly ---
 prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\nNow: '"$*"
-exec "$INKLY_BIN" --context "$ctx" --prompt "$*"
-# Note: --context and --prompt are separate to avoid issues with quoting and newlines.
+exec "$INKLY_BIN" "$prompt"

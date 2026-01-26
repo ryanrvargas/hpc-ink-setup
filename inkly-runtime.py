@@ -10,7 +10,6 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 from pathlib import Path
-import subprocess
 
 config_path = Path.home() / ".inkly" / "config.toml"
 NPM_BIN = Path.home() / ".npm-global" / "bin"

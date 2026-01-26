@@ -7,14 +7,18 @@ set -euo pipefail
 # --- Detect Inkly binary ---
 INKLY_BIN="${HOME}/.npm-global/bin/inkly"
 if [ ! -x "$INKLY_BIN" ]; then
-  echo "Inkly binary not found — run install.sh first."
+  echo "Inkly binary not found - run install.sh first."
   exit 1
 fi
 
 # --- Build HPC context with real newlines ---
+# Use a variable and printf -v to build multi-line string, since
+# bash doesn't support multi-line strings natively.
 ctx=""
 append() { printf -v ctx '%s%s%s' "$ctx" "$1" $'\n'; }
 
+# --- Gather HPC environment info ---
+# Hostname, OS, SLURM queues, SLURM config path, GPU info
 command -v hostname >/dev/null 2>&1 && append "Hostname: $(hostname)"
 
 if [ -f /etc/os-release ]; then
@@ -45,4 +49,5 @@ fi
 
 # --- Compose prompt (true newlines) and call inkly ---
 prompt=$'Using the following HPC environment context:\n'"${ctx}"$'\nNow: '"$*"
-exec "$INKLY_BIN" -p "$prompt"
+exec "$INKLY_BIN" --context "$ctx" --prompt "$*"
+# Note: --context and --prompt are separate to avoid issues with quoting and newlines.

@@ -3,7 +3,10 @@
 # before executing it. This includes loading guardrails, flags, and other settings.
 # Reads from ~/.inkly/config.toml for settings.
 import sys
-import tomllib
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # Python <=3.10
 from pathlib import Path
 import subprocess
 

@@ -24,14 +24,13 @@ USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
+
 def ensure_default_config():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
 
     if not CONFIG_PATH.exists():
-        shutil.copy2(
-            Path(__file__).parent / "config.toml",
-            CONFIG_PATH
-        )
+        shutil.copy2(Path(__file__).parent / "config.toml", CONFIG_PATH)
+
 
 def load_config():
     if not CONFIG_PATH.exists():
@@ -39,6 +38,7 @@ def load_config():
 
     with CONFIG_PATH.open("rb") as f:
         return tomllib.load(f)
+
 
 def run(cmd, check=True, shell=False):
     # Execute a command and fail fast on errors
@@ -65,6 +65,7 @@ def ensure_dirs():
     log_dir.mkdir(parents=True, exist_ok=True)
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
+
 def ensure_nvm_and_node():
     node_cfg = CONFIG["node"]
 
@@ -74,10 +75,10 @@ def ensure_nvm_and_node():
             "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
             "Use an explicit Node version in config.toml."
         )
-    
+
     # Ensure desired Node version is installed
     version = node_cfg["node_version"]
-    
+
     if (NVM_DIR / "nvm.sh").exists():
         if node_cfg["node_version"] in ("lts", "stable", "latest"):
             raise RuntimeError(
@@ -102,7 +103,7 @@ def ensure_nvm_and_node():
     # Node is missing or broken
     if not node_cfg.get("install_if_missing", True):
         raise RuntimeError("Node missing and auto-install disabled in config")
-    
+
     # Install nvm if missing
     if not NVM_DIR.exists():
         if node_cfg.get("allow_curl", True) and command_exists("curl"):
@@ -117,14 +118,14 @@ def ensure_nvm_and_node():
             )
         else:
             raise RuntimeError("No permitted download method for nvm")
-            
+
     # Now NVM must exist
     if not (NVM_DIR / "nvm.sh").exists():
         raise RuntimeError("NVM install completed but nvm.sh is missing")
 
     # Install and use desired Node version
     run(
-    f"""
+        f"""
     export NVM_DIR="{NVM_DIR}"
     . "{NVM_DIR}/nvm.sh"
 
@@ -134,8 +135,9 @@ def ensure_nvm_and_node():
 
     nvm use {version}
     """,
-    shell=True,
+        shell=True,
     )
+
 
 # Persist nvm environment for future shells, this sure fix a lot of issues
 def run_with_nvm(cmd, check=True):
@@ -150,6 +152,7 @@ def run_with_nvm(cmd, check=True):
         check=check,
         shell=True,
     )
+
 
 def configure_npm():
     install_cfg = CONFIG["install"]
@@ -179,6 +182,7 @@ def configure_npm():
     with shell_rc.open("a") as f:
         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
 
+
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
     if not (NVM_DIR / "nvm.sh").exists():
@@ -188,6 +192,7 @@ def install_copilot():
         )
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
+
 
 def install_inkly_runtime():
     # Copy inkly-runtime.py into persistent Inkly bin
@@ -202,6 +207,7 @@ def install_inkly_runtime():
         raise RuntimeError("inkly-runtime.py not found in repo")
     shutil.copy2(runtime_src, runtime_dst)
     runtime_dst.chmod(0o755)
+
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
 def write_inkly_wrapper():
@@ -227,10 +233,10 @@ fi
 exec "$PY" "$RUNTIME" "$@"
 
 """
-
     )
 
     wrapper.chmod(0o755)
+
 
 def install_ink_launcher():
     # Copy ink.sh into persistent Inkly bin
@@ -244,6 +250,7 @@ def install_ink_launcher():
     launcher = USER_BIN / "ink"
     launcher.write_text('#!/bin/bash\nexec "$HOME/.inkly/bin/ink.sh" "$@"\n')
     launcher.chmod(0o755)
+
 
 def verify():
     # Basic sanity checks after installation

@@ -4,6 +4,7 @@
 # Reads from ~/.inkly/config.toml for settings.
 import os
 import sys
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:

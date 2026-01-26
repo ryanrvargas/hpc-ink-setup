@@ -2,6 +2,7 @@
 # Inkly Run Time - applies Inkly-specific configurations to GitHub Copilot CLI
 # before executing it. This includes loading guardrails, flags, and other settings.
 # Reads from ~/.inkly/config.toml for settings.
+import os
 import sys
 try:
     import tomllib  # Python 3.11+
@@ -11,6 +12,7 @@ from pathlib import Path
 import subprocess
 
 config_path = Path.home() / ".inkly" / "config.toml"
+NPM_BIN = Path.home() / ".npm-global" / "bin"
 
 try:
     with config_path.open("rb") as f:
@@ -18,6 +20,9 @@ try:
 except Exception as e:
     print(f"Inkly config error: {e}", file=sys.stderr)
     sys.exit(1)
+
+# Ensure copilot is discoverable
+os.environ["PATH"] = f"{NPM_BIN}:{os.environ.get('PATH', '')}"
 
 # Build copilot command
 cmd = ["copilot"]

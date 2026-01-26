@@ -65,28 +65,45 @@ def ensure_dirs():
     log_dir.mkdir(parents=True, exist_ok=True)
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
-
-
-
 def ensure_nvm_and_node():
     node_cfg = CONFIG["node"]
-    
-    # First, check if node exists at all (system, module, or user path)
-    if command_exists("node"):
-        try:
-            subprocess.run(
-                ["node", "-e", "require('child_process')"],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            return
-        except subprocess.CalledProcessError:
-            pass
 
+    # If user specified an alias for Node version, reject it
+    if node_cfg["node_version"] in ("lts", "stable", "latest"):
+        raise RuntimeError(
+            "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
+            "Use an explicit Node version in config.toml."
+        )
+    
+    # Ensure desired Node version is installed
+    version = node_cfg["node_version"]
+    
+    if (NVM_DIR / "nvm.sh").exists():
+        if node_cfg["node_version"] in ("lts", "stable", "latest"):
+            raise RuntimeError(
+                "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
+                "Use an explicit Node version in config.toml."
+            )
+
+        version = node_cfg["node_version"]
+
+        result = subprocess.run(
+            f'''
+            export NVM_DIR="{NVM_DIR}"
+            . "{NVM_DIR}/nvm.sh"
+            nvm ls {version} >/dev/null 2>&1
+            ''',
+            shell=True,
+        )
+        if result.returncode == 0:
+            # Correct Node version already installed via NVM
+            return
+
+    # Node is missing or broken
     if not node_cfg.get("install_if_missing", True):
         raise RuntimeError("Node missing and auto-install disabled in config")
-
+    
+    # Install nvm if missing
     if not NVM_DIR.exists():
         if node_cfg.get("allow_curl", True) and command_exists("curl"):
             run(
@@ -104,15 +121,8 @@ def ensure_nvm_and_node():
     # Now NVM must exist
     if not (NVM_DIR / "nvm.sh").exists():
         raise RuntimeError("NVM install completed but nvm.sh is missing")
-    
-    if node_cfg["node_version"] in ("lts", "stable", "latest"):
-        raise RuntimeError(
-            "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
-            "Use an explicit Node version in config.toml."
-        )
 
-    version = node_cfg["node_version"]
-
+    # Install and use desired Node version
     run(
     f"""
     export NVM_DIR="{NVM_DIR}"
@@ -140,7 +150,6 @@ def run_with_nvm(cmd, check=True):
         check=check,
         shell=True,
     )
-
 
 def configure_npm():
     install_cfg = CONFIG["install"]
@@ -170,7 +179,6 @@ def configure_npm():
     with shell_rc.open("a") as f:
         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
 
-
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
     if not (NVM_DIR / "nvm.sh").exists():
@@ -181,6 +189,19 @@ def install_copilot():
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 
+def install_inkly_runtime():
+    # Copy inkly-runtime.py into persistent Inkly bin
+    runtime_src = Path(__file__).parent / "inkly-runtime.py"
+    runtime_dst = INKLY_HOME / "bin" / "inkly-runtime.py"
+
+    # Ensure destination directory exists
+    runtime_dst.parent.mkdir(parents=True, exist_ok=True)
+
+    # Copy runtime script
+    if not runtime_src.exists():
+        raise RuntimeError("inkly-runtime.py not found in repo")
+    shutil.copy2(runtime_src, runtime_dst)
+    runtime_dst.chmod(0o755)
 
 # Going to remove this and make it into a Toml file later so users can configure it as they like
 def write_inkly_wrapper():
@@ -190,27 +211,20 @@ def write_inkly_wrapper():
         """#!/bin/bash
 set -euo pipefail
 
-CONFIG="$HOME/.inkly/config.toml"
+RUNTIME="$HOME/.inkly/bin/inkly-runtime.py"
 
-if [ ! -f "$CONFIG" ]; then
-  echo "Inkly config.toml not found" >&2
+if [ ! -f "$RUNTIME" ]; then
+  echo "Inkly runtime not found in $RUNTIME" >&2
   exit 1
 fi
 
-COPILOT_BIN="$(command -v copilot)"
-
-if [ -z "$COPILOT_BIN" ]; then
-  echo "copilot not found on PATH" >&2
+PY="$(command -v python3 || true)"
+if [ -z "$PY" ]; then
+  echo "python3 not found on PATH" >&2
   exit 1
 fi
 
-if [ "$#" -eq 0 ]; then
-  # Interactive mode
-  exec "$COPILOT_BIN"
-else
-  # Non-interactive prompt mode
-  exec "$COPILOT_BIN" -p "$*"
-fi
+exec "$PY" "$RUNTIME" "$@"
 
 """
 
@@ -238,9 +252,7 @@ def verify():
         run_with_nvm("npm -v")
         run_with_nvm("copilot --version", check=False)
     else:
-        run(["node", "-v"])
-        run(["npm", "-v"])
-        run(["copilot", "--version"], check=False)
+        raise RuntimeError("Verification failed: NVM missing")
 
 
 def main():
@@ -258,6 +270,7 @@ def main():
     ensure_nvm_and_node()
     configure_npm()
     install_copilot()
+    install_inkly_runtime()
     write_inkly_wrapper()
     install_ink_launcher()
     verify()

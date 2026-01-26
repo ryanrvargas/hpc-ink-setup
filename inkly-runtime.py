@@ -17,4 +17,4 @@ except Exception as e:
     sys.exit(1)
 
 # apply guardrails, flags, etc. Later we can expand this to do more.
-subprocess.execvp("copilot", ["copilot", "-p"] + sys.argv[1:])
+subprocess.execvp("copilot", "-p" + sys.argv[1:])

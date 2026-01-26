@@ -34,7 +34,7 @@ if len(sys.argv) > 1:
 
 # Exec copilot directly
 try:
-    subprocess.execvp("copilot", cmd)
+    os.execvp("copilot", cmd)
 except FileNotFoundError:
     print("Inkly error: 'copilot' not found on PATH", file=sys.stderr)
     sys.exit(1)

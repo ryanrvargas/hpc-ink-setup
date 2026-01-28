@@ -171,6 +171,88 @@ This allows other institutions to audit, adapt, and deploy Inkly safely.
 
 ---
 
+## Inkly System Control FLow
+┌──────────────────────────────┐
+│        User Machine          │
+│  (login node / shell)        │
+└─────────────┬────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│              install.py                 │
+│        (one-time installer)             │
+│                                         │
+│ • Create ~/.inkly state dirs            │
+│ • Install NVM + Node (user-space)       │
+│ • Install GitHub Copilot CLI            │
+│ • Write ~/.inkly/config.toml            │
+│ • Copy ink.sh → ~/.inkly/bin            │
+│ • Copy inkly-runtime.py → ~/.inkly/bin  │
+│ • Create launchers:                     │
+│     ~/.npm-global/bin/ink               │
+│     ~/.npm-global/bin/inkly             │
+└─────────────┬───────────────────────────┘
+              │ filesystem artifacts
+              ▼
+┌─────────────────────────────────────────┐
+│        Persistent Inkly Layout          │
+│                                         │
+│ ~/.inkly/                               │
+│ ├─ bin/                                 │
+│ │  ├─ ink.sh                            │
+│ │  └─ inkly-runtime.py                  │
+│ ├─ config.toml                          │
+│ ├─ copilot/   (auth + state)            │
+│ └─ logs/                                │
+│                                         │
+│ ~/.npm-global/bin/                      │
+│ ├─ ink      → ink.sh                    │
+│ └─ inkly    → inkly-runtime.py          │
+└─────────────┬───────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────┐
+│        User Invocation       │
+│  ink "request resources…"    │
+└─────────────┬────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│                ink.sh                   │
+│      (HPC-aware shell wrapper)          │
+│                                         │
+│ • Read live cluster state               │
+│   - hostname / OS                       │
+│   - sinfo (partitions, queues)          │
+│   - slurm.conf path                     │
+│   - nvidia-smi (if present)             │
+│ • Build natural-language HPC context    │
+│ • Decide interactive vs prompt mode     │
+│ • Forward enriched prompt → inkly       │
+└─────────────┬───────────────────────────┘
+              │ enriched prompt
+              ▼
+┌─────────────────────────────────────────┐
+│           inkly-runtime.py              │
+│        (policy + execution layer)       │
+│                                         │
+│ • Load ~/.inkly/config.toml             │
+│ • Enforce runtime constraints           │
+│ • Normalize PATH for Copilot            │
+│ • Translate args → copilot flags        │
+│ • No Slurm / GPU assumptions            │
+└─────────────┬───────────────────────────┘
+              │ exec()
+              ▼
+┌──────────────────────────────┐
+│      GitHub Copilot CLI      │
+│                              │
+│ • Interactive chat OR        │
+│ • -p prompt execution        │
+└─────────────┬────────────────┘
+              ▼
+        AI-generated response
+
 ## ⚠️ Limitations
 
 Inkly intentionally does **not**:

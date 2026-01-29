@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-Ink: HPC-aware assistant built on Inkly (Copilot CLI)
-Usage:
-    ink "Make me a Slurm sbatch for 2 GPU nodes for 24h"
+Ink: Cluster-aware Inkly runtime + launcher
+
+Combines:
+- ink (cluster context + prompt injection)
+- inkly-runtime.py (config, guardrails, Copilot exec)
 """
 
 import os
@@ -11,16 +13,19 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# Utility functions
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # Python <=3.10
+
+# Utilities
 def die(msg: str, code: int = 1):
     print(msg, file=sys.stderr)
     sys.exit(code)
 
-# Check if a command exists in PATH
 def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
-# Run a command and capture its output
 def run_capture(cmd: list[str]) -> str | None:
     try:
         result = subprocess.run(
@@ -34,73 +39,79 @@ def run_capture(cmd: list[str]) -> str | None:
     except subprocess.CalledProcessError:
         return None
 
-def main():
-    home = Path.home()
-    inkly_bin = home / ".npm-global" / "bin" / "inkly"
+# Load Inkly config
+INKLY_HOME = Path.home() / ".inkly"
+CONFIG_PATH = INKLY_HOME / "config.toml"
+NPM_BIN = Path.home() / ".npm-global" / "bin"
 
-    # Detect Inkly binary
-    if not inkly_bin.is_file() or not os.access(inkly_bin, os.X_OK):
-        die("Inkly binary not found - run install.sh first.")
+try:
+    with CONFIG_PATH.open("rb") as f:
+        config = tomllib.load(f)
+except Exception as e:
+    die(f"Inkly config error: {e}")
 
-    ctx: list[str] = []
+# Ensure Copilot is discoverable
+os.environ["PATH"] = f"{NPM_BIN}:{os.environ.get('PATH', '')}"
 
-    # Gather HPC environment info
-    if command_exists("hostname"):
-        hostname = run_capture(["hostname"])
-        if hostname:
-            ctx.append(f"Hostname: {hostname}")
+# Gather HPC context
+ctx: list[str] = []
 
-    os_release = Path("/etc/os-release")
-    if os_release.exists():
-        try:
-            with os_release.open() as f:
-                for line in f:
-                    if line.startswith("PRETTY_NAME="):
-                        os_name = line.split("=", 1)[1].strip().strip('"')
-                        ctx.append(f"OS: {os_name}")
-                        break
-        except OSError:
-            pass
+if command_exists("hostname"):
+    hostname = run_capture(["hostname"])
+    if hostname:
+        ctx.append(f"Hostname: {hostname}")
 
-    if command_exists("sinfo"):
-        sinfo = run_capture(["sinfo", "-h", "-o", "%P %D %C"])
-        if sinfo:
-            ctx.append("SLURM Queues (top):")
-            for line in sinfo.splitlines()[:3]:
-                ctx.append(f"  {line}")
+os_release = Path("/etc/os-release")
+if os_release.exists():
+    try:
+        with os_release.open() as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    os_name = line.split("=", 1)[1].strip().strip('"')
+                    ctx.append(f"OS: {os_name}")
+                    break
+    except OSError:
+        pass
 
-    if Path("/etc/slurm/slurm.conf").exists():
-        ctx.append("SLURM Config Path: /etc/slurm/slurm.conf")
+if command_exists("sinfo"):
+    sinfo = run_capture(["sinfo", "-h", "-o", "%P %D %C"])
+    if sinfo:
+        ctx.append("SLURM Queues (top):")
+        for line in sinfo.splitlines()[:3]:
+            ctx.append(f"  {line}")
 
-    # Avoid unnecessary overhead
-    if command_exists("nvidia-smi"):
-        if run_capture(["nvidia-smi", "-L"]) is not None:
-            gpu = run_capture([
-                "nvidia-smi",
-                "--query-gpu=name,memory.total",
-                "--format=csv,noheader",
-            ])
-            if gpu:
-                ctx.append(f"GPU: {gpu.splitlines()[0]}")
+if Path("/etc/slurm/slurm.conf").exists():
+    ctx.append("SLURM Config Path: /etc/slurm/slurm.conf")
 
-    # Args handling
-    if len(sys.argv) == 1:
-        # Interactive mode
-        os.execv(str(inkly_bin), [str(inkly_bin)])
+if command_exists("nvidia-smi"):
+    if run_capture(["nvidia-smi", "-L"]) is not None:
+        gpu = run_capture([
+            "nvidia-smi",
+            "--query-gpu=name,memory.total",
+            "--format=csv,noheader",
+        ])
+        if gpu:
+            ctx.append(f"GPU: {gpu.splitlines()[0]}")
 
-    # Compose prompt
-    context_block = "\n".join(ctx)
+# Build Copilot command
+cmd = ["copilot"]
+
+if len(sys.argv) > 1:
     user_prompt = " ".join(sys.argv[1:])
 
-    prompt = (
+    context_block = "\n".join(ctx)
+
+    full_prompt = (
         "Using the following HPC environment context:\n"
         f"{context_block}\n\n"
         f"Now: {user_prompt}"
     )
 
-    # Replace process
-    os.execv(str(inkly_bin), [str(inkly_bin), prompt])
+    cmd += ["-p", full_prompt]
+# else: interactive mode (no flags)
 
-
-if __name__ == "__main__":
-    main()
+# Exec Copilot (final)
+try:
+    os.execvp("copilot", cmd)
+except FileNotFoundError:
+    die("Inkly error: 'copilot' not found on PATH")

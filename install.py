@@ -215,12 +215,6 @@ def install_ink():
 
     launcher.symlink_to(ink_dst)
 
-def validate_config():
-    try:
-        load_config()
-    except Exception as e:
-        raise RuntimeError(f"Invalid config.toml: {e}")
-
 def verify():
     # Basic sanity checks after installation
     if (NVM_DIR / "nvm.sh").exists():
@@ -237,12 +231,11 @@ def main():
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
-    # Ensure Copilot always uses Inkly state directory
+    # Ensure Copilot always uses Ink state directory
     os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
 
-    CONFIG = load_config()
-    validate_config()
     ensure_default_config()
+    CONFIG = load_config()
     ensure_dirs()
     ensure_nvm_and_node()
     configure_npm()
@@ -252,7 +245,7 @@ def main():
 
     print("\nInstallation complete.")
     print("Open a new shell or run: source ~/.bashrc")
-    print("Then run: inkly\nThen /login to authenticate Copilot.")
+    print("Then run: ink\nThen /login to authenticate Copilot.")
 
 
 if __name__ == "__main__":

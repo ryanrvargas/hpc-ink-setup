@@ -12,6 +12,8 @@ import sys
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Optional, List
+
 
 try:
     import tomllib  # Python 3.11+
@@ -26,7 +28,7 @@ def die(msg: str, code: int = 1):
 def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
-def run_capture(cmd: list[str]) -> str | None:
+def run_capture(cmd: List[str]) -> Optional[str]:
     try:
         result = subprocess.run(
             cmd,
@@ -54,7 +56,7 @@ except Exception as e:
 os.environ["PATH"] = f"{NPM_BIN}:{os.environ.get('PATH', '')}"
 
 # Gather HPC context
-ctx: list[str] = []
+ctx: List[str] = []
 
 if command_exists("hostname"):
     hostname = run_capture(["hostname"])

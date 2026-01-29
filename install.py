@@ -193,6 +193,7 @@ def install_copilot():
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 
+
 def install_ink():
     # Copy ink into persistent Inkly bin
     ink_src = Path(__file__).parent / "ink"
@@ -206,7 +207,7 @@ def install_ink():
     shutil.copy2(ink_src, ink_dst)
     ink_dst.chmod(0o755)
 
-    # Create user-visible ink launcher, pointing to persistent Inkly bin, 
+    # Create user-visible ink launcher, pointing to persistent Inkly bin,
     launcher = USER_BIN / "ink"
     launcher.parent.mkdir(parents=True, exist_ok=True)
 
@@ -214,6 +215,7 @@ def install_ink():
         launcher.unlink()
 
     launcher.symlink_to(ink_dst)
+
 
 def verify():
     # Basic sanity checks after installation

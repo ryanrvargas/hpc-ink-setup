@@ -240,9 +240,9 @@ def main():
     # Ensure Copilot always uses Inkly state directory
     os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
 
+    CONFIG = load_config()
     validate_config()
     ensure_default_config()
-    CONFIG = load_config()
     ensure_dirs()
     ensure_nvm_and_node()
     configure_npm()

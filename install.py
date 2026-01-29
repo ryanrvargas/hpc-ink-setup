@@ -193,64 +193,33 @@ def install_copilot():
     run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 
+def install_ink():
+    # Copy ink into persistent Inkly bin
+    ink_src = Path(__file__).parent / "ink"
+    ink_dst = INKLY_HOME / "bin" / "ink"
 
-def install_inkly_runtime():
-    # Copy inkly-runtime.py into persistent Inkly bin
-    runtime_src = Path(__file__).parent / "inkly-runtime.py"
-    runtime_dst = INKLY_HOME / "bin" / "inkly-runtime.py"
+    if not ink_src.exists():
+        raise RuntimeError("ink launcher script missing from installer")
 
-    # Ensure destination directory exists
-    runtime_dst.parent.mkdir(parents=True, exist_ok=True)
-
-    # Copy runtime script
-    if not runtime_src.exists():
-        raise RuntimeError("inkly-runtime.py not found in repo")
-    shutil.copy2(runtime_src, runtime_dst)
-    runtime_dst.chmod(0o755)
-
-
-# Going to remove this and make it into a Toml file later so users can configure it as they like
-def write_inkly_wrapper():
-    wrapper = USER_BIN / "inkly"
-
-    wrapper.write_text(
-        """#!/bin/bash
-set -euo pipefail
-
-RUNTIME="$HOME/.inkly/bin/inkly-runtime.py"
-
-if [ ! -f "$RUNTIME" ]; then
-  echo "Inkly runtime not found in $RUNTIME" >&2
-  exit 1
-fi
-
-PY="$(command -v python3 || true)"
-if [ -z "$PY" ]; then
-  echo "python3 not found on PATH" >&2
-  exit 1
-fi
-
-exec "$PY" "$RUNTIME" "$@"
-
-"""
-    )
-
-    wrapper.chmod(0o755)
-
-
-def install_ink_launcher():
-    # Copy ink.sh into persistent Inkly bin
-    ink_src = Path(__file__).parent / "ink.sh"
-    ink_dst = INKLY_HOME / "bin" / "ink.sh"
-
+    # Create persistent Inkly bin dir and copy ink there,
+    ink_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ink_src, ink_dst)
     ink_dst.chmod(0o755)
 
-    # Create lightweight launcher in npm-global/bin
+    # Create user-visible ink launcher, pointing to persistent Inkly bin, 
     launcher = USER_BIN / "ink"
-    launcher.write_text('#!/bin/bash\nexec "$HOME/.inkly/bin/ink.sh" "$@"\n')
-    launcher.chmod(0o755)
+    launcher.parent.mkdir(parents=True, exist_ok=True)
 
+    if launcher.exists() or launcher.is_symlink():
+        launcher.unlink()
+
+    launcher.symlink_to(ink_dst)
+
+def validate_config():
+    try:
+        load_config()
+    except Exception as e:
+        raise RuntimeError(f"Invalid config.toml: {e}")
 
 def verify():
     # Basic sanity checks after installation
@@ -271,15 +240,14 @@ def main():
     # Ensure Copilot always uses Inkly state directory
     os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
 
+    validate_config()
     ensure_default_config()
     CONFIG = load_config()
     ensure_dirs()
     ensure_nvm_and_node()
     configure_npm()
     install_copilot()
-    install_inkly_runtime()
-    write_inkly_wrapper()
-    install_ink_launcher()
+    install_ink()
     verify()
 
     print("\nInstallation complete.")

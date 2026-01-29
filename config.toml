@@ -22,7 +22,7 @@ allowed_domains = [
 
 
 # Node / NVM Configuration
-[node]
+[node
 install_method = "nvm"
 install_if_missing = true
 nvm_version = "0.39.7"

@@ -278,23 +278,23 @@ def main() -> int:
     # else: interactive mode (no flags)
 
     # Exec Copilot (final)
-    try:
+    if user_prompt:
+    # Non-interactive prompt mode
         result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
 
         assistant_output = result.stdout.strip()
-    
-        if user_prompt:
-            append_turn(config, user_prompt, assistant_output)
 
+        append_turn(config, user_prompt, assistant_output)
         print(assistant_output)
         return result.returncode
-    except FileNotFoundError:
-        die("Inkly error: 'copilot' not found on PATH")
+    else:
+        # Interactive mode: attach to real TTY
+        return subprocess.call(cmd)
     
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ Combines:
 - inkly-runtime.py (config, guardrails, Copilot exec)
 """
 
+import re
 import os
 import sys
 import shutil
@@ -45,6 +46,27 @@ def run_capture(cmd: List[str]) -> Optional[str]:
 INKLY_HOME = Path.home() / ".inkly"
 CONFIG_PATH = INKLY_HOME / "config.toml"
 NPM_BIN = Path.home() / ".npm-global" / "bin"
+
+def enforce_prompt_filter(user_prompt: str, config: dict):
+    pf = config.get("prompt_filter", {})
+    if not pf.get("enabled", False):
+        return  # filtering disabled, allow everything
+
+    text = user_prompt
+    if pf.get("case_insensitive", False):
+        text = text.lower()
+
+    # Keyword blocking
+    for kw in pf.get("blocked_keywords", []):
+        check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
+        if check_kw in text:
+            die(f"Blocked by policy: keyword '{kw}'")
+
+    # Regex blocking
+    for pattern in pf.get("blocked_regex", []):
+        flags = re.IGNORECASE if pf.get("case_insensitive", False) else 0
+        if re.search(pattern, user_prompt, flags):
+            die(f"Blocked by policy: pattern '{pattern}'")
 
 try:
     with CONFIG_PATH.open("rb") as f:
@@ -100,6 +122,8 @@ cmd = ["copilot"]
 
 if len(sys.argv) > 1:
     user_prompt = " ".join(sys.argv[1:])
+
+    enforce_prompt_filter(user_prompt, config)
 
     context_block = "\n".join(ctx)
 

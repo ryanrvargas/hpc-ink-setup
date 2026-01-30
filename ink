@@ -97,7 +97,6 @@ def enforce_wrapper_policy(config: dict):
         if not shutil.which("copilot"):
             die("Copilot CLI not found (required by policy)")
 
-
 def enforce_network_policy(config: dict):
     net = config.get("network", {})
     if not net.get("require_internet", True):
@@ -238,8 +237,9 @@ if len(sys.argv) > 1:
     history_block = ""
     if turns:
         history_block = "Conversation history:\n"
-        for h in turns:
-            history_block += f"USER: {h}\n"
+        for t in turns:
+            history_block += f"USER: {t['user']}\n"
+            history_block += f"ASSISTANT: {t['assistant']}\n\n"
 
     full_prompt = (
         "Using the following HPC environment context:\n"

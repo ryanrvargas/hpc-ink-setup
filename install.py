@@ -4,6 +4,7 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
+import sys
 
 try:
     import tomllib  # Python 3.11+
@@ -248,6 +249,9 @@ def main():
     print("\nInstallation complete.")
     print("Open a new shell or run: source ~/.bashrc")
     print("Then run: ink\nThen /login to authenticate Copilot.")
+    #INFO Debug visibility (remove later or gate behind flag) ink --debug
+    print(f"[ink] using config: {CONFIG_PATH}", file=sys.stderr)
+
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
 
-def ensure_default_config():
+def verify_default_config():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
 
     if not CONFIG_PATH.exists():
@@ -52,7 +52,7 @@ def command_exists(cmd):
     return shutil.which(cmd) is not None
 
 
-def ensure_dirs():
+def verify_dirs():
     state = CONFIG["state"]
 
     inkly_home = Path(os.path.expanduser(state["inkly_home"]))
@@ -67,27 +67,18 @@ def ensure_dirs():
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
 
-def ensure_nvm_and_node():
+def verify_nvm_and_node():
     node_cfg = CONFIG["node"]
 
-    # If user specified an alias for Node version, reject it
-    if node_cfg["node_version"] in ("lts", "stable", "latest"):
-        raise RuntimeError(
-            "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
-            "Use an explicit Node version in config.toml."
-        )
-
-    # Ensure desired Node version is installed
+    # verify desired Node version is installed
     version = node_cfg["node_version"]
 
     if (NVM_DIR / "nvm.sh").exists():
-        if node_cfg["node_version"] in ("lts", "stable", "latest"):
+        if version in ("lts", "stable", "latest"):
             raise RuntimeError(
                 "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
                 "Use an explicit Node version in config.toml."
             )
-
-        version = node_cfg["node_version"]
 
         result = subprocess.run(
             f'''
@@ -163,7 +154,7 @@ def configure_npm():
 
     shell_rc = Path(os.path.expanduser(install_cfg["shell_rc"]))
 
-    # Ensure npm uses a user-writable prefix to avoid permission issues
+    # verify npm uses a user-writable prefix to avoid permission issues
     npmrc = HOME / ".npmrc"
 
     if npmrc.exists():
@@ -191,7 +182,7 @@ def install_copilot():
             "Inkly requires an NVM-managed Node runtime to install Copilot. "
             "Disable system Node or allow NVM install."
         )
-    run_with_nvm("npm install -g @github/copilot")  # Ensure npm is up to date
+    run_with_nvm("npm install -g @github/copilot")  # verify npm is up to date
     # How it looks in the subprocess output: npm install -g @github/copilot
 
 
@@ -234,13 +225,13 @@ def main():
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
-    # Ensure Copilot always uses Ink state directory
+    # verify Copilot always uses Ink state directory
     os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
 
-    ensure_default_config()
+    verify_default_config()
     CONFIG = load_config()
-    ensure_dirs()
-    ensure_nvm_and_node()
+    verify_dirs()
+    verify_nvm_and_node()
     configure_npm()
     install_copilot()
     install_ink()

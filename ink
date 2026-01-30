@@ -120,6 +120,27 @@ def enforce_network_policy(config: dict):
     if not net.get("require_internet", True):
         os.environ["NO_NETWORK"] = "1"
 
+def load_prompt_history(config: dict) -> List[str]:
+    history_cfg = config.get("logging", {}).get("history", {})
+    if not history_cfg.get("enabled", False):
+        return []
+
+    max_prompts = history_cfg.get("max_prompts", 0)
+    if max_prompts <= 0:
+        return []
+
+    state = config.get("state", {})
+    log_dir_value = state.get("log_dir")
+    if not log_dir_value:
+        return []
+
+    log_path = Path(os.path.expanduser(log_dir_value)) / "prompts.log"
+    if not log_path.exists():
+        return []
+
+    lines = log_path.read_text().splitlines()
+    return lines[-max_prompts:]
+
 try:
     with CONFIG_PATH.open("rb") as f:
         config = tomllib.load(f)
@@ -189,9 +210,19 @@ if len(sys.argv) > 1:
 
     context_block = "\n".join(ctx)
 
+    history = load_prompt_history(config)
+
+    history_block = ""
+    if history:
+        history_block = "Conversation history (most recent first):\n"
+        for h in history:
+            history_block += f"- {h}\n"
+        history_block += "\n"
+
     full_prompt = (
         "Using the following HPC environment context:\n"
         f"{context_block}\n\n"
+        f"{history_block}"
         f"Now: {user_prompt}"
     )
 

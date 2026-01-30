@@ -83,19 +83,20 @@ sanitize = true
 remove_usage_blocks = true
 
 remove_vendor_lines = [
-  "^\\s*claude-.*Premium request\\)"
+  "^\\s*claude-.*Premium request\\"
 ]
 
 # Wrapper Behavior
 [wrapper]
 interactive_passthrough = true
-require_login = true
+require_login = false
 fail_on_missing_copilot = true
 
 # Logging & Research Controls
 [logging]
 enabled = true
 level = "info"
+max_prompt = 10
 
 log_user_prompts = true
 log_ai_responses = true

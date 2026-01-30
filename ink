@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Optional, List
 import json
 from datetime import datetime, timezone
+import argparse
+
 
 try:
     import tomllib  # Python 3.11+
@@ -23,9 +25,29 @@ except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 
 # Utilities
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="ink",
+        description="Ink: Cluster-aware Inkly runtime + launcher"
+    )
+
+    parser.add_argument(
+        "prompt",
+        nargs=argparse.REMAINDER,
+        help="Prompt to send to Copilot"
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="ink 0.1.0"
+    )
+
+    return parser.parse_args()
+
 def die(msg: str, code: int = 1):
     print(msg, file=sys.stderr)
-    sys.exit(code)
+    raise SystemExit(code)
 
 def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
@@ -46,7 +68,6 @@ def run_capture(cmd: List[str]) -> Optional[str]:
 # Load Inkly config
 INKLY_HOME = Path.home() / ".inkly"
 CONFIG_PATH = INKLY_HOME / "config.toml"
-NPM_BIN = Path.home() / ".npm-global" / "bin"
 
 def enforce_prompt_filter(user_prompt: str, config: dict):
     pf = config.get("prompt_filter", {})
@@ -170,101 +191,111 @@ def debug_dump_prompt(prompt: str, config: dict):
     print(prompt, file=sys.stderr)
     print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
 
-try:
-    with CONFIG_PATH.open("rb") as f:
-        config = tomllib.load(f)
-except Exception as e:
-    die(f"Inkly config error: {e}")
 
-# Gather HPC context
-ctx: List[str] = []
+def main() -> int:
+    args = parse_args()
+    user_prompt = ""
 
-if command_exists("hostname"):
-    hostname = run_capture(["hostname"])
-    if hostname:
-        ctx.append(f"Hostname: {hostname}")
-
-os_release = Path("/etc/os-release")
-if os_release.exists():
     try:
-        with os_release.open() as f:
-            for line in f:
-                if line.startswith("PRETTY_NAME="):
-                    os_name = line.split("=", 1)[1].strip().strip('"')
-                    ctx.append(f"OS: {os_name}")
-                    break
-    except OSError:
-        pass
+        with CONFIG_PATH.open("rb") as f:
+            config = tomllib.load(f)
+    except Exception as e:
+        die(f"Inkly config error: {e}")
 
-if command_exists("sinfo"):
-    sinfo = run_capture(["sinfo", "-h", "-o", "%P %D %C"])
-    if sinfo:
-        ctx.append("SLURM Queues (top):")
-        for line in sinfo.splitlines()[:3]:
-            ctx.append(f"  {line}")
+    # Pre-flight runtime checks
+    enforce_wrapper_policy(config)
+    enforce_network_policy(config)
 
-if Path("/etc/slurm/slurm.conf").exists():
-    ctx.append("SLURM Config Path: /etc/slurm/slurm.conf")
+    # Gather HPC context
+    ctx: List[str] = []
 
-if command_exists("nvidia-smi"):
-    if run_capture(["nvidia-smi", "-L"]) is not None:
-        gpu = run_capture([
-            "nvidia-smi",
-            "--query-gpu=name,memory.total",
-            "--format=csv,noheader",
-        ])
-        if gpu:
-            ctx.append(f"GPU: {gpu.splitlines()[0]}")
+    if command_exists("hostname"):
+        hostname = run_capture(["hostname"])
+        if hostname:
+            ctx.append(f"Hostname: {hostname}")
 
-# Build Copilot command
-cmd = ["copilot"]
+    os_release = Path("/etc/os-release")
+    if os_release.exists():
+        try:
+            with os_release.open() as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        os_name = line.split("=", 1)[1].strip().strip('"')
+                        ctx.append(f"OS: {os_name}")
+                        break
+        except OSError:
+            pass
 
-# Pre-flight runtime checks
-enforce_wrapper_policy(config)
-enforce_network_policy(config)
+    if command_exists("sinfo"):
+        sinfo = run_capture(["sinfo", "-h", "-o", "%P %D %C"])
+        if sinfo:
+            ctx.append("SLURM Queues (top):")
+            for line in sinfo.splitlines()[:3]:
+                ctx.append(f"  {line}")
 
-if len(sys.argv) > 1:
-    user_prompt = " ".join(sys.argv[1:])
+    if Path("/etc/slurm/slurm.conf").exists():
+        ctx.append("SLURM Config Path: /etc/slurm/slurm.conf")
 
-    # HARD enforcement gates (order does not matter, but must be before Copilot)
-    enforce_prompt_filter(user_prompt, config)
-    enforce_deny_shell_commands(user_prompt, config)
+    if command_exists("nvidia-smi"):
+        if run_capture(["nvidia-smi", "-L"]) is not None:
+            gpu = run_capture([
+                "nvidia-smi",
+                "--query-gpu=name,memory.total",
+                "--format=csv,noheader",
+            ])
+            if gpu:
+                ctx.append(f"GPU: {gpu.splitlines()[0]}")
 
-    context_block = "\n".join(ctx)
+    # Build Copilot command
+    cmd = ["copilot"]
 
-    turns = load_turn_history(config)
+    if args.prompt:
+        user_prompt = " ".join(args.prompt)
 
-    history_block = ""
-    if turns:
-        history_block = "Conversation history:\n"
-        for t in turns:
-            history_block += f"USER: {t['user']}\n"
-            history_block += f"ASSISTANT: {t['assistant']}\n\n"
+        # HARD enforcement gates (order does not matter, but must be before Copilot)
+        enforce_prompt_filter(user_prompt, config)
+        enforce_deny_shell_commands(user_prompt, config)
 
-    full_prompt = (
-        "Using the following HPC environment context:\n"
-        f"{context_block}\n\n"
-        f"{history_block}"
-        f"Now: {user_prompt}"
-    )
+        context_block = "\n".join(ctx)
+        turns = load_turn_history(config)
 
-    debug_dump_prompt(full_prompt, config)
-    cmd += ["-p", full_prompt]
-# else: interactive mode (no flags)
+        history_block = ""
+        if turns:
+            history_block = "Conversation history:\n"
+            for t in turns:
+                history_block += f"USER: {t['user']}\n"
+                history_block += f"ASSISTANT: {t['assistant']}\n\n"
 
-# Exec Copilot (final)
-try:
-    result = subprocess.run(
-    cmd,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True
-    )
+        full_prompt = (
+            "Using the following HPC environment context:\n"
+            f"{context_block}\n\n"
+            f"{history_block}"
+            f"Now: {user_prompt}"
+        )
 
-    assistant_output = result.stdout.strip()
-    append_turn(config, user_prompt, assistant_output)
+        debug_dump_prompt(full_prompt, config)
+        cmd += ["-p", full_prompt]
+    # else: interactive mode (no flags)
 
-    print(assistant_output)
-    sys.exit(result.returncode)
-except FileNotFoundError:
-    die("Inkly error: 'copilot' not found on PATH")
+    # Exec Copilot (final)
+    try:
+        result = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+        )
+
+        assistant_output = result.stdout.strip()
+    
+        if user_prompt:
+            append_turn(config, user_prompt, assistant_output)
+
+        print(assistant_output)
+        return result.returncode
+    except FileNotFoundError:
+        die("Inkly error: 'copilot' not found on PATH")
+    
+
+if __name__ == "__main__":
+    sys.exit(main())

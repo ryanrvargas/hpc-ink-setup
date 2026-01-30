@@ -59,10 +59,8 @@ def enforce_prompt_filter(user_prompt: str, config: dict):
     # Keyword blocking
     for kw in pf.get("blocked_keywords", []):
         check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
-
-    if re.search(rf"\b{re.escape(check_kw)}\b", text):
-        die(f"Blocked by policy: keyword '{kw}'")
-
+        if re.search(rf"\b{re.escape(check_kw)}\b", text):
+            die(f"Blocked by policy: keyword '{kw}'")
 
     # Regex blocking
     for pattern in pf.get("blocked_regex", []):
@@ -103,6 +101,9 @@ def apply_logging_policy(user_prompt: str, config: dict):
     if not logging_cfg.get("enabled", False):
         return
 
+    history_cfg = logging_cfg.get("history", {})
+    max_prompts = history_cfg.get("max_prompts")
+
     state = config.get("state", {})
     log_dir_value = state.get("log_dir")
     if not log_dir_value:
@@ -111,9 +112,18 @@ def apply_logging_policy(user_prompt: str, config: dict):
     log_dir = Path(os.path.expanduser(log_dir_value))
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    log_path = log_dir / "prompts.log"
+
+    # Append
     if logging_cfg.get("log_user_prompts", False):
-        with (log_dir / "prompts.log").open("a") as f:
+        with log_path.open("a") as f:
             f.write(user_prompt + "\n")
+
+    # Truncate if history is enabled
+    if history_cfg.get("enabled", False) and isinstance(max_prompts, int):
+        lines = log_path.read_text().splitlines()
+        if len(lines) > max_prompts:
+            log_path.write_text("\n".join(lines[-max_prompts:]) + "\n")
 
 def enforce_network_policy(config: dict):
     net = config.get("network", {})
@@ -121,18 +131,23 @@ def enforce_network_policy(config: dict):
         os.environ["NO_NETWORK"] = "1"
 
 def load_prompt_history(config: dict) -> List[str]:
-    history_cfg = config.get("logging", {}).get("history", {})
+    logging_cfg = config.get("logging", {})
+    history_cfg = logging_cfg.get("history", {})
+
     if not history_cfg.get("enabled", False):
         return []
 
-    max_prompts = history_cfg.get("max_prompts", 0)
-    if max_prompts <= 0:
-        return []
+    if "max_prompts" not in history_cfg:
+        die("logging.history.enabled=true but max_prompts is missing")
+
+    max_prompts = history_cfg.get("max_prompts")
+    if not isinstance(max_prompts, int) or max_prompts <= 0:
+        die("logging.history.max_prompts must be a positive integer")
 
     state = config.get("state", {})
     log_dir_value = state.get("log_dir")
     if not log_dir_value:
-        return []
+        die("logging.history enabled but state.log_dir is missing")
 
     log_path = Path(os.path.expanduser(log_dir_value)) / "prompts.log"
     if not log_path.exists():
@@ -205,18 +220,18 @@ if len(sys.argv) > 1:
     enforce_prompt_filter(user_prompt, config)
     enforce_deny_shell_commands(user_prompt, config)
 
-    # Non-blocking policies
-    apply_logging_policy(user_prompt, config)
-
     context_block = "\n".join(ctx)
 
     history = load_prompt_history(config)
 
+    apply_logging_policy(user_prompt, config)
+
     history_block = ""
     if history:
-        history_block = "Conversation history (most recent first):\n"
+        history_block = "Conversation history:\n"
         for h in history:
-            history_block += f"- {h}\n"
+            history_block += f"USER: {h}\n"
+
         history_block += "\n"
 
     full_prompt = (

@@ -25,3 +25,6 @@ jobs:
       - name: Check formatting
         run: ruff format --check .
 
+      - name: auto fix formatting
+        run: ruff format .
+

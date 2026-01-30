@@ -2,14 +2,12 @@
 # Inkly Global Configuration
 # This file defines policy, not implementation.
 
-
 # Installation Policy
 [install]
 user_space_only = true
 allow_modify_shell_rc = true
 shell_rc = "~/.bashrc"
 allow_path_injection = true
-
 
 # Ntwork Assumptions
 [network]
@@ -19,7 +17,6 @@ allowed_domains = [
   "raw.githubusercontent.com",
   "registry.npmjs.org"
 ]
-
 
 # Node / NVM Configuration
 [node]
@@ -31,7 +28,6 @@ node_version = "20.11.1"
 allow_curl = true
 allow_wget = true
 
-
 # Persistent State
 [state]
 inkly_home = "~/.inkly"
@@ -39,14 +35,12 @@ bin_dir = "~/.inkly/bin"
 copilot_config_dir = "~/.inkly/copilot"
 log_dir = "~/.inkly/logs"
 
-
 # Copilot UI & Behavior
 [copilot.ui]
 no_color = true
 theme = "plain"
 log_level = "none"
 disable_usage_footer = true
-
 
 # Copilot Guardrails (Tool-Level)
 [copilot.guardrails]
@@ -62,7 +56,6 @@ deny_shell_commands = [
   "cp:*",
   "mv:*"
 ]
-
 
 # Prompt-Level Intent Filtering
 [prompt_filter]
@@ -84,7 +77,6 @@ blocked_regex = [
   "cp\\s+-r"
 ]
 
-
 # Output Sanitization
 [output]
 sanitize = true
@@ -94,13 +86,11 @@ remove_vendor_lines = [
   "^\\s*claude-.*Premium request\\)"
 ]
 
-
 # Wrapper Behavior
 [wrapper]
 interactive_passthrough = true
 require_login = true
 fail_on_missing_copilot = true
-
 
 # Logging & Research Controls
 [logging]

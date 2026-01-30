@@ -68,6 +68,23 @@ def enforce_prompt_filter(user_prompt: str, config: dict):
         if re.search(pattern, user_prompt, flags):
             die(f"Blocked by policy: pattern '{pattern}'")
 
+def enforce_deny_shell_commands(user_prompt: str, config: dict):
+    guardrails = config.get("copilot", {}).get("guardrails", {})
+    rules = guardrails.get("deny_shell_commands", [])
+
+    if not rules:
+        return  # nothing to enforce
+
+    text = user_prompt.strip()
+
+    for rule in rules:
+        # Format: "rm:*", "sudo:*"
+        cmd = rule.split(":", 1)[0]
+
+        # Very intentional: shell-like word boundary
+        if re.search(rf"\b{re.escape(cmd)}\b", text):
+            die(f"Blocked by policy: shell command '{cmd}'")
+
 try:
     with CONFIG_PATH.open("rb") as f:
         config = tomllib.load(f)
@@ -123,7 +140,9 @@ cmd = ["copilot"]
 if len(sys.argv) > 1:
     user_prompt = " ".join(sys.argv[1:])
 
+    # HARD enforcement gates (order does not matter, but must be before Copilot)
     enforce_prompt_filter(user_prompt, config)
+    enforce_deny_shell_commands(user_prompt, config)
 
     context_block = "\n".join(ctx)
 

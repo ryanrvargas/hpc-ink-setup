@@ -59,8 +59,10 @@ def enforce_prompt_filter(user_prompt: str, config: dict):
     # Keyword blocking
     for kw in pf.get("blocked_keywords", []):
         check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
-        if check_kw in text:
-            die(f"Blocked by policy: keyword '{kw}'")
+
+    if re.search(rf"\b{re.escape(check_kw)}\b", text):
+        die(f"Blocked by policy: keyword '{kw}'")
+
 
     # Regex blocking
     for pattern in pf.get("blocked_regex", []):
@@ -84,6 +86,39 @@ def enforce_deny_shell_commands(user_prompt: str, config: dict):
         # Very intentional: shell-like word boundary
         if re.search(rf"\b{re.escape(cmd)}\b", text):
             die(f"Blocked by policy: shell command '{cmd}'")
+
+def enforce_wrapper_policy(config: dict):
+    wrapper = config.get("wrapper", {})
+
+    if wrapper.get("require_login", False):
+        if not os.environ.get("COPILOT_AUTHENTICATED"):
+            die("Copilot login required by policy")
+
+    if wrapper.get("fail_on_missing_copilot", True):
+        if not shutil.which("copilot"):
+            die("Copilot CLI not found (required by policy)")
+
+def apply_logging_policy(user_prompt: str, config: dict):
+    logging_cfg = config.get("logging", {})
+    if not logging_cfg.get("enabled", False):
+        return
+
+    state = config.get("state", {})
+    log_dir_value = state.get("log_dir")
+    if not log_dir_value:
+        return
+
+    log_dir = Path(os.path.expanduser(log_dir_value))
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    if logging_cfg.get("log_user_prompts", False):
+        with (log_dir / "prompts.log").open("a") as f:
+            f.write(user_prompt + "\n")
+
+def enforce_network_policy(config: dict):
+    net = config.get("network", {})
+    if not net.get("require_internet", True):
+        os.environ["NO_NETWORK"] = "1"
 
 try:
     with CONFIG_PATH.open("rb") as f:
@@ -137,12 +172,20 @@ if command_exists("nvidia-smi"):
 # Build Copilot command
 cmd = ["copilot"]
 
+# Pre-flight runtime checks
+# Pre-flight runtime checks
+enforce_wrapper_policy(config)
+enforce_network_policy(config)
+
 if len(sys.argv) > 1:
     user_prompt = " ".join(sys.argv[1:])
 
     # HARD enforcement gates (order does not matter, but must be before Copilot)
     enforce_prompt_filter(user_prompt, config)
     enforce_deny_shell_commands(user_prompt, config)
+
+    # Non-blocking policies
+    apply_logging_policy(user_prompt, config)
 
     context_block = "\n".join(ctx)
 

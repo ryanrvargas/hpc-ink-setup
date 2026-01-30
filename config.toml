@@ -88,6 +88,7 @@ remove_vendor_lines = [
 
 # Wrapper Behavior
 [wrapper]
+debug_prompt = true
 interactive_passthrough = true
 require_login = false
 fail_on_missing_copilot = true
@@ -96,7 +97,7 @@ fail_on_missing_copilot = true
 [logging]
 enabled = true
 level = "info"
-max_prompt = 10
+max_prompt = 5
 
 log_user_prompts = true
 log_ai_responses = true

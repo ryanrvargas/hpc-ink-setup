@@ -156,6 +156,15 @@ def load_prompt_history(config: dict) -> List[str]:
     lines = log_path.read_text().splitlines()
     return lines[-max_prompts:]
 
+def debug_dump_prompt(prompt: str, config: dict):
+    wrapper = config.get("wrapper", {})
+    if not wrapper.get("debug_prompt", False):
+        return
+
+    print("\n===== INK DEBUG PROMPT BEGIN =====", file=sys.stderr)
+    print(prompt, file=sys.stderr)
+    print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
+
 try:
     with CONFIG_PATH.open("rb") as f:
         config = tomllib.load(f)
@@ -209,7 +218,6 @@ if command_exists("nvidia-smi"):
 cmd = ["copilot"]
 
 # Pre-flight runtime checks
-# Pre-flight runtime checks
 enforce_wrapper_policy(config)
 enforce_network_policy(config)
 
@@ -241,6 +249,7 @@ if len(sys.argv) > 1:
         f"Now: {user_prompt}"
     )
 
+    debug_dump_prompt(full_prompt, config)
     cmd += ["-p", full_prompt]
 # else: interactive mode (no flags)
 

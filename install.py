@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 import sys
 
+from config import TomlParser
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
@@ -25,21 +27,14 @@ USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
+global NODE_CFG
+NODE_CFG = None
 
 def verify_default_config():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
 
     if not CONFIG_PATH.exists():
         shutil.copy2(Path(__file__).parent / "config.toml", CONFIG_PATH)
-
-
-def load_config():
-    if not CONFIG_PATH.exists():
-        raise RuntimeError("Inkly config.toml not found at ~/.inkly/config.toml")
-
-    with CONFIG_PATH.open("rb") as f:
-        return tomllib.load(f)
-
 
 def run(cmd, check=True, shell=False):
     # Execute a command and fail fast on errors
@@ -52,8 +47,10 @@ def command_exists(cmd):
     return shutil.which(cmd) is not None
 
 
+""""
+# Not sure if this is needed anymore since we have NodeConfig now
 def verify_dirs():
-    state = CONFIG["state"]
+    state = NODE_CONFIG["state"]
 
     inkly_home = Path(os.path.expanduser(state["inkly_home"]))
     inkly_bin = Path(os.path.expanduser(state["bin_dir"]))
@@ -65,21 +62,17 @@ def verify_dirs():
     copilot_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
     USER_BIN.mkdir(parents=True, exist_ok=True)
+    """
 
 
 def verify_nvm_and_node():
-    node_cfg = CONFIG["node"]
+    # Node Config
+    node_cfg = NODE_CFG
 
     # verify desired Node version is installed
-    version = node_cfg["node_version"]
+    version = node_cfg.node_version
 
     if (NVM_DIR / "nvm.sh").exists():
-        if version in ("lts", "stable", "latest"):
-            raise RuntimeError(
-                "Alias-based Node versions (lts/stable/latest) are not supported on HPC. "
-                "Use an explicit Node version in config.toml."
-            )
-
         result = subprocess.run(
             f'''
             export NVM_DIR="{NVM_DIR}"
@@ -93,19 +86,19 @@ def verify_nvm_and_node():
             return
 
     # Node is missing or broken
-    if not node_cfg.get("install_if_missing", True):
+    if not node_cfg.install_if_missing:
         raise RuntimeError("Node missing and auto-install disabled in config")
 
     # Install nvm if missing
     if not NVM_DIR.exists():
-        if node_cfg.get("allow_curl", True) and command_exists("curl"):
+        if node_cfg.allow_curl and command_exists("curl"):
             run(
-                f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg['nvm_version']}/install.sh | bash",
+                f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg.nvm_version}/install.sh | bash",
                 shell=True,
             )
-        elif node_cfg.get("allow_wget", True) and command_exists("wget"):
+        elif node_cfg.allow_wget and command_exists("wget"):
             run(
-                f"wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg['nvm_version']}/install.sh | bash",
+                f"wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v{node_cfg.nvm_version}/install.sh | bash",
                 shell=True,
             )
         else:
@@ -145,9 +138,13 @@ def run_with_nvm(cmd, check=True):
         shell=True,
     )
 
+"""
+# Configure npm to use user-writable global prefix and update shell rc
+# so future shells have correct PATH, 
 
 def configure_npm():
-    install_cfg = CONFIG["install"]
+    install_cfg = NODE_CONFIG["install"]
+    node_cfg = NODE_CONFIG
 
     if not install_cfg.get("allow_modify_shell_rc", True):
         return
@@ -173,7 +170,7 @@ def configure_npm():
 
     with shell_rc.open("a") as f:
         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
-
+"""
 
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
@@ -220,19 +217,21 @@ def verify():
 
 
 def main():
-    global CONFIG
 
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
+    # Dont think this is needed
     # verify Copilot always uses Ink state directory
-    os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
+    # os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
+
 
     verify_default_config()
-    CONFIG = load_config()
-    verify_dirs()
+    parser = TomlParser(CONFIG_PATH)
+    NODE_CFG = parser.load()
+    #verify_dirs()
     verify_nvm_and_node()
-    configure_npm()
+    #configure_npm()
     install_copilot()
     install_ink()
     verify()

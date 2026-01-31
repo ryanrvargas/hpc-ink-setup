@@ -27,7 +27,6 @@ USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
-global NODE_CFG
 NODE_CFG = None
 
 def verify_default_config():
@@ -47,27 +46,29 @@ def command_exists(cmd):
     return shutil.which(cmd) is not None
 
 
-""""
-# Not sure if this is needed anymore since we have NodeConfig now
-def verify_dirs():
-    state = NODE_CONFIG["state"]
+# 
+# # Not sure if this is needed anymore since we have NodeConfig now
+# def verify_dirs():
+#     state = NODE_CONFIG["state"]
 
-    inkly_home = Path(os.path.expanduser(state["inkly_home"]))
-    inkly_bin = Path(os.path.expanduser(state["bin_dir"]))
-    copilot_dir = Path(os.path.expanduser(state["copilot_config_dir"]))
-    log_dir = Path(os.path.expanduser(state["log_dir"]))
+#     inkly_home = Path(os.path.expanduser(state["inkly_home"]))
+#     inkly_bin = Path(os.path.expanduser(state["bin_dir"]))
+#     copilot_dir = Path(os.path.expanduser(state["copilot_config_dir"]))
+#     log_dir = Path(os.path.expanduser(state["log_dir"]))
 
-    inkly_home.mkdir(parents=True, exist_ok=True)
-    inkly_bin.mkdir(parents=True, exist_ok=True)
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    USER_BIN.mkdir(parents=True, exist_ok=True)
-    """
+#     inkly_home.mkdir(parents=True, exist_ok=True)
+#     inkly_bin.mkdir(parents=True, exist_ok=True)
+#     copilot_dir.mkdir(parents=True, exist_ok=True)
+#     log_dir.mkdir(parents=True, exist_ok=True)
+#     USER_BIN.mkdir(parents=True, exist_ok=True)
+#     
 
 
 def verify_nvm_and_node():
     # Node Config
     node_cfg = NODE_CFG
+    if NODE_CFG is None:
+        raise RuntimeError("NODE_CFG not initialized before verify_nvm_and_node()")
 
     # verify desired Node version is installed
     version = node_cfg.node_version
@@ -138,39 +139,39 @@ def run_with_nvm(cmd, check=True):
         shell=True,
     )
 
-"""
-# Configure npm to use user-writable global prefix and update shell rc
-# so future shells have correct PATH, 
+# 
+# # Configure npm to use user-writable global prefix and update shell rc
+# # so future shells have correct PATH, 
 
-def configure_npm():
-    install_cfg = NODE_CONFIG["install"]
-    node_cfg = NODE_CONFIG
+# def configure_npm():
+#     install_cfg = NODE_CONFIG["install"]
+#     node_cfg = NODE_CONFIG
 
-    if not install_cfg.get("allow_modify_shell_rc", True):
-        return
+#     if not install_cfg.get("allow_modify_shell_rc", True):
+#         return
 
-    shell_rc = Path(os.path.expanduser(install_cfg["shell_rc"]))
+#     shell_rc = Path(os.path.expanduser(install_cfg["shell_rc"]))
 
-    # verify npm uses a user-writable prefix to avoid permission issues
-    npmrc = HOME / ".npmrc"
+#     # verify npm uses a user-writable prefix to avoid permission issues
+#     npmrc = HOME / ".npmrc"
 
-    if npmrc.exists():
-        # Remove conflicting prefix/globalconfig entries
-        lines = npmrc.read_text().splitlines()
-        cleaned = [
-            line for line in lines if not line.startswith(("prefix=", "globalconfig="))
-        ]
-        npmrc.write_text("\n".join(cleaned) + "\n")
+#     if npmrc.exists():
+#         # Remove conflicting prefix/globalconfig entries
+#         lines = npmrc.read_text().splitlines()
+#         cleaned = [
+#             line for line in lines if not line.startswith(("prefix=", "globalconfig="))
+#         ]
+#         npmrc.write_text("\n".join(cleaned) + "\n")
 
-    # Persist ~/.npm-global/bin into PATH for future shells
-    if shell_rc.exists():
-        rc_text = shell_rc.read_text()
-        if str(USER_BIN) in rc_text:
-            return
+#     # Persist ~/.npm-global/bin into PATH for future shells
+#     if shell_rc.exists():
+#         rc_text = shell_rc.read_text()
+#         if str(USER_BIN) in rc_text:
+#             return
 
-    with shell_rc.open("a") as f:
-        f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
-"""
+#     with shell_rc.open("a") as f:
+#         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
+# 
 
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
@@ -217,7 +218,7 @@ def verify():
 
 
 def main():
-
+    global NODE_CFG
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 

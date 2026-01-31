@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # Python <=3.10
 
 @dataclass
 class NodeConfig:

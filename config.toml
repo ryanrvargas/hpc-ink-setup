@@ -20,11 +20,9 @@ allowed_domains = [
 
 # Node / NVM Configuration
 [node]
-install_method = "nvm"
 install_if_missing = true
 nvm_version = "0.39.7"
 node_version = "20.11.1"
-
 allow_curl = true
 allow_wget = true
 

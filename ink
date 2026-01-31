@@ -17,7 +17,7 @@ from typing import Optional, List
 import json
 from datetime import datetime, timezone
 import argparse
-
+__version__ = "0.1.0"
 
 try:
     import tomllib  # Python 3.11+
@@ -28,19 +28,33 @@ except ModuleNotFoundError:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="ink",
-        description="Ink: Cluster-aware Inkly runtime + launcher"
+        usage="ink \"[prompt]\"",
+        description=(
+            "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
+            "It injects live HPC context (Slurm, GPUs, OS, queues) into prompts\n"
+            "and enforces safety guardrails before execution."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  ink \"Generate a Slurm sbatch for 2 GPUs for 24 hours\"\n"
+            "  ink \"Why did my job get stuck in PD state?\"\n"
+            "  ink            # start interactive Copilot session\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument(
+    runtime = parser.add_argument_group("runtime options")
+    runtime.add_argument(
         "prompt",
         nargs=argparse.REMAINDER,
-        help="Prompt to send to Copilot"
+        help="Prompt to send to Copilot (to start interactive mode type ink without arguments)",
     )
 
-    parser.add_argument(
+    meta = parser.add_argument_group("meta")
+    meta.add_argument(
         "--version",
         action="version",
-        version="ink 0.1.0"
+        version=f"ink {__version__}"
     )
 
     return parser.parse_args()

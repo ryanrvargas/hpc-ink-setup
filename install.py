@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
 import shutil
 from pathlib import Path
 import sys
 
 from config import TomlParser
-
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:
-    import tomli as tomllib  # Python <=3.10
-
 
 # Path and environment setup :)
 
@@ -28,6 +21,7 @@ USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 CONFIG_PATH = INKLY_HOME / "config.toml"
 
 NODE_CFG = None
+INSTALL_CFG = None
 
 def verify_default_config():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
@@ -139,39 +133,37 @@ def run_with_nvm(cmd, check=True):
         shell=True,
     )
 
-# 
-# # Configure npm to use user-writable global prefix and update shell rc
-# # so future shells have correct PATH, 
 
-# def configure_npm():
-#     install_cfg = NODE_CONFIG["install"]
-#     node_cfg = NODE_CONFIG
+# Configure npm to use user-writable global prefix and update shell rc
+# so future shells have correct PATH, 
 
-#     if not install_cfg.get("allow_modify_shell_rc", True):
-#         return
+def configure_npm():
+    cfg = INSTALL_CFG
 
-#     shell_rc = Path(os.path.expanduser(install_cfg["shell_rc"]))
+    if not cfg.allow_modify_shell_rc:
+        return
 
-#     # verify npm uses a user-writable prefix to avoid permission issues
-#     npmrc = HOME / ".npmrc"
+    shell_rc = Path(cfg.shell_rc).expanduser()
+    # verify npm uses a user-writable prefix to avoid permission issues
+    npmrc = HOME / ".npmrc"
 
-#     if npmrc.exists():
-#         # Remove conflicting prefix/globalconfig entries
-#         lines = npmrc.read_text().splitlines()
-#         cleaned = [
-#             line for line in lines if not line.startswith(("prefix=", "globalconfig="))
-#         ]
-#         npmrc.write_text("\n".join(cleaned) + "\n")
+    if npmrc.exists():
+        # Remove conflicting prefix/globalconfig entries
+        lines = npmrc.read_text().splitlines()
+        cleaned = [
+            line for line in lines if not line.startswith(("prefix=", "globalconfig="))
+        ]
+        npmrc.write_text("\n".join(cleaned) + "\n")
 
-#     # Persist ~/.npm-global/bin into PATH for future shells
-#     if shell_rc.exists():
-#         rc_text = shell_rc.read_text()
-#         if str(USER_BIN) in rc_text:
-#             return
+    # Persist ~/.npm-global/bin into PATH for future shells
+    if shell_rc.exists():
+        rc_text = shell_rc.read_text()
+        if str(USER_BIN) in rc_text:
+            return
 
-#     with shell_rc.open("a") as f:
-#         f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
-# 
+    with shell_rc.open("a") as f:
+        f.write('\nexport PATH="$HOME/.npm-global/bin:$PATH"\n')
+
 
 def install_copilot():
     # Install GitHub Copilot CLI using nvm-loaded environment
@@ -218,7 +210,7 @@ def verify():
 
 
 def main():
-    global NODE_CFG
+    global NODE_CFG, INSTALL_CFG
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
@@ -229,10 +221,10 @@ def main():
 
     verify_default_config()
     parser = TomlParser(CONFIG_PATH)
-    NODE_CFG = parser.load()
+    NODE_CFG, INSTALL_CFG = parser.load()
     #verify_dirs()
     verify_nvm_and_node()
-    #configure_npm()
+    configure_npm()
     install_copilot()
     install_ink()
     verify()

@@ -9,7 +9,7 @@ allow_modify_shell_rc = true
 shell_rc = "~/.bashrc"
 allow_path_injection = true
 
-# Ntwork Assumptions
+# Network Assumptions
 [network]
 require_internet = true
 allowed_domains = [

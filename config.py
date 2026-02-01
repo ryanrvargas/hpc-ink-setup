@@ -19,6 +19,18 @@ class NodeConfig:
                 "Alias-based Node versions are not supported on HPC. "
                 "Use an explicit version."
             )
+
+@dataclass
+class InstallConfig:
+    user_space_only: bool = True
+    allow_modify_shell_rc: bool = True
+    shell_rc: str = "~/.bashrc"
+    allow_path_injection: bool = True
+
+    def validate(self):
+        rc = Path(self.shell_rc).expanduser()
+        if self.allow_modify_shell_rc and not rc.exists():
+            raise ValueError(f"Shell rc file does not exist: {rc}")
         
 class TomlParser:
     def __init__(self, path: Path):
@@ -31,11 +43,10 @@ class TomlParser:
         with self.path.open("rb") as f:
             raw = tomllib.load(f)
 
-        # Build NodeConfig
-        if "node" not in raw:
-            raise RuntimeError("Missing [node] section in config.toml")
-
         node = NodeConfig(**raw["node"])
         node.validate()
 
-        return node
+        install = InstallConfig(**raw.get("install", {}))
+        install.validate()
+
+        return node, install

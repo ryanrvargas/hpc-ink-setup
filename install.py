@@ -22,6 +22,7 @@ CONFIG_PATH = INKLY_HOME / "config.toml"
 
 NODE_CFG = None
 INSTALL_CFG = None
+STATE_CFG = None
 
 def verify_default_config():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
@@ -34,29 +35,20 @@ def run(cmd, check=True, shell=False):
     print(f"->{cmd}")
     subprocess.run(cmd, check=check, shell=shell)
 
-
 def command_exists(cmd):
     # Check if a command is available on PATH
     return shutil.which(cmd) is not None
 
+# Verify and create necessary directories
+def verify_dirs():
+    if STATE_CFG is None:
+        raise RuntimeError("STATE_CFG not initialized before verify_dirs()")
 
-# 
-# # Not sure if this is needed anymore since we have NodeConfig now
-# def verify_dirs():
-#     state = NODE_CONFIG["state"]
-
-#     inkly_home = Path(os.path.expanduser(state["inkly_home"]))
-#     inkly_bin = Path(os.path.expanduser(state["bin_dir"]))
-#     copilot_dir = Path(os.path.expanduser(state["copilot_config_dir"]))
-#     log_dir = Path(os.path.expanduser(state["log_dir"]))
-
-#     inkly_home.mkdir(parents=True, exist_ok=True)
-#     inkly_bin.mkdir(parents=True, exist_ok=True)
-#     copilot_dir.mkdir(parents=True, exist_ok=True)
-#     log_dir.mkdir(parents=True, exist_ok=True)
-#     USER_BIN.mkdir(parents=True, exist_ok=True)
-#     
-
+    STATE_CFG.inkly_home.mkdir(parents=True, exist_ok=True)
+    STATE_CFG.bin_dir.mkdir(parents=True, exist_ok=True)
+    STATE_CFG.copilot_config_dir.mkdir(parents=True, exist_ok=True)
+    STATE_CFG.log_dir.mkdir(parents=True, exist_ok=True)
+    USER_BIN.mkdir(parents=True, exist_ok=True)
 
 def verify_nvm_and_node():
     # Node Config
@@ -210,7 +202,7 @@ def verify():
 
 
 def main():
-    global NODE_CFG, INSTALL_CFG
+    global NODE_CFG, INSTALL_CFG, STATE_CFG
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
@@ -221,8 +213,8 @@ def main():
 
     verify_default_config()
     parser = TomlParser(CONFIG_PATH)
-    NODE_CFG, INSTALL_CFG = parser.load()
-    #verify_dirs()
+    NODE_CFG, INSTALL_CFG, STATE_CFG = parser.load()
+    verify_dirs()
     verify_nvm_and_node()
     configure_npm()
     install_copilot()

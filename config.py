@@ -32,6 +32,42 @@ class InstallConfig:
         if self.allow_modify_shell_rc and not rc.exists():
             raise ValueError(f"Shell rc file does not exist: {rc}")
         
+@dataclass
+class StateConfig:
+    inkly_home: str = "~/.inkly"
+    bin_dir: str = "~/.inkly/bin"
+    copilot_config_dir: str = "~/.inkly/copilot"
+    log_dir: str = "~/.inkly/logs"
+
+    def resolve(self):
+        """
+        Resolve all paths to expanded Path objects.
+        """
+        self.inkly_home = Path(self.inkly_home).expanduser()
+        self.bin_dir = Path(self.bin_dir).expanduser()
+        self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
+        self.log_dir = Path(self.log_dir).expanduser()
+
+    def validate(self):
+        """
+        Validate path relationships and safety.
+        """
+        # Ensure bin_dir lives under inkly_home
+        try:
+            self.bin_dir.relative_to(self.inkly_home)
+        except ValueError:
+            raise ValueError("bin_dir must live under inkly_home")
+
+        try:
+            self.copilot_config_dir.relative_to(self.inkly_home)
+        except ValueError:
+            raise ValueError("copilot_config_dir must live under inkly_home")
+
+        try:
+            self.log_dir.relative_to(self.inkly_home)
+        except ValueError:
+            raise ValueError("log_dir must live under inkly_home")
+
 class TomlParser:
     def __init__(self, path: Path):
         self.path = path
@@ -49,4 +85,8 @@ class TomlParser:
         install = InstallConfig(**raw.get("install", {}))
         install.validate()
 
-        return node, install
+        state = StateConfig(**raw.get("state", {}))
+        state.resolve()
+        state.validate()
+
+        return node, install, state

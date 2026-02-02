@@ -90,7 +90,8 @@ def run_capture(cmd: List[str]) -> Optional[str]:
 # All real paths come from StateConfig after parsing
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
-
+LIB_DIR = DEFAULT_INKLY_HOME / "lib"
+sys.path.insert(0, str(LIB_DIR))
 
 def enforce_prompt_filter(user_prompt: str, config: dict):
     pf = config.get("prompt_filter", {})

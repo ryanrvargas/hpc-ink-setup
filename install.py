@@ -51,6 +51,14 @@ def verify_dirs():
     STATE_CFG.log_dir.mkdir(parents=True, exist_ok=True)
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
+    LIB_DIR = STATE_CFG.inkly_home / "lib"
+    LIB_DIR.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy2(
+        Path(__file__).parent / "config.py",
+        LIB_DIR / "config.py",
+    )
+
 def verify_nvm_and_node():
     # Node Config
     node_cfg = NODE_CFG

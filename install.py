@@ -209,7 +209,10 @@ def main():
 
     verify_default_config()
     parser = TomlParser(CONFIG_PATH)
-    NODE_CFG, INSTALL_CFG, STATE_CFG = parser.load()
+    cfg = parser.load()
+    NODE_CFG = cfg.node
+    INSTALL_CFG = cfg.install
+    STATE_CFG = cfg.state
     # Verify Copilot always uses Ink state directory, 
     os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
     verify_dirs()

@@ -10,22 +10,22 @@ from config import TomlParser
 # Path and environment setup :)
 
 HOME = Path.home()
-
-INKLY_HOME = HOME / ".inkly"  # Persistent Inkly state directory
-COPILOT_STATE = INKLY_HOME / "copilot"  # Copilot config + auth storage
+# DEFAULT_INKLY_HOME is only used to bootstrap config.toml.
+# After parsing, STATE_CFG.inkly_home is the single source of truth.
+DEFAULT_INKLY_HOME = HOME / ".inkly"
 
 NVM_DIR = HOME / ".nvm"  # User-space nvm install location
 NPM_GLOBAL = HOME / ".npm-global"  # User-space npm prefix
 USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
-CONFIG_PATH = INKLY_HOME / "config.toml"
+CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml" # Default config path
 
-NODE_CFG = None
-INSTALL_CFG = None
-STATE_CFG = None
+NODE_CFG = None # Node Config will be set later
+INSTALL_CFG = None # Install Config will be set later
+STATE_CFG = None # State Config will be set later
 
 def verify_default_config():
-    INKLY_HOME.mkdir(parents=True, exist_ok=True)
+    DEFAULT_INKLY_HOME.mkdir(parents=True, exist_ok=True)
 
     if not CONFIG_PATH.exists():
         shutil.copy2(Path(__file__).parent / "config.toml", CONFIG_PATH)
@@ -171,7 +171,7 @@ def install_copilot():
 def install_ink():
     # Copy ink into persistent Inkly bin
     ink_src = Path(__file__).parent / "ink"
-    ink_dst = INKLY_HOME / "bin" / "ink"
+    ink_dst = STATE_CFG.bin_dir / "ink"
 
     if not ink_src.exists():
         raise RuntimeError("ink launcher script missing from installer")
@@ -206,14 +206,12 @@ def main():
     # Entry point for installer
     print("Installing Inkly (Python installer)")
 
-    # Dont think this is needed
-    # verify Copilot always uses Ink state directory
-    # os.environ["COPILOT_CONFIG_DIR"] = str(COPILOT_STATE)
-
-
     verify_default_config()
     parser = TomlParser(CONFIG_PATH)
     NODE_CFG, INSTALL_CFG, STATE_CFG = parser.load()
+    # Dont think this is needed
+    # verify Copilot always uses Ink state directory
+    # os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
     verify_dirs()
     verify_nvm_and_node()
     configure_npm()

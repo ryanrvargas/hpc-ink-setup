@@ -34,19 +34,19 @@ class InstallConfig:
         
 @dataclass
 class StateConfig:
-    inkly_home: str = "~/.inkly"
-    bin_dir: str = "~/.inkly/bin"
-    copilot_config_dir: str = "~/.inkly/copilot"
-    log_dir: str = "~/.inkly/logs"
+    inkly_home: Path = Path("~/.inkly")
+    bin_dir: Path = Path("~/.inkly/bin")
+    copilot_config_dir: Path = Path("~/.inkly/copilot")
+    log_dir: Path = Path("~/.inkly/logs")
 
     def resolve(self):
         """
         Resolve all paths to expanded Path objects.
         """
-        self.inkly_home = Path(self.inkly_home).expanduser()
-        self.bin_dir = Path(self.bin_dir).expanduser()
-        self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
-        self.log_dir = Path(self.log_dir).expanduser()
+        self.inkly_home = self.inkly_home.expanduser()
+        self.bin_dir = self.bin_dir.expanduser()
+        self.copilot_config_dir = self.copilot_config_dir.expanduser()
+        self.log_dir = self.log_dir.expanduser()
 
     def validate(self):
         """
@@ -67,6 +67,14 @@ class StateConfig:
             self.log_dir.relative_to(self.inkly_home)
         except ValueError:
             raise ValueError("log_dir must live under inkly_home")
+        
+@dataclass
+class InklyConfig:
+    raw: dict
+    node: NodeConfig
+    install: InstallConfig
+    state: StateConfig
+
 
 class TomlParser:
     def __init__(self, path: Path):
@@ -89,4 +97,4 @@ class TomlParser:
         state.resolve()
         state.validate()
 
-        return node, install, state
+        return InklyConfig(raw=raw, node=node, install=install, state=state)

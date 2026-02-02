@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
 Ink: Cluster-aware Inkly runtime + launcher
-
-Combines:
 - ink (cluster context + prompt injection)
-- inkly-runtime.py (config, guardrails, Copilot exec)
 """
 
 import re
@@ -17,6 +14,8 @@ from typing import Optional, List
 import json
 from datetime import datetime, timezone
 import argparse
+from config import TomlParser # type: ignore
+
 __version__ = "0.1.0"
 
 try:
@@ -59,6 +58,14 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+def load_config_and_state() -> tuple[dict, object]:
+    parser = TomlParser(CONFIG_PATH)
+    cfg = parser.load()
+    config = cfg.raw
+    state = cfg.state
+
+    return config, state
+
 def die(msg: str, code: int = 1):
     print(msg, file=sys.stderr)
     raise SystemExit(code)
@@ -79,9 +86,11 @@ def run_capture(cmd: List[str]) -> Optional[str]:
     except subprocess.CalledProcessError:
         return None
 
-# Load Inkly config
-INKLY_HOME = Path.home() / ".inkly"
-CONFIG_PATH = INKLY_HOME / "config.toml"
+# Bootstrap-only location used to find config.toml
+# All real paths come from StateConfig after parsing
+DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
+
 
 def enforce_prompt_filter(user_prompt: str, config: dict):
     pf = config.get("prompt_filter", {})
@@ -137,19 +146,14 @@ def enforce_network_policy(config: dict):
     if not net.get("require_internet", True):
         os.environ["NO_NETWORK"] = "1"
 
-def append_turn(config: dict, user: str, assistant: str):
+def append_turn(config: dict, state, user: str, assistant: str):
     logging_cfg = config.get("logging", {})
     if not logging_cfg.get("enabled", False):
         return
 
     max_turns = logging_cfg.get("max_turns")
 
-    state = config.get("state", {})
-    log_dir_value = state.get("log_dir")
-    if not log_dir_value:
-        return
-
-    log_dir = Path(os.path.expanduser(log_dir_value))
+    log_dir = state.log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_path = log_dir / "turns.jsonl"
@@ -172,17 +176,12 @@ def append_turn(config: dict, user: str, assistant: str):
         if len(lines) > max_turns:
             log_path.write_text("\n".join(lines[-max_turns:]) + "\n")
 
-def load_turn_history(config: dict) -> List[dict]:
+def load_turn_history(config: dict, state) -> List[dict]:
     logging_cfg = config.get("logging", {})
     if not logging_cfg.get("enabled", False):
         return []
 
-    state = config.get("state", {})
-    log_dir_value = state.get("log_dir")
-    if not log_dir_value:
-        return []
-
-    log_path = Path(os.path.expanduser(log_dir_value)) / "turns.jsonl"
+    log_path = state.log_dir / "turns.jsonl"
     if not log_path.exists():
         return []
 
@@ -192,7 +191,6 @@ def load_turn_history(config: dict) -> List[dict]:
             turns.append(json.loads(line))
         except json.JSONDecodeError:
             continue
-
     return turns
 
 
@@ -211,8 +209,11 @@ def main() -> int:
     user_prompt = ""
 
     try:
-        with CONFIG_PATH.open("rb") as f:
-            config = tomllib.load(f)
+        config, state = load_config_and_state()
+        os.environ.setdefault(
+            "COPILOT_CONFIG_DIR",
+            str(state.copilot_config_dir)
+        )
     except Exception as e:
         die(f"Inkly config error: {e}")
 
@@ -271,7 +272,7 @@ def main() -> int:
         enforce_deny_shell_commands(user_prompt, config)
 
         context_block = "\n".join(ctx)
-        turns = load_turn_history(config)
+        turns = load_turn_history(config, state)
 
         history_block = ""
         if turns:
@@ -303,7 +304,7 @@ def main() -> int:
 
         assistant_output = result.stdout.strip()
 
-        append_turn(config, user_prompt, assistant_output)
+        append_turn(config, state, user_prompt, assistant_output)
         print(assistant_output)
         return result.returncode
     else:

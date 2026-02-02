@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -209,9 +210,8 @@ def main():
     verify_default_config()
     parser = TomlParser(CONFIG_PATH)
     NODE_CFG, INSTALL_CFG, STATE_CFG = parser.load()
-    # Dont think this is needed
-    # verify Copilot always uses Ink state directory
-    # os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
+    # Verify Copilot always uses Ink state directory, 
+    os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
     verify_dirs()
     verify_nvm_and_node()
     configure_npm()

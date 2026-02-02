@@ -43,10 +43,10 @@ class StateConfig:
         """
         Resolve all paths to expanded Path objects.
         """
-        self.inkly_home = self.inkly_home.expanduser()
-        self.bin_dir = self.bin_dir.expanduser()
-        self.copilot_config_dir = self.copilot_config_dir.expanduser()
-        self.log_dir = self.log_dir.expanduser()
+        self.inkly_home = Path(self.inkly_home).expanduser()
+        self.bin_dir = Path(self.bin_dir).expanduser()
+        self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
+        self.log_dir = Path(self.log_dir).expanduser()
 
     def validate(self):
         """

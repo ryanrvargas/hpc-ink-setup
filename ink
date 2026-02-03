@@ -14,6 +14,7 @@ from typing import Optional, List
 import json
 from datetime import datetime, timezone
 import argparse
+import uuid
 
 # Bootstrap-only location used to find config.toml
 # All real paths come from StateConfig after parsing
@@ -32,7 +33,7 @@ else:
 from config import TomlParser
 
 __version__ = "0.1.0"
-
+SESSION_ID = uuid.uuid4().hex
 
 try:
     import tomllib  # Python 3.11+
@@ -82,8 +83,20 @@ def load_config_and_state() -> tuple[dict, object]:
 
     return config, state
 
-def die(msg: str, code: int = 1):
+def die(msg: str, code: int = 1, *, config=None, state=None, event_type: str = "error"):
     print(msg, file=sys.stderr)
+
+    if config and state:
+        log_event(
+            event_type=event_type,
+            payload={
+                "message": msg,
+                "fatal": True,
+            },
+            config=config,
+            state=state,
+        )
+
     raise SystemExit(code)
 
 def command_exists(cmd: str) -> bool:
@@ -102,7 +115,7 @@ def run_capture(cmd: List[str]) -> Optional[str]:
     except subprocess.CalledProcessError:
         return None
 
-def enforce_prompt_filter(user_prompt: str, config: dict):
+def enforce_prompt_filter(user_prompt: str, config: dict, *, state):
     pf = config.get("prompt_filter", {})
     if not pf.get("enabled", False):
         return  # filtering disabled, allow everything
@@ -115,15 +128,25 @@ def enforce_prompt_filter(user_prompt: str, config: dict):
     for kw in pf.get("blocked_keywords", []):
         check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
         if re.search(rf"\b{re.escape(check_kw)}\b", text):
-            die(f"Blocked by policy: keyword '{kw}'")
+            die(
+                "Blocked by policy",
+                config=config,
+                state=state,
+                event_type="guardrail_block",
+            )
 
     # Regex blocking
     for pattern in pf.get("blocked_regex", []):
         flags = re.IGNORECASE if pf.get("case_insensitive", False) else 0
         if re.search(pattern, user_prompt, flags):
-            die(f"Blocked by policy: pattern '{pattern}'")
+            die(
+                "Blocked by policy",
+                config=config,
+                state=state,
+                event_type="guardrail_block",
+            )
 
-def enforce_deny_shell_commands(user_prompt: str, config: dict):
+def enforce_deny_shell_commands(user_prompt: str, config: dict, *, state):
     guardrails = config.get("copilot", {}).get("guardrails", {})
     rules = guardrails.get("deny_shell_commands", [])
 
@@ -138,70 +161,107 @@ def enforce_deny_shell_commands(user_prompt: str, config: dict):
 
         # Very intentional: shell-like word boundary
         if re.search(rf"\b{re.escape(cmd)}\b", text):
-            die(f"Blocked by policy: shell command '{cmd}'")
+            die(
+                f"Blocked by policy: shell command '{cmd}'",
+                config=config,
+                state=state,
+                event_type="guardrail_block",
+            )
 
-def enforce_wrapper_policy(config: dict):
+def enforce_wrapper_policy(config: dict, *, state):
     wrapper = config.get("wrapper", {})
 
     if wrapper.get("require_login", False):
         if not os.environ.get("COPILOT_AUTHENTICATED"):
-            die("Copilot login required by policy")
+            die(
+                "Copilot login required by policy",
+                config=config,
+                state=state,
+            )
 
     if wrapper.get("fail_on_missing_copilot", True):
         if not shutil.which("copilot"):
-            die("Copilot CLI not found (required by policy)")
+            die(
+                "Copilot CLI not found (required by policy)",
+                config=config,
+                state=state,
+            )
 
 def enforce_network_policy(config: dict):
     net = config.get("network", {})
     if not net.get("require_internet", True):
         os.environ["NO_NETWORK"] = "1"
 
-def append_turn(config: dict, state, user: str, assistant: str):
+# # Logging functions, including turn history
+# def append_turn(config: dict, state, user: str, assistant: str):
+#     # Append a turn to the turn history log, enforcing max_turns
+#     logging_cfg = config.get("logging", {})
+#     if not logging_cfg.get("enabled", False):
+#         return
+
+#     max_turns = logging_cfg.get("max_turns")
+
+#     # Ensure log directory exists
+#     log_dir = state.log_dir
+#     log_dir.mkdir(parents=True, exist_ok=True)
+
+#     log_path = log_dir / "turns.jsonl"
+
+#     turn = {
+#         "id": datetime.now(timezone.utc).isoformat(),
+#         "user": user,
+#         "assistant": assistant,
+#         "cwd": os.getcwd(),
+#         "hostname": os.uname().nodename,
+#     }
+
+#     # append
+#     with log_path.open("a") as f:
+#         f.write(json.dumps(turn) + "\n")
+
+#     # truncate
+#     if isinstance(max_turns, int) and max_turns > 0:
+#         lines = log_path.read_text().splitlines()
+#         if len(lines) > max_turns:
+#             log_path.write_text("\n".join(lines[-max_turns:]) + "\n")
+
+def log_event(event_type: str, payload: dict, config: dict, state):
     logging_cfg = config.get("logging", {})
     if not logging_cfg.get("enabled", False):
         return
 
-    max_turns = logging_cfg.get("max_turns")
-
     log_dir = state.log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = log_dir / "turns.jsonl"
+    log_path = log_dir / "events.jsonl"
 
-    turn = {
-        "id": datetime.now(timezone.utc).isoformat(),
-        "user": user,
-        "assistant": assistant,
-        "cwd": os.getcwd(),
-        "hostname": os.uname().nodename,
+    event = {
+        "schema_version": logging_cfg.get("schema_version", 1),
+        "event_type": event_type,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session": build_session_context(),
+        "payload": payload,
     }
 
-    # append
     with log_path.open("a") as f:
-        f.write(json.dumps(turn) + "\n")
+        f.write(json.dumps(event) + "\n")
 
-    # truncate
-    if isinstance(max_turns, int) and max_turns > 0:
-        lines = log_path.read_text().splitlines()
-        if len(lines) > max_turns:
-            log_path.write_text("\n".join(lines[-max_turns:]) + "\n")
+# def load_turn_history(config: dict, state) -> List[dict]:
+#     logging_cfg = config.get("logging", {})
+#     if not logging_cfg.get("enabled", False):
+#         return []
 
-def load_turn_history(config: dict, state) -> List[dict]:
-    logging_cfg = config.get("logging", {})
-    if not logging_cfg.get("enabled", False):
-        return []
+#     log_path = state.log_dir / "turns.jsonl"
+#     if not log_path.exists():
+#         return []
 
-    log_path = state.log_dir / "turns.jsonl"
-    if not log_path.exists():
-        return []
-
-    turns = []
-    for line in log_path.read_text().splitlines():
-        try:
-            turns.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return turns
+#     turns = []
+#     for line in log_path.read_text().splitlines():
+#         try:
+#             turns.append(json.loads(line))
+#         except json.JSONDecodeError:
+#             continue
+#     return turns
 
 
 def debug_dump_prompt(prompt: str, config: dict):
@@ -213,6 +273,13 @@ def debug_dump_prompt(prompt: str, config: dict):
     print(prompt, file=sys.stderr)
     print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
 
+def build_session_context() -> dict:
+    return {
+        "session_id": SESSION_ID,
+        "user_id": None,  # hashing username later, null for now
+        "host": os.uname().nodename,
+        "pid": os.getpid(),
+    }
 
 def main() -> int:
     args = parse_args()
@@ -225,10 +292,22 @@ def main() -> int:
             str(state.copilot_config_dir)
         )
     except Exception as e:
-        die(f"Inkly config error: {e}")
+        die(
+            f"Inkly config error: {e}",
+        )
+    
+    log_event(
+        event_type="session_start",
+        payload={
+            "ink_version": __version__,
+            "logging_enabled": True,
+        },
+        config=config,
+        state=state,
+    )
 
     # Pre-flight runtime checks
-    enforce_wrapper_policy(config)
+    enforce_wrapper_policy(config, state=state)
     enforce_network_policy(config)
 
     # Gather HPC context
@@ -276,25 +355,34 @@ def main() -> int:
 
     if args.prompt:
         user_prompt = " ".join(args.prompt)
-
+        log_event(
+            event_type="user_prompt",
+            payload={
+                "prompt": user_prompt,
+                "length": len(user_prompt),
+                "sanitized": True,
+            },
+            config=config,
+            state=state,
+            )
         # HARD enforcement gates (order does not matter, but must be before Copilot)
-        enforce_prompt_filter(user_prompt, config)
-        enforce_deny_shell_commands(user_prompt, config)
+        enforce_prompt_filter(user_prompt, config, state=state)
+        enforce_deny_shell_commands(user_prompt, config, state=state)
+
 
         context_block = "\n".join(ctx)
-        turns = load_turn_history(config, state)
+        # turns = load_turn_history(config, state)
 
-        history_block = ""
-        if turns:
-            history_block = "Conversation history:\n"
-            for t in turns:
-                history_block += f"USER: {t['user']}\n"
-                history_block += f"ASSISTANT: {t['assistant']}\n\n"
+        # history_block = ""
+        # if turns:
+        #     history_block = "Conversation history:\n"
+        #     for t in turns:
+        #         history_block += f"USER: {t['user']}\n"
+        #         history_block += f"ASSISTANT: {t['assistant']}\n\n"
 
         full_prompt = (
             "Using the following HPC environment context:\n"
             f"{context_block}\n\n"
-            f"{history_block}"
             f"Now: {user_prompt}"
         )
 
@@ -314,7 +402,16 @@ def main() -> int:
 
         assistant_output = result.stdout.strip()
 
-        append_turn(config, state, user_prompt, assistant_output)
+        # append_turn(config, state, user_prompt, assistant_output)
+        log_event(
+            event_type="ai_response",
+            payload={
+                "response_length": len(assistant_output),
+                "truncated": False,
+            },
+            config=config,
+            state=state,
+        )
         print(assistant_output)
         return result.returncode
     else:

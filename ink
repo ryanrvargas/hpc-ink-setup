@@ -14,9 +14,25 @@ from typing import Optional, List
 import json
 from datetime import datetime, timezone
 import argparse
-from config import TomlParser # type: ignore
+
+# Bootstrap-only location used to find config.toml
+# All real paths come from StateConfig after parsing
+DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
+LIB_DIR = DEFAULT_INKLY_HOME / "lib"
+
+if LIB_DIR.exists():
+    sys.path.insert(0, str(LIB_DIR))
+else:
+    raise SystemExit(
+        f"Ink not initialized correctly. Missing {LIB_DIR}.\n"
+        "Please re-run install.py."
+    )
+
+from config import TomlParser
 
 __version__ = "0.1.0"
+
 
 try:
     import tomllib  # Python 3.11+
@@ -85,13 +101,6 @@ def run_capture(cmd: List[str]) -> Optional[str]:
         return result.stdout.strip()
     except subprocess.CalledProcessError:
         return None
-
-# Bootstrap-only location used to find config.toml
-# All real paths come from StateConfig after parsing
-DEFAULT_INKLY_HOME = Path.home() / ".inkly"
-CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
-LIB_DIR = DEFAULT_INKLY_HOME / "lib"
-sys.path.insert(0, str(LIB_DIR))
 
 def enforce_prompt_filter(user_prompt: str, config: dict):
     pf = config.get("prompt_filter", {})

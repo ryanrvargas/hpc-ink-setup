@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
 def load_config_and_state() -> tuple[dict, object]:
     parser = TomlParser(CONFIG_PATH)
     cfg = parser.load()
-    config = cfg.raw
+    config = cfg.raw_config
     state = cfg.state
 
     return config, state

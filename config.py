@@ -50,7 +50,6 @@ class NodeConfig:
         return self
 
 
-
 @dataclass
 class InstallConfig:
     """Configuration related to installation behavior and safety.

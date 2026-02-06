@@ -1,15 +1,16 @@
-
 from dataclasses import dataclass, field
 from pathlib import Path
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 from typing import Literal
 
+
 @dataclass
 class NodeConfig:
-    """ Configuration related to Node.js installation and management.
+    """Configuration related to Node.js installation and management.
 
     Attributes:
         node_version (str): The specific version of Node.js to install (e.g. "18.16.0").
@@ -27,8 +28,8 @@ class NodeConfig:
     nvm_version: str = "0.39.7"
 
     def validate(self) -> "NodeConfig":
-        """ Validates the NodeConfig variables
-         
+        """Validates the NodeConfig variables
+
         This method should be called after initialization to ensure the config is correct.
 
         Parameters:
@@ -48,10 +49,11 @@ class NodeConfig:
             )
         return self
 
+
 @dataclass
 class InstallConfig:
-    """ Configuration related to installation behavior and safety.
-    
+    """Configuration related to installation behavior and safety.
+
     Attributes:
         user_space_only (bool): If True, restricts installation to user space.
         allow_modify_shell_rc (bool): If True, allows modifying the user's shell rc file.
@@ -66,8 +68,8 @@ class InstallConfig:
     allow_path_injection: bool = True
 
     def validate(self) -> "InstallConfig":
-        """ Validates the InstallConfig variables
-        
+        """Validates the InstallConfig variables
+
         This method should be called after initialization to ensure the config is correct.
 
         Parameters:
@@ -78,7 +80,7 @@ class InstallConfig:
 
         Raises:
             ValueError: If any of the config variables are invalid or unsafe.
-        
+
         """
 
         if self.allow_modify_shell_rc:
@@ -86,25 +88,27 @@ class InstallConfig:
             if not rc.parent.exists():
                 raise ValueError(f"Shell rc directory does not exist: {rc.parent}")
         return self
-        
+
+
 @dataclass
 class StateConfig:
-    """ Configuration related to where Inkly stores its state, logs, and binaries.
-    
+    """Configuration related to where Inkly stores its state, logs, and binaries.
+
     Attributes:
         inkly_home (Path): The root directory for all Inkly state and data.
         bin_dir (Path): The directory where Inkly-managed binaries (like Node.js) are stored.
         copilot_config_dir (Path): The directory where Inkly stores Copilot configuration and state.
         log_dir (Path): The directory where Inkly stores logs.
-        
+
     """
+
     inkly_home: Path = Path("~/.inkly")
     bin_dir: Path = Path("~/.inkly/bin")
     copilot_config_dir: Path = Path("~/.inkly/copilot")
     log_dir: Path = Path("~/.inkly/logs")
 
     def resolve(self) -> "StateConfig":
-        """ Resolve and expand all paths to absolute paths.
+        """Resolve and expand all paths to absolute paths.
 
         This should be called after initialization to ensure all paths are absolute and expanded.
 
@@ -121,14 +125,14 @@ class StateConfig:
         self.log_dir = Path(self.log_dir).expanduser()
 
     def validate(self) -> "StateConfig":
-        """ Validates that all paths are properly set
+        """Validates that all paths are properly set
 
         Validation checks that bin_dir, copilot_config_dir, and log_dir all live under inkly_home
         to prevent misconfiguration that could lead to data being stored in unintended locations.
 
         Parameters:
             None
-        
+
         Returns:
             StateConfig: The validated StateConfig object (self).
 
@@ -151,22 +155,25 @@ class StateConfig:
         except ValueError:
             raise ValueError("log_dir must live under inkly_home")
 
+
 @dataclass
 class LoggingHistoryConfig:
-    """ Configuration related to in-memory history of prompts and responses for the current session. 
-    
+    """Configuration related to in-memory history of prompts and responses for the current session.
+
     Attributes:
         enabled (bool): Whether to keep an in-memory history of prompts and responses for the current session.
         max_prompts (int): The maximum number of recent prompts to keep in memory for context. Must be > 0 if enabled.
 
     """
+
     enabled: bool = True
     max_prompts: int = 5
 
     def validate(self):
         if self.enabled and self.max_prompts <= 0:
             raise ValueError("logging.history.max_prompts must be > 0")
-        
+
+
 @dataclass
 class LoggingConfig:
     enabled: bool = True
@@ -186,7 +193,7 @@ class LoggingConfig:
 
     max_log_file_mb: int = 10
     max_log_files: int = 5
-    
+
     history: LoggingHistoryConfig = field(default_factory=LoggingHistoryConfig)
 
     @property
@@ -197,10 +204,8 @@ class LoggingConfig:
         if not self.enabled:
             return
         if self.log_raw_prompts and not self.log_user_prompts:
-            raise ValueError(
-                "log_raw_prompts requires log_user_prompts = true"
-            )
-        
+            raise ValueError("log_raw_prompts requires log_user_prompts = true")
+
         allowed_levels = {"debug", "info", "warning", "error"}
         if self.level not in allowed_levels:
             raise ValueError(f"Invalid logging.level: {self.level}")
@@ -217,6 +222,7 @@ class LoggingConfig:
             )
 
         self.history.validate()
+
 
 # NOTE:
 # Runtime code must consume resolved config objects only.
@@ -256,16 +262,10 @@ class TomlParser:
         history = LoggingHistoryConfig(**logging_raw.get("history", {}))
 
         logging_cfg = LoggingConfig(
-            **{k: v for k, v in logging_raw.items() if k != "history"},
-            history=history
+            **{k: v for k, v in logging_raw.items() if k != "history"}, history=history
         )
         logging_cfg.validate()
 
         return InklyConfig(
-            raw_config=raw,
-            node=node,
-            install=install,
-            state=state,
-            logging=logging_cfg
+            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg
         )
-

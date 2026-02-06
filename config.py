@@ -87,6 +87,7 @@ class InstallConfig:
             rc = Path(self.shell_rc).expanduser()
             if not rc.parent.exists():
                 raise ValueError(f"Shell rc directory does not exist: {rc.parent}")
+        return self
 
 
 @dataclass
@@ -122,7 +123,8 @@ class StateConfig:
         self.bin_dir = Path(self.bin_dir).expanduser()
         self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
         self.log_dir = Path(self.log_dir).expanduser()
-
+        return self
+    
     def validate(self) -> "StateConfig":
         """Validates that all paths are properly set
 
@@ -154,7 +156,7 @@ class StateConfig:
         except ValueError:
             raise ValueError("log_dir must live under inkly_home")
 
-
+        return self
 @dataclass
 class LoggingHistoryConfig:
     """Configuration related to in-memory history of prompts and responses for the current session.
@@ -171,6 +173,7 @@ class LoggingHistoryConfig:
     def validate(self):
         if self.enabled and self.max_prompts <= 0:
             raise ValueError("logging.history.max_prompts must be > 0")
+        return self
 
 
 @dataclass
@@ -201,7 +204,7 @@ class LoggingConfig:
 
     def validate(self):
         if not self.enabled:
-            return
+            return self
         if self.log_raw_prompts and not self.log_user_prompts:
             raise ValueError("log_raw_prompts requires log_user_prompts = true")
 
@@ -221,6 +224,7 @@ class LoggingConfig:
             )
 
         self.history.validate()
+        return self
 
 
 # NOTE:

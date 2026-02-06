@@ -19,11 +19,12 @@ NVM_DIR = HOME / ".nvm"  # User-space nvm install location
 NPM_GLOBAL = HOME / ".npm-global"  # User-space npm prefix
 USER_BIN = NPM_GLOBAL / "bin"  # User-visible commands (ink, inkly)
 
-CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml" # Default config path
+CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"  # Default config path
 
-NODE_CFG = None # Node Config will be set later
-INSTALL_CFG = None # Install Config will be set later
-STATE_CFG = None # State Config will be set later
+NODE_CFG = None  # Node Config will be set later
+INSTALL_CFG = None  # Install Config will be set later
+STATE_CFG = None  # State Config will be set later
+
 
 def verify_default_config():
     DEFAULT_INKLY_HOME.mkdir(parents=True, exist_ok=True)
@@ -31,14 +32,17 @@ def verify_default_config():
     if not CONFIG_PATH.exists():
         shutil.copy2(Path(__file__).parent / "config.toml", CONFIG_PATH)
 
+
 def run(cmd, check=True, shell=False):
     # Execute a command and fail fast on errors
     print(f"->{cmd}")
     subprocess.run(cmd, check=check, shell=shell)
 
+
 def command_exists(cmd):
     # Check if a command is available on PATH
     return shutil.which(cmd) is not None
+
 
 # Verify and create necessary directories
 def verify_dirs():
@@ -58,6 +62,7 @@ def verify_dirs():
         Path(__file__).parent / "config.py",
         LIB_DIR / "config.py",
     )
+
 
 def verify_nvm_and_node():
     # Node Config
@@ -136,7 +141,8 @@ def run_with_nvm(cmd, check=True):
 
 
 # Configure npm to use user-writable global prefix and update shell rc
-# so future shells have correct PATH, 
+# so future shells have correct PATH,
+
 
 def configure_npm():
     cfg = INSTALL_CFG
@@ -221,7 +227,7 @@ def main():
     NODE_CFG = cfg.node
     INSTALL_CFG = cfg.install
     STATE_CFG = cfg.state
-    # Verify Copilot always uses Ink state directory, 
+    # Verify Copilot always uses Ink state directory,
     os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
     verify_dirs()
     verify_nvm_and_node()

@@ -124,7 +124,7 @@ class StateConfig:
         self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
         self.log_dir = Path(self.log_dir).expanduser()
         return self
-    
+
     def validate(self) -> "StateConfig":
         """Validates that all paths are properly set
 
@@ -157,6 +157,8 @@ class StateConfig:
             raise ValueError("log_dir must live under inkly_home")
 
         return self
+
+
 @dataclass
 class LoggingHistoryConfig:
     """Configuration related to in-memory history of prompts and responses for the current session.

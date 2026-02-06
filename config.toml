@@ -104,6 +104,12 @@ log_user_prompts = true
 log_ai_responses = true
 log_job_outcomes = false
 
+# ⚠️ EXPERIMENTAL / RESEARCH ONLY
+# If enabled, raw user prompts are logged in plaintext.
+# This may include sensitive research data.
+# Default: disabled
+log_raw_prompts = true
+
 # Where logs go (policy only — paths resolved via StateConfig)
 per_user_logs = true
 global_log = false

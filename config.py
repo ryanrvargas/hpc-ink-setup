@@ -91,12 +91,15 @@ class LoggingConfig:
     log_ai_responses: bool = True
     log_job_outcomes: bool = False
 
+    # NEW
+    log_raw_prompts: bool = False
+
     per_user_logs: bool = True
     global_log: bool = False
 
     max_log_file_mb: int = 10
     max_log_files: int = 5
-
+    
     history: LoggingHistoryConfig = field(default_factory=LoggingHistoryConfig)
 
     @property
@@ -106,20 +109,21 @@ class LoggingConfig:
     def validate(self):
         if not self.enabled:
             return
-
+        if self.log_raw_prompts and not self.log_user_prompts:
+            raise ValueError(
+                "log_raw_prompts requires log_user_prompts = true"
+            )
+        
         allowed_levels = {"debug", "info", "warning", "error"}
         if self.level not in allowed_levels:
             raise ValueError(f"Invalid logging.level: {self.level}")
 
         if self.schema_version <= 0:
             raise ValueError("logging.schema_version must be >= 1")
-
         if self.max_log_file_mb <= 0:
             raise ValueError("logging.max_log_file_mb must be > 0")
-
         if self.max_log_files <= 0:
             raise ValueError("logging.max_log_files must be > 0")
-
         if not self.per_user_logs and not self.global_log:
             raise ValueError(
                 "At least one of per_user_logs or global_log must be enabled"

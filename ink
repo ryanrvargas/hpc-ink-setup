@@ -394,6 +394,17 @@ def main() -> int:
         logging_cfg=cfg.logging,
         state=state,
     )
+    # PRIVACY NOTICE — raw prompt logging opt-in
+    if cfg.logging.log_raw_prompts:
+        log_event(
+            event_type="privacy_notice",
+            payload={
+                "raw_prompt_logging": True,
+                "message": "Raw user prompts are being logged in plaintext."
+            },
+            logging_cfg=cfg.logging,
+            state=state,
+        )
 
     # Pre-flight runtime checks
     enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)

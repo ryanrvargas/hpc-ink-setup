@@ -104,7 +104,7 @@ log_user_prompts = true
 log_ai_responses = true
 log_job_outcomes = false
 
-# ⚠️ EXPERIMENTAL / RESEARCH ONLY
+# EXPERIMENTAL / RESEARCH ONLY
 # If enabled, raw user prompts are logged in plaintext.
 # This may include sensitive research data.
 # Default: disabled

@@ -50,6 +50,7 @@ class NodeConfig:
         return self
 
 
+
 @dataclass
 class InstallConfig:
     """Configuration related to installation behavior and safety.
@@ -87,7 +88,6 @@ class InstallConfig:
             rc = Path(self.shell_rc).expanduser()
             if not rc.parent.exists():
                 raise ValueError(f"Shell rc directory does not exist: {rc.parent}")
-        return self
 
 
 @dataclass

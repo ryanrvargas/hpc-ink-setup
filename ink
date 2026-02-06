@@ -282,10 +282,11 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
     
     log_path = get_event_log_path(logging_cfg, state)
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    ensure_secure_dir(state.log_dir)
-    ensure_secure_dir(state.log_dir / "users")
-    ensure_secure_dir(log_path.parent)
-
+    if logging_cfg.per_user_logs:
+        ensure_secure_dir(state.log_dir / "users")
+        ensure_secure_dir(log_path.parent)
+    else:
+        ensure_secure_dir(log_path.parent)
 
     rotate_logs_if_needed(log_path, logging_cfg)
     

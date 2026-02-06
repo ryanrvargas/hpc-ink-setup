@@ -1,11 +1,12 @@
-
 from dataclasses import dataclass, field
 from pathlib import Path
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 from typing import Literal
+
 
 @dataclass
 class NodeConfig:
@@ -22,6 +23,7 @@ class NodeConfig:
                 "Use an explicit version."
             )
 
+
 @dataclass
 class InstallConfig:
     user_space_only: bool = True
@@ -34,7 +36,8 @@ class InstallConfig:
             rc = Path(self.shell_rc).expanduser()
             if not rc.parent.exists():
                 raise ValueError(f"Shell rc directory does not exist: {rc.parent}")
-        
+
+
 @dataclass
 class StateConfig:
     inkly_home: Path = Path("~/.inkly")
@@ -71,6 +74,7 @@ class StateConfig:
         except ValueError:
             raise ValueError("log_dir must live under inkly_home")
 
+
 @dataclass
 class LoggingHistoryConfig:
     enabled: bool = True
@@ -79,7 +83,8 @@ class LoggingHistoryConfig:
     def validate(self):
         if self.enabled and self.max_prompts <= 0:
             raise ValueError("logging.history.max_prompts must be > 0")
-        
+
+
 @dataclass
 class LoggingConfig:
     enabled: bool = True
@@ -99,7 +104,7 @@ class LoggingConfig:
 
     max_log_file_mb: int = 10
     max_log_files: int = 5
-    
+
     history: LoggingHistoryConfig = field(default_factory=LoggingHistoryConfig)
 
     @property
@@ -110,10 +115,8 @@ class LoggingConfig:
         if not self.enabled:
             return
         if self.log_raw_prompts and not self.log_user_prompts:
-            raise ValueError(
-                "log_raw_prompts requires log_user_prompts = true"
-            )
-        
+            raise ValueError("log_raw_prompts requires log_user_prompts = true")
+
         allowed_levels = {"debug", "info", "warning", "error"}
         if self.level not in allowed_levels:
             raise ValueError(f"Invalid logging.level: {self.level}")
@@ -130,6 +133,7 @@ class LoggingConfig:
             )
 
         self.history.validate()
+
 
 # NOTE:
 # Runtime code must consume resolved config objects only.
@@ -173,16 +177,10 @@ class TomlParser:
         history = LoggingHistoryConfig(**logging_raw.get("history", {}))
 
         logging_cfg = LoggingConfig(
-            **{k: v for k, v in logging_raw.items() if k != "history"},
-            history=history
+            **{k: v for k, v in logging_raw.items() if k != "history"}, history=history
         )
         logging_cfg.validate()
 
         return InklyConfig(
-            raw_config=raw,
-            node=node,
-            install=install,
-            state=state,
-            logging=logging_cfg
+            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg
         )
-

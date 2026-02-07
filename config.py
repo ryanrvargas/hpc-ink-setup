@@ -7,6 +7,8 @@ except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 from typing import Literal
 
+class ConfigError(Exception):
+    """Raised when the configuration file is invalid or incomplete."""
 
 @dataclass
 class NodeConfig:
@@ -43,7 +45,7 @@ class NodeConfig:
         """
 
         if self.node_version in ("lts", "stable", "latest"):
-            raise ValueError(
+            raise ConfigError(
                 "Alias-based Node versions are not supported on HPC. "
                 "Use an explicit version."
             )
@@ -86,7 +88,7 @@ class InstallConfig:
         if self.allow_modify_shell_rc:
             rc = Path(self.shell_rc).expanduser()
             if not rc.parent.exists():
-                raise ValueError(f"Shell rc directory does not exist: {rc.parent}")
+                raise ConfigError(f"Shell rc directory does not exist: {rc.parent}")
         return self
 
 
@@ -144,17 +146,17 @@ class StateConfig:
         try:
             self.bin_dir.relative_to(self.inkly_home)
         except ValueError:
-            raise ValueError("bin_dir must live under inkly_home")
+            raise ConfigError("bin_dir must live under inkly_home")
 
         try:
             self.copilot_config_dir.relative_to(self.inkly_home)
         except ValueError:
-            raise ValueError("copilot_config_dir must live under inkly_home")
+            raise ConfigError("copilot_config_dir must live under inkly_home")
 
         try:
             self.log_dir.relative_to(self.inkly_home)
         except ValueError:
-            raise ValueError("log_dir must live under inkly_home")
+            raise ConfigError("log_dir must live under inkly_home")
 
         return self
 
@@ -174,7 +176,7 @@ class LoggingHistoryConfig:
 
     def validate(self):
         if self.enabled and self.max_prompts <= 0:
-            raise ValueError("logging.history.max_prompts must be > 0")
+            raise ConfigError("logging.history.max_prompts must be > 0")
         return self
 
 
@@ -208,20 +210,20 @@ class LoggingConfig:
         if not self.enabled:
             return self
         if self.log_raw_prompts and not self.log_user_prompts:
-            raise ValueError("log_raw_prompts requires log_user_prompts = true")
+            raise ConfigError("log_raw_prompts requires log_user_prompts = true")
 
         allowed_levels = {"debug", "info", "warning", "error"}
         if self.level not in allowed_levels:
-            raise ValueError(f"Invalid logging.level: {self.level}")
+            raise ConfigError(f"Invalid logging.level: {self.level}")
 
         if self.schema_version <= 0:
-            raise ValueError("logging.schema_version must be >= 1")
+            raise ConfigError("logging.schema_version must be >= 1")
         if self.max_log_file_mb <= 0:
-            raise ValueError("logging.max_log_file_mb must be > 0")
+            raise ConfigError("logging.max_log_file_mb must be > 0")
         if self.max_log_files <= 0:
-            raise ValueError("logging.max_log_files must be > 0")
+            raise ConfigError("logging.max_log_files must be > 0")
         if not self.per_user_logs and not self.global_log:
-            raise ValueError(
+            raise ConfigError(
                 "At least one of per_user_logs or global_log must be enabled"
             )
 
@@ -247,12 +249,12 @@ class TomlParser:
 
     def _require(self, raw: dict, key: str) -> dict:
         if key not in raw:
-            raise RuntimeError(f"Missing required config section: [{key}]")
+            raise ConfigError(f"Missing required config section: [{key}]")
         return raw[key]
 
     def load(self):
         if not self.path.exists():
-            raise RuntimeError(f"Config not found: {self.path}")
+            raise ConfigError(f"Config not found: {self.path}")
 
         with self.path.open("rb") as f:
             raw = tomllib.load(f)

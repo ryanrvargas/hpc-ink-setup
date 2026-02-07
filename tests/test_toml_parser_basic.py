@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from config import TomlParser
+from config import TomlParser, ConfigError
 
 @pytest.fixture
 def full_cfg():
@@ -25,5 +25,17 @@ def test_full_config_parsing():
 def test_missing_state_section_raises_error():
     minimal_path = ROOT / "tests" / "data" / "minimal.toml"
 
-    with pytest.raises(RuntimeError, match="Missing required config section: \\[state\\]"):
+    with pytest.raises(ConfigError, match="Missing required config section: \\[state\\]"):
         TomlParser(minimal_path).load()
+
+def test_invalid_node_version_type_raises_error():
+    bad_path = ROOT / "tests" / "data" / "invalid_node_version.toml"
+
+    with pytest.raises(ConfigError):
+        TomlParser(bad_path).load()
+
+def test_invalid_logging_level_raises_config_error():
+    bad_path = ROOT / "tests" / "data" / "invalid_logging_level.toml"
+
+    with pytest.raises(ConfigError):
+        TomlParser(bad_path).load()

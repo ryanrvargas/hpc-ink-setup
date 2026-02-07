@@ -7,8 +7,10 @@ except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
 from typing import Literal
 
+
 class ConfigError(Exception):
     """Raised when the configuration file is invalid or incomplete."""
+
 
 @dataclass
 class NodeConfig:

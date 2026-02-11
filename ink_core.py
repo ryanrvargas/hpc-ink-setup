@@ -1,14 +1,51 @@
 """
-Ink: Cluster-aware Inkly runtime + launcher
-- ink (cluster context + prompt injection)
+Ink Core Runtime (importable)
 
-This module is the primary runtime entrypoint for Inkly.
-It coordinates configuration loading, policy enforcement,
-HPC context discovery, Copilot invocation, and structured logging.
+This module contains the full runtime logic for Inkly.
 
-This file enforces policy.
-It does not define policy.
+Architectural Separation
+------------------------
+Inkly is intentionally split into two layers:
+
+1) `ink` (CLI entrypoint)
+   - Executable script
+   - Extremely thin wrapper
+   - Only calls `main()`
+
+2) `ink_core` (this file)
+   - Fully importable
+   - Contains policy enforcement
+   - Contains logging
+   - Contains runtime orchestration
+
+Import-Time vs Runtime Behavior
+-------------------------------
+This module must be safe to import in development and test environments.
+
+That means:
+- No filesystem assumptions at import time
+- No required ~/.inkly installation at import time
+- No SystemExit during import
+
+All environment enforcement must happen inside `main()`.
+
+Dev Mode vs Installed Mode
+---------------------------
+Inkly supports two execution contexts:
+
+Dev/Test Mode:
+- config.py is available in the repository root.
+- ~/.inkly/lib may not exist.
+- Unit tests import this module directly.
+
+Installed Mode:
+- config.py is copied to ~/.inkly/lib
+- Runtime path is injected via bootstrap logic.
+- CLI execution enforces installation guarantees.
+
+This file must support both modes cleanly.
 """
+
 
 import re
 import os
@@ -23,13 +60,19 @@ import argparse
 import uuid
 import hashlib
 
-# Bootstrap Paths
+## -----------------------------------------------------------------------------
+# Bootstrap Path Configuration
+# -----------------------------------------------------------------------------
+# These paths represent the *installed* Inkly layout under ~/.inkly.
 #
-# These paths are used ONLY during startup to locate Inkly’s
-# configuration and internal libraries.
+# In installed mode:
+#   ~/.inkly/lib contains the runtime copy of config.py and other modules.
 #
-# After config parsing, all authoritative paths must come
-# from StateConfig to avoid accidental filesystem misuse.
+# In dev/test mode:
+#   config.py is available in the repository root and no installation is required.
+#
+# The bootstrap guard determines which environment we are running in.
+# -----------------------------------------------------------------------------
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
@@ -39,19 +82,48 @@ LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 # Inkly must be fully installed before runtime execution.
 # If the internal library directory is missing, fail fast
 # to avoid undefined behavior or partial execution.
-if LIB_DIR.exists():
-    sys.path.insert(0, str(LIB_DIR))
-else:
+def ensure_bootstrap_import():
+    """
+    Ensure Inkly runtime dependencies are importable.
+
+    This function resolves the dual-environment problem:
+
+    1) Dev/Test Mode
+       - `config.py` exists in repo root
+       - No installation required
+       - Do nothing
+
+    2) Installed Mode
+       - Runtime files live in ~/.inkly/lib
+       - Must inject that directory into sys.path
+
+    This function MUST only be called inside `main()`.
+    It must never execute at module import time.
+    """
+    # If repo-root config.py is importable, we are in dev/test mode.
+    try:
+        import config  # noqa: F401
+        return
+    except Exception:
+        pass
+
+    # Otherwise fall back to installed layout under ~/.inkly/lib
+    if LIB_DIR.exists():
+        sys.path.insert(0, str(LIB_DIR))
+        return
+
     raise SystemExit(
         f"Ink not initialized correctly. Missing {LIB_DIR}.\n"
         "Please re-run install.py."
     )
 
-# Internal Imports
+
+# NOTE:
+# config.py is importable in dev mode because it lives in repo root.
+# In installed mode, ensure_bootstrap_import() will inject ~/.inkly/lib
+# before runtime execution of main().
 #
-# config.py lives inside Inkly’s private runtime library.
-# It is responsible for parsing TOML policy and producing
-# validated runtime configuration objects.
+# This import must NOT trigger installation assumptions.
 from config import TomlParser
 
 __version__ = "0.1.0"
@@ -469,6 +541,8 @@ def main() -> int:
     Loads config, enforces policy, gathers HPC context, and either
     runs Copilot once (prompt mode) or launches interactive mode.
     """
+    ensure_bootstrap_import() # ensure that we can import from the internal library, fail fast if not
+
     # Parse CLI arguments early to decide prompt vs. interactive mode
     args = parse_args()
     user_prompt = ""

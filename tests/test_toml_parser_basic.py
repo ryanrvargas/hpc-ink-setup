@@ -1,23 +1,3 @@
-"""
-Tests for TomlParser configuration loading and validation.
-
-This module focuses exclusively on validating the behavior and contracts of
-the TomlParser and related configuration objects. The goal is to ensure that:
-
-- Valid configuration files load correctly
-- Required configuration sections are enforced
-- Invalid user-provided configuration values are rejected
-- All user-caused configuration errors raise ConfigError
-
-These tests deliberately avoid:
-- CLI / argparse behavior
-- Logging I/O
-- Slurm interaction
-- Copilot integration
-- Mocks or side effects
-
-This keeps the scope tightly focused on configuration correctness.
-"""
 
 import sys
 from pathlib import Path

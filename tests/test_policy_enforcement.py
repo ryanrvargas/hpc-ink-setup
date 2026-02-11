@@ -115,7 +115,7 @@ def test_prompt_filter_blocks_keyword(fake_state, fake_logging_cfg):
         }
     }
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(ink.PolicyViolation):
         ink.enforce_prompt_filter(
             "rm -rf ~/data",
             config,

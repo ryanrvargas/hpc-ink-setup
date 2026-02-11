@@ -140,6 +140,16 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10 in most cases this is used on HPC
 
+class PolicyViolation(Exception):
+    """
+    Raised when a user request violates an Inkly policy rule.
+
+    This represents a domain-level failure (not a process crash).
+    The CLI layer is responsible for converting this into
+    a user-facing message and exit code.
+    """
+    pass
+
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
     """
@@ -332,21 +342,15 @@ def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg)
         # .escape turns userspecified keyword into literal match. \b is word boundary, so the key word is a standalone word
         if re.search(rf"\b{re.escape(check_kw)}\b", text):
             # If any blocked keyword is found, die with policy block message
-            die(
-                "Blocked by policy",
-                logging_cfg=logging_cfg,
-                state=state,
-            )
+            raise PolicyViolation("Blocked by policy")
+
 
     # Regex blocking
     for pattern in pf.get("blocked_regex", []):
         flags = re.IGNORECASE if pf.get("case_insensitive", False) else 0
         if re.search(pattern, user_prompt, flags):
-            die(
-                "Blocked by policy",
-                logging_cfg=logging_cfg,
-                state=state,
-            )
+            raise PolicyViolation("Blocked by policy")
+
 
 def enforce_deny_shell_commands(user_prompt: str, config: dict, *, state, logging_cfg): # * forces callers to pass state as keyword argument
     """
@@ -369,11 +373,8 @@ def enforce_deny_shell_commands(user_prompt: str, config: dict, *, state, loggin
 
         # Very intentional: shell-like word boundary
         if re.search(rf"\b{re.escape(cmd)}\b", text):
-            die(
-                f"Blocked by policy: shell command '{cmd}'",
-                logging_cfg=logging_cfg,
-                state=state,
-            )
+            raise PolicyViolation(f"Blocked by policy: shell command '{cmd}'")
+
 
 def enforce_wrapper_policy(config: dict, *, state, logging_cfg):
     """
@@ -386,19 +387,11 @@ def enforce_wrapper_policy(config: dict, *, state, logging_cfg):
 
     if wrapper.get("require_login", False):
         if not os.environ.get("COPILOT_AUTHENTICATED"):
-            die(
-                "Copilot login required by policy",
-                logging_cfg=logging_cfg,
-                state=state,
-            )
+            raise PolicyViolation("Copilot login required by policy")
 
     if wrapper.get("fail_on_missing_copilot", True):
         if not shutil.which("copilot"):
-            die(
-                "Copilot CLI not found (required by policy)",
-                logging_cfg=logging_cfg,
-                state=state,
-            )
+            raise PolicyViolation("Copilot CLI not found (required by policy)")
 
 def enforce_network_policy(config: dict):
     """
@@ -557,9 +550,8 @@ def main() -> int:
         )
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
-        die(
-            f"Inkly config error: {e}"
-        )
+        raise PolicyViolation(f"Inkly config error: {e}")
+
     # Start session logging (includes session id + environment context)
     log_event(
         event_type="session_start",
@@ -634,8 +626,11 @@ def main() -> int:
         user_prompt = " ".join(args.prompt)
 
         # HARD enforcement gates (order does not matter, but must be before Copilot)
-        enforce_prompt_filter(user_prompt, config, state=state, logging_cfg=cfg.logging)
-        enforce_deny_shell_commands(user_prompt, config, state=state, logging_cfg=cfg.logging)
+        try:
+            enforce_prompt_filter(user_prompt, config, state=state, logging_cfg=cfg.logging)
+            enforce_deny_shell_commands(user_prompt, config, state=state, logging_cfg=cfg.logging)
+        except PolicyViolation as e:
+            die(str(e), logging_cfg=cfg.logging, state=state)
 
         # Safe to log now — prompt passed all guardrails
         payload = {

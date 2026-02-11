@@ -105,7 +105,6 @@ def verify_dirs():
     )
 
 
-
 # Node & NVM Verification
 def verify_nvm_and_node():
     """

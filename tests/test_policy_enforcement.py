@@ -137,6 +137,7 @@ def test_prompt_filter_blocks_keyword(fake_state, fake_logging_cfg):
             logging_cfg=fake_logging_cfg,
         )
 
+
 def test_prompt_filter_disabled_allows_everything(fake_state, fake_logging_cfg):
     """
     Validate early-return behavior when filtering is disabled.
@@ -187,6 +188,7 @@ def test_prompt_filter_allows_safe_prompt(fake_state, fake_logging_cfg):
         logging_cfg=fake_logging_cfg,
     )
 
+
 def test_prompt_filter_case_sensitive(fake_state, fake_logging_cfg):
     """
     Validate case-sensitive mode behavior.
@@ -236,6 +238,7 @@ def test_prompt_filter_blocks_regex(fake_state, fake_logging_cfg):
             logging_cfg=fake_logging_cfg,
         )
 
+
 def test_deny_shell_command_blocks(fake_state, fake_logging_cfg):
     """
     Validate that deny_shell_commands triggers PolicyViolation.
@@ -244,13 +247,7 @@ def test_deny_shell_command_blocks(fake_state, fake_logging_cfg):
         - Pattern matching with wildcards
         - Multiple blocked commands
     """
-    config = {
-        "copilot": {
-            "guardrails": {
-                "deny_shell_commands": ["rm:*", "sudo:*"]
-            }
-        }
-    }
+    config = {"copilot": {"guardrails": {"deny_shell_commands": ["rm:*", "sudo:*"]}}}
 
     with pytest.raises(ink.PolicyViolation):
         ink.enforce_deny_shell_commands(
@@ -265,13 +262,7 @@ def test_deny_shell_command_allows_safe(fake_state, fake_logging_cfg):
     """
     Ensure non-denied commands pass enforcement.
     """
-    config = {
-        "copilot": {
-            "guardrails": {
-                "deny_shell_commands": ["rm:*"]
-            }
-        }
-    }
+    config = {"copilot": {"guardrails": {"deny_shell_commands": ["rm:*"]}}}
 
     ink.enforce_deny_shell_commands(
         "echo hello",
@@ -285,13 +276,7 @@ def test_deny_shell_with_semicolon(fake_state, fake_logging_cfg):
     """
     Validate detection of dangerous commands embedded in compound statements.
     """
-    config = {
-        "copilot": {
-            "guardrails": {
-                "deny_shell_commands": ["rm:*"]
-            }
-        }
-    }
+    config = {"copilot": {"guardrails": {"deny_shell_commands": ["rm:*"]}}}
 
     with pytest.raises(ink.PolicyViolation):
         ink.enforce_deny_shell_commands(
@@ -354,20 +339,15 @@ def test_network_policy_sets_flag(monkeypatch):
     """
     monkeypatch.delenv("NO_NETWORK", raising=False)
 
-    ink.enforce_network_policy({
-        "network": {
-            "require_internet": False
-        }
-    })
+    ink.enforce_network_policy({"network": {"require_internet": False}})
 
     assert os.environ["NO_NETWORK"] == "1"
+
 
 def test_network_policy_no_flag_when_allowed(monkeypatch):
     monkeypatch.delenv("NO_NETWORK", raising=False)
 
-    ink.enforce_network_policy({
-        "network": {"require_internet": True}
-    })
+    ink.enforce_network_policy({"network": {"require_internet": True}})
 
     assert "NO_NETWORK" not in os.environ
 
@@ -379,6 +359,7 @@ def test_no_guardrails_allows(fake_state, fake_logging_cfg):
         state=fake_state,
         logging_cfg=fake_logging_cfg,
     )
+
 
 def test_wrapper_passes_when_authenticated(monkeypatch, fake_state, fake_logging_cfg):
     monkeypatch.setenv("COPILOT_AUTHENTICATED", "1")
@@ -392,36 +373,46 @@ def test_wrapper_passes_when_authenticated(monkeypatch, fake_state, fake_logging
         logging_cfg=fake_logging_cfg,
     )
 
+
 def test_main_short_circuits_before_subprocess(monkeypatch):
     # Prevent actual subprocess execution
-    monkeypatch.setattr("ink_core.subprocess.run",
-                        lambda *a, **k: pytest.fail("subprocess should not run"))
+    monkeypatch.setattr(
+        "ink_core.subprocess.run",
+        lambda *a, **k: pytest.fail("subprocess should not run"),
+    )
 
     # Mock minimal config/state loader
-    fake_cfg = SimpleNamespace(logging=SimpleNamespace(
-        enabled=False,
-        log_raw_prompts=False
-    ))
+    fake_cfg = SimpleNamespace(
+        logging=SimpleNamespace(enabled=False, log_raw_prompts=False)
+    )
     fake_state = SimpleNamespace(copilot_config_dir=".", log_dir=".")
 
-    monkeypatch.setattr("ink_core.load_config_and_state",
-                        lambda: (fake_cfg, {
-                            "prompt_filter": {
-                                "enabled": True,
-                                "case_insensitive": True,
-                                "blocked_keywords": ["rm"],
-                                "blocked_regex": []
-                            }
-                        }, fake_state))
+    monkeypatch.setattr(
+        "ink_core.load_config_and_state",
+        lambda: (
+            fake_cfg,
+            {
+                "prompt_filter": {
+                    "enabled": True,
+                    "case_insensitive": True,
+                    "blocked_keywords": ["rm"],
+                    "blocked_regex": [],
+                }
+            },
+            fake_state,
+        ),
+    )
 
-    monkeypatch.setattr("ink_core.parse_args",
-                        lambda: SimpleNamespace(prompt=["rm -rf /"]))
+    monkeypatch.setattr(
+        "ink_core.parse_args", lambda: SimpleNamespace(prompt=["rm -rf /"])
+    )
 
     monkeypatch.setattr("ink_core.ensure_bootstrap_import", lambda: None)
     monkeypatch.setattr("ink_core.log_event", lambda *a, **k: None)
 
     with pytest.raises(SystemExit):
         ink.main()
+
 
 # NOTE:
 # These tests validate *only* enforcement decisions (raise / no raise).

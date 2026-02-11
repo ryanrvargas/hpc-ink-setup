@@ -600,6 +600,20 @@ def main() -> int:
     enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
     enforce_network_policy(config)
 
+    if args.prompt:
+        user_prompt = " ".join(args.prompt)
+
+        # HARD enforcement gates (order does not matter, but must be before Copilot)
+        try:
+            enforce_prompt_filter(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+            enforce_deny_shell_commands(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+        except PolicyViolation as e:
+            die(str(e), logging_cfg=cfg.logging, state=state)
+
     # Gather HPC context
     ctx: List[str] = []
 
@@ -645,22 +659,8 @@ def main() -> int:
 
     # Build Copilot command
     cmd = ["copilot"]
-
+    # Safe to log now — prompt passed all guardrails
     if args.prompt:
-        user_prompt = " ".join(args.prompt)
-
-        # HARD enforcement gates (order does not matter, but must be before Copilot)
-        try:
-            enforce_prompt_filter(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-            enforce_deny_shell_commands(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-        except PolicyViolation as e:
-            die(str(e), logging_cfg=cfg.logging, state=state)
-
-        # Safe to log now — prompt passed all guardrails
         payload = {
             "length": len(user_prompt),
             "prompt_hash": hashlib.sha256(user_prompt.encode("utf-8")).hexdigest(),
@@ -686,7 +686,6 @@ def main() -> int:
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]
     # else: interactive mode (no flags)
-
     # Exec Copilot (final)
     if user_prompt:
         # In prompt mode, build a single-shot invocation

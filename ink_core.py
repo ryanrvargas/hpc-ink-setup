@@ -46,7 +46,6 @@ Installed Mode:
 This file must support both modes cleanly.
 """
 
-
 import re
 import os
 import sys
@@ -77,6 +76,7 @@ DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 
+
 # Bootstrap Import Guard
 #
 # Inkly must be fully installed before runtime execution.
@@ -103,6 +103,7 @@ def ensure_bootstrap_import():
     # If repo-root config.py is importable, we are in dev/test mode.
     try:
         import config  # noqa: F401
+
         return
     except Exception:
         pass
@@ -113,8 +114,7 @@ def ensure_bootstrap_import():
         return
 
     raise SystemExit(
-        f"Ink not initialized correctly. Missing {LIB_DIR}.\n"
-        "Please re-run install.py."
+        f"Ink not initialized correctly. Missing {LIB_DIR}.\nPlease re-run install.py."
     )
 
 
@@ -129,7 +129,7 @@ from config import TomlParser
 __version__ = "0.1.0"
 # Unique identifier for this Inkly execution.
 # Used to correlate all log events generated during this run.
-SESSION_ID = uuid.uuid4().hex # unique session identifier, for logging each run
+SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
 
 # TOML Compatibility
 #
@@ -140,6 +140,7 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10 in most cases this is used on HPC
 
+
 class PolicyViolation(Exception):
     """
     Raised when a user request violates an Inkly policy rule.
@@ -148,7 +149,9 @@ class PolicyViolation(Exception):
     The CLI layer is responsible for converting this into
     a user-facing message and exit code.
     """
+
     pass
+
 
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
@@ -164,7 +167,7 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(
         prog="ink",
-        usage="ink \"[prompt]\"",
+        usage='ink "[prompt]"',
         description=(
             "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
             "It injects live HPC context (Slurm, GPUs, OS, queues) into prompts\n"
@@ -172,8 +175,8 @@ def parse_args() -> argparse.Namespace:
         ),
         epilog=(
             "Examples:\n"
-            "  ink \"Generate a Slurm sbatch for 2 GPUs for 24 hours\"\n"
-            "  ink \"Why did my job get stuck in PD state?\"\n"
+            '  ink "Generate a Slurm sbatch for 2 GPUs for 24 hours"\n'
+            '  ink "Why did my job get stuck in PD state?"\n'
             "  ink            # start interactive Copilot session\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -189,13 +192,10 @@ def parse_args() -> argparse.Namespace:
 
     # Metadata / informational flags
     meta = parser.add_argument_group("meta")
-    meta.add_argument(
-        "--version",
-        action="version",
-        version=f"ink {__version__}"
-    )
+    meta.add_argument("--version", action="version", version=f"ink {__version__}")
 
     return parser.parse_args()
+
 
 # Configuration & State Loading
 def load_config_and_state() -> tuple[object, dict, object]:
@@ -213,10 +213,15 @@ def load_config_and_state() -> tuple[object, dict, object]:
     Returns:
         tuple: (InklyConfig, raw_config dict, StateConfig)
     """
-    parser = TomlParser(CONFIG_PATH) # creating object of TomlParser class, 
-    cfg = parser.load() # turn static policy into runtime reality
+    parser = TomlParser(CONFIG_PATH)  # creating object of TomlParser class,
+    cfg = parser.load()  # turn static policy into runtime reality
 
-    return cfg, cfg.raw_config, cfg.state # config: what is allowed , state: where those things live
+    return (
+        cfg,
+        cfg.raw_config,
+        cfg.state,
+    )  # config: what is allowed , state: where those things live
+
 
 # Logging Identity & Privacy
 def get_or_create_logging_salt(state) -> bytes:
@@ -242,6 +247,7 @@ def get_or_create_logging_salt(state) -> bytes:
 
     return salt
 
+
 def get_user_hash(state) -> str:
     """
     Return a stable, anonymized user identifier.
@@ -251,11 +257,10 @@ def get_user_hash(state) -> str:
     username = os.environ.get("USER", "unknown")
     salt = get_or_create_logging_salt(state)
 
-    digest = hashlib.sha256(
-        salt + username.encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(salt + username.encode("utf-8")).hexdigest()
 
     return digest[:16]
+
 
 def get_event_log_path(logging_cfg, state) -> Path:
     """
@@ -271,8 +276,11 @@ def get_event_log_path(logging_cfg, state) -> Path:
 
     return base / "events.jsonl"
 
+
 # Fatal Error Handling
-def die(msg: str, code: int = 1, *, logging_cfg=None, state=None, event_type: str = "error"):
+def die(
+    msg: str, code: int = 1, *, logging_cfg=None, state=None, event_type: str = "error"
+):
     """
     Terminate execution with optional structured logging.
 
@@ -294,10 +302,12 @@ def die(msg: str, code: int = 1, *, logging_cfg=None, state=None, event_type: st
 
     raise SystemExit(code)
 
+
 # System Utilities
 def command_exists(cmd: str) -> bool:
     """Return True if a command exists in PATH."""
     return shutil.which(cmd) is not None
+
 
 # Run a command and capture stdout, return None or stdout string
 def run_capture(cmd: List[str]) -> Optional[str]:
@@ -319,7 +329,8 @@ def run_capture(cmd: List[str]) -> Optional[str]:
     except subprocess.CalledProcessError:
         return None
 
-# Policy Enforcement    
+
+# Policy Enforcement
 # Policy level semantics restrictions on what users are allowed to ask
 def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg):
     """
@@ -328,7 +339,7 @@ def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg)
     Blocks disallowed keywords or patterns before any
     tool-level execution occurs.
     """
-    pf = config.get("prompt_filter", {}) # 
+    pf = config.get("prompt_filter", {})  #
     if not pf.get("enabled", False):
         return  # filtering disabled, allow everything
 
@@ -337,13 +348,12 @@ def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg)
         text = text.lower()
 
     # Keyword blocking
-    for kw in pf.get("blocked_keywords", []): # return list of keywords
+    for kw in pf.get("blocked_keywords", []):  # return list of keywords
         check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
         # .escape turns userspecified keyword into literal match. \b is word boundary, so the key word is a standalone word
         if re.search(rf"\b{re.escape(check_kw)}\b", text):
             # If any blocked keyword is found, die with policy block message
             raise PolicyViolation("Blocked by policy")
-
 
     # Regex blocking
     for pattern in pf.get("blocked_regex", []):
@@ -352,15 +362,21 @@ def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg)
             raise PolicyViolation("Blocked by policy")
 
 
-def enforce_deny_shell_commands(user_prompt: str, config: dict, *, state, logging_cfg): # * forces callers to pass state as keyword argument
+def enforce_deny_shell_commands(
+    user_prompt: str, config: dict, *, state, logging_cfg
+):  # * forces callers to pass state as keyword argument
     """
     Enforce hard denial of dangerous shell commands.
 
     This layer prevents filesystem destruction or
     privilege escalation regardless of intent.
     """
-    guardrails = config.get("copilot", {}).get("guardrails", {}) # get copilot/guardrails section of config into a dict
-    rules = guardrails.get("deny_shell_commands", []) # find deny_shell_commands keyword, return list of rules, emypty list if missing
+    guardrails = config.get("copilot", {}).get(
+        "guardrails", {}
+    )  # get copilot/guardrails section of config into a dict
+    rules = guardrails.get(
+        "deny_shell_commands", []
+    )  # find deny_shell_commands keyword, return list of rules, emypty list if missing
 
     if not rules:
         return  # nothing to enforce, exit function
@@ -369,7 +385,7 @@ def enforce_deny_shell_commands(user_prompt: str, config: dict, *, state, loggin
 
     for rule in rules:
         # Format: "rm:*", "sudo:*"
-        cmd = rule.split(":", 1)[0] # everything before the first colon is kept
+        cmd = rule.split(":", 1)[0]  # everything before the first colon is kept
 
         # Very intentional: shell-like word boundary
         if re.search(rf"\b{re.escape(cmd)}\b", text):
@@ -393,6 +409,7 @@ def enforce_wrapper_policy(config: dict, *, state, logging_cfg):
         if not shutil.which("copilot"):
             raise PolicyViolation("Copilot CLI not found (required by policy)")
 
+
 def enforce_network_policy(config: dict):
     """
     Apply network access constraints.
@@ -403,6 +420,7 @@ def enforce_network_policy(config: dict):
     net = config.get("network", {})
     if not net.get("require_internet", True):
         os.environ["NO_NETWORK"] = "1"
+
 
 # Logging
 def log_event(event_type: str, payload: dict, logging_cfg, state):
@@ -422,7 +440,7 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
 
     if event_type == "job_outcome" and not logging_cfg.log_job_outcomes:
         return
-    
+
     log_path = get_event_log_path(logging_cfg, state)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     if logging_cfg.per_user_logs:
@@ -432,7 +450,7 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
         ensure_secure_dir(log_path.parent)
 
     rotate_logs_if_needed(log_path, logging_cfg)
-    
+
     event = {
         "schema_version": logging_cfg.schema_version,
         "event_type": event_type,
@@ -446,9 +464,11 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
 
     ensure_secure_file(log_path)
 
+
 def should_log_raw_prompts(logging_cfg) -> bool:
     """Return True if raw prompt logging is enabled by policy."""
     return getattr(logging_cfg, "log_raw_prompts", False)
+
 
 def rotate_logs_if_needed(log_path: Path, logging_cfg):
     """
@@ -469,13 +489,14 @@ def rotate_logs_if_needed(log_path: Path, logging_cfg):
     # Shift existing rotated logs
     for i in range(logging_cfg.max_log_files - 1, 0, -1):
         src = Path(str(log_path) + f".{i}")
-        dst = Path(str(log_path) + f".{i+1}")
+        dst = Path(str(log_path) + f".{i + 1}")
         if src.exists():
             src.rename(dst)
 
     # Rotate current log
     rotated = Path(str(log_path) + ".1")
     log_path.rename(rotated)
+
 
 def ensure_secure_dir(path: Path):
     """
@@ -488,6 +509,7 @@ def ensure_secure_dir(path: Path):
     except PermissionError:
         pass
 
+
 def ensure_secure_file(path: Path):
     """
     Set file permissions to be accessible only by the owner.
@@ -498,6 +520,7 @@ def ensure_secure_file(path: Path):
         os.chmod(path, 0o600)
     except PermissionError:
         pass
+
 
 def debug_dump_prompt(prompt: str, config: dict):
     """
@@ -514,6 +537,7 @@ def debug_dump_prompt(prompt: str, config: dict):
     print(prompt, file=sys.stderr)
     print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
 
+
 def build_session_context(state) -> dict:
     """
     Build a minimal session context for structured logging.
@@ -527,6 +551,7 @@ def build_session_context(state) -> dict:
         "pid": os.getpid(),
     }
 
+
 def main() -> int:
     """
     Inkly entrypoint.
@@ -534,7 +559,7 @@ def main() -> int:
     Loads config, enforces policy, gathers HPC context, and either
     runs Copilot once (prompt mode) or launches interactive mode.
     """
-    ensure_bootstrap_import() # ensure that we can import from the internal library, fail fast if not
+    ensure_bootstrap_import()  # ensure that we can import from the internal library, fail fast if not
 
     # Parse CLI arguments early to decide prompt vs. interactive mode
     args = parse_args()
@@ -544,10 +569,7 @@ def main() -> int:
         # Load validated policy/config and state paths
         cfg, config, state = load_config_and_state()
         # Ensure Copilot uses Inkly-managed config dir
-        os.environ.setdefault(
-            "COPILOT_CONFIG_DIR",
-            str(state.copilot_config_dir)
-        )
+        os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
         raise PolicyViolation(f"Inkly config error: {e}")
@@ -568,7 +590,7 @@ def main() -> int:
             event_type="privacy_notice",
             payload={
                 "raw_prompt_logging": True,
-                "message": "Raw user prompts are being logged in plaintext."
+                "message": "Raw user prompts are being logged in plaintext.",
             },
             logging_cfg=cfg.logging,
             state=state,
@@ -611,11 +633,13 @@ def main() -> int:
 
     if command_exists("nvidia-smi"):
         if run_capture(["nvidia-smi", "-L"]) is not None:
-            gpu = run_capture([
-                "nvidia-smi",
-                "--query-gpu=name,memory.total",
-                "--format=csv,noheader",
-            ])
+            gpu = run_capture(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,memory.total",
+                    "--format=csv,noheader",
+                ]
+            )
             if gpu:
                 ctx.append(f"GPU: {gpu.splitlines()[0]}")
 
@@ -627,8 +651,12 @@ def main() -> int:
 
         # HARD enforcement gates (order does not matter, but must be before Copilot)
         try:
-            enforce_prompt_filter(user_prompt, config, state=state, logging_cfg=cfg.logging)
-            enforce_deny_shell_commands(user_prompt, config, state=state, logging_cfg=cfg.logging)
+            enforce_prompt_filter(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+            enforce_deny_shell_commands(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
         except PolicyViolation as e:
             die(str(e), logging_cfg=cfg.logging, state=state)
 
@@ -666,10 +694,7 @@ def main() -> int:
         t0 = datetime.now(timezone.utc)
 
         result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
 
         t1 = datetime.now(timezone.utc)
@@ -704,4 +729,3 @@ def main() -> int:
     else:
         # In interactive mode, launch Copilot CLI directly
         return subprocess.call(cmd)
-    

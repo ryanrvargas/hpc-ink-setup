@@ -38,7 +38,6 @@ Policy functions must:
 These tests enforce that contract.
 """
 
-
 import pytest
 from types import SimpleNamespace
 
@@ -90,7 +89,6 @@ def fake_logging_cfg():
         max_bytes=1024 * 1024,
         max_log_files=5,
     )
-
 
 
 def test_prompt_filter_blocks_keyword(fake_state, fake_logging_cfg):

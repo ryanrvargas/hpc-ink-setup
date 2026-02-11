@@ -53,10 +53,6 @@ from types import SimpleNamespace
 
 import ink_core as ink
 
-import pytest
-from types import SimpleNamespace
-import ink_core as ink
-
 
 @pytest.fixture
 def fake_state(tmp_path):

@@ -58,6 +58,7 @@ from datetime import datetime, timezone
 import argparse
 import uuid
 import hashlib
+from config import TomlParser
 
 ## -----------------------------------------------------------------------------
 # Bootstrap Path Configuration
@@ -118,27 +119,10 @@ def ensure_bootstrap_import():
     )
 
 
-# NOTE:
-# config.py is importable in dev mode because it lives in repo root.
-# In installed mode, ensure_bootstrap_import() will inject ~/.inkly/lib
-# before runtime execution of main().
-#
-# This import must NOT trigger installation assumptions.
-from config import TomlParser
-
 __version__ = "0.1.0"
 # Unique identifier for this Inkly execution.
 # Used to correlate all log events generated during this run.
 SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
-
-# TOML Compatibility
-#
-# Python version on HPC systems varies widely.
-# Prefer stdlib tomllib when available, otherwise fall back.
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:
-    import tomli as tomllib  # Python <=3.10 in most cases this is used on HPC
 
 
 class PolicyViolation(Exception):

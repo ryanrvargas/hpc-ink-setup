@@ -2,6 +2,7 @@ logs
 *.zip
 hpc-ink-setup.code-workspace
 hpc-ink-setup/uninstall_ink.sh
+*.pyc
 /__pycache__
 /__pycache__
 __pycache__/config.cpython-313.pyc

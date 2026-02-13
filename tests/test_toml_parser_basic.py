@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 TEST_DIR = ROOT / "tests" / "data"
 
+
 @pytest.fixture
 def full_cfg():
     """

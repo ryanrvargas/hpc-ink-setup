@@ -193,8 +193,9 @@ class LoggingConfig:
     log_ai_responses: bool = True
     log_job_outcomes: bool = False
 
-    # NEW
     log_raw_prompts: bool = False
+    log_raw_ai_responses: bool = False
+
 
     per_user_logs: bool = True
     global_log: bool = False
@@ -213,7 +214,10 @@ class LoggingConfig:
             return self
         if self.log_raw_prompts and not self.log_user_prompts:
             raise ConfigError("log_raw_prompts requires log_user_prompts = true")
+        if self.log_raw_ai_responses and not self.log_ai_responses:
+            raise ConfigError("log_raw_ai_responses requires log_ai_responses = true")
 
+        
         allowed_levels = {"debug", "info", "warning", "error"}
         if self.level not in allowed_levels:
             raise ConfigError(f"Invalid logging.level: {self.level}")
@@ -228,6 +232,7 @@ class LoggingConfig:
             raise ConfigError(
                 "At least one of per_user_logs or global_log must be enabled"
             )
+        
 
         self.history.validate()
         return self

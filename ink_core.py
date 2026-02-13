@@ -588,11 +588,16 @@ def main() -> int:
 
         assistant_output = result.stdout.strip()
 
+        payload = {
+            "response_length": len(assistant_output),
+        }
+
+        if getattr(cfg.logging, "log_raw_ai_responses", False):
+            payload["response"] = assistant_output
+
         log_event(
             event_type="ai_response",
-            payload={
-                "response_length": len(assistant_output),
-            },
+            payload=payload,
             logging_cfg=cfg.logging,
             state=state,
         )

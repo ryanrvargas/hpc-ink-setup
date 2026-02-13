@@ -46,7 +46,6 @@ Installed Mode:
 This file must support both modes cleanly.
 """
 
-import re
 import os
 import sys
 import shutil
@@ -131,7 +130,6 @@ __version__ = "0.1.0"
 # Unique identifier for this Inkly execution.
 # Used to correlate all log events generated during this run.
 SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
-
 
 
 # Argument Parsing

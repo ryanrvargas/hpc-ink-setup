@@ -371,7 +371,8 @@ def test_wrapper_passes_when_authenticated(monkeypatch, fake_state, fake_logging
 
 
 def test_main_short_circuits_before_subprocess(monkeypatch):
-    import ink_core as ink # Import here to ensure monkeypatching works before enforcement logic runs
+    import ink_core as ink  # Import here to ensure monkeypatching works before enforcement logic runs
+
     # Prevent actual subprocess execution
     monkeypatch.setattr(
         "ink_core.subprocess.run",

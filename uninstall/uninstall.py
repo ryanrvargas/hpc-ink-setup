@@ -123,7 +123,7 @@ def main():
 
     remove_stale_binaries()
     # safe_remove(REPO_DIR)
-    remove_copilot_cache()
+    # remove_copilot_cache()
     clean_bashrc()
     sanity_check()
 

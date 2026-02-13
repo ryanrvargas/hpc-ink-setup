@@ -2,3 +2,8 @@ logs
 *.zip
 hpc-ink-setup.code-workspace
 hpc-ink-setup/uninstall_ink.sh
+*.pyc
+/__pycache__
+/__pycache__
+__pycache__/config.cpython-313.pyc
+tests/__pycache__/test_toml_parser_basic.cpython-313-pytest-9.0.2.pyc

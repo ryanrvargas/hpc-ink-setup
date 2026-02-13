@@ -98,6 +98,11 @@ def verify_dirs():
         Path(__file__).parent / "config.py",
         LIB_DIR / "config.py",
     )
+    # Copy ink_core.py into Inkly's private lib directory
+    shutil.copy2(
+        Path(__file__).parent / "ink_core.py",
+        LIB_DIR / "ink_core.py",
+    )
 
 
 # Node & NVM Verification

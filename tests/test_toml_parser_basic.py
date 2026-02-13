@@ -16,7 +16,7 @@ systems and clusters.
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
+TEST_DIR = ROOT / "tests" / "data"
 
 @pytest.fixture
 def full_cfg():
@@ -27,7 +27,7 @@ def full_cfg():
     normal operation. It is used by tests that need a fully constructed
     InklyConfig object without repeating setup logic.
     """
-    config_path = ROOT / "tests" / "data" / "test.toml"
+    config_path = TEST_DIR / "test.toml"
     return TomlParser(config_path).load()
 
 
@@ -43,7 +43,7 @@ def test_full_config_parsing():
     This test does not validate every field; it acts as a sanity check that
     the overall configuration pipeline works end-to-end for valid input.
     """
-    config_path = ROOT / "tests" / "data" / "test.toml"
+    config_path = TEST_DIR / "test.toml"
     cfg = TomlParser(config_path).load()
 
     assert cfg.install.user_space_only is True
@@ -65,7 +65,7 @@ def test_missing_state_section_raises_error():
     - The failure is reported as a ConfigError
     - The error message clearly identifies the missing section
     """
-    minimal_path = ROOT / "tests" / "data" / "minimal.toml"
+    minimal_path = TEST_DIR / "minimal.toml"
 
     with pytest.raises(
         ConfigError, match="Missing required config section: \\[state\\]"
@@ -86,7 +86,7 @@ def test_invalid_node_version_type_raises_error():
     - Reported as ConfigError
     - Not silently coerced or ignored
     """
-    bad_path = ROOT / "tests" / "data" / "invalid_node_version.toml"
+    bad_path = TEST_DIR / "invalid_node_version.toml"
 
     with pytest.raises(ConfigError):
         TomlParser(bad_path).load()
@@ -105,7 +105,7 @@ def test_invalid_logging_level_raises_config_error():
     - User mistakes are surfaced early
     - All such failures are consistently reported as ConfigError
     """
-    bad_path = ROOT / "tests" / "data" / "invalid_logging_level.toml"
+    bad_path = TEST_DIR / "invalid_logging_level.toml"
 
     with pytest.raises(ConfigError):
         TomlParser(bad_path).load()

@@ -6,7 +6,6 @@ import shutil
 from pathlib import Path
 import sys
 
-from inkly.ink_core import LIB_DIR
 from inkly.config import TomlParser
 
 # Bootstrap Paths & Environment
@@ -102,7 +101,6 @@ def verify_dirs():
         raise RuntimeError("inkly runtime package not found in installer directory")
 
     shutil.copytree(RUNTIME_SRC, RUNTIME_DST, dirs_exist_ok=True)
-
 
 
 # Node & NVM Verification

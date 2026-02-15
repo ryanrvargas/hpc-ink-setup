@@ -593,7 +593,8 @@ def main() -> int:
         }
 
         if getattr(cfg.logging, "log_raw_ai_responses", False):
-            payload["response"] = assistant_output
+            max_chars = 5000  # safety limit to prevent log explosion
+            payload["response"] = assistant_output[:max_chars]
 
         log_event(
             event_type="ai_response",

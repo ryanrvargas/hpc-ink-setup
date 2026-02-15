@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import pytest
-from config import TomlParser, ConfigError
+from inkly.config import TomlParser, ConfigError
 
 
 """

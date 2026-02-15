@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 import sys
 
-from config import TomlParser
+from inkly.config import TomlParser
 
 # Bootstrap Paths & Environment
 #

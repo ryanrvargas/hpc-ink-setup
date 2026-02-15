@@ -57,7 +57,7 @@ if LIB_DIR.exists():
 # Import Runtime Core (after path injection)
 # This must happen AFTER modifying sys.path.
 # Otherwise, Python will raise ModuleNotFoundError.
-from ink_core import main
+from inkly.ink_core import main
 
 # The wrapper does nothing else.
 # All CLI behavior is handled inside ink_core.main().

@@ -58,7 +58,7 @@ from datetime import datetime, timezone
 import argparse
 import uuid
 import hashlib
-from config import TomlParser
+from inkly.config import TomlParser
 
 ## -----------------------------------------------------------------------------
 # Bootstrap Path Configuration
@@ -103,7 +103,7 @@ def ensure_bootstrap_import():
     """
     # If repo-root config.py is importable, we are in dev/test mode.
     try:
-        import config  # noqa: F401
+        import inkly.config as config  # noqa: F401
 
         return
     except Exception:

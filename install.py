@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 import sys
 
+from inkly.ink_core import LIB_DIR
 from inkly.config import TomlParser
 
 # Bootstrap Paths & Environment
@@ -93,21 +94,15 @@ def verify_dirs():
     LIB_DIR = STATE_CFG.inkly_home / "lib"
     LIB_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Copy config.py into Inkly's private lib directory
-    shutil.copy2(
-        Path(__file__).parent / "config.py",
-        LIB_DIR / "config.py",
-    )
-    # Copy ink_core.py into Inkly's private lib directory
-    shutil.copy2(
-        Path(__file__).parent / "ink_core.py",
-        LIB_DIR / "ink_core.py",
-    )
-    # Copy policy.py into Inkly's private lib directory
-    shutil.copy2(
-        Path(__file__).parent / "policy.py",
-        LIB_DIR / "policy.py",
-    )
+    # Copy entire inkly runtime package into private lib directory
+    RUNTIME_SRC = Path(__file__).parent / "inkly"
+    RUNTIME_DST = LIB_DIR / "inkly"
+
+    if not RUNTIME_SRC.exists():
+        raise RuntimeError("inkly runtime package not found in installer directory")
+
+    shutil.copytree(RUNTIME_SRC, RUNTIME_DST, dirs_exist_ok=True)
+
 
 
 # Node & NVM Verification

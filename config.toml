@@ -218,6 +218,8 @@ log_user_prompts = true
 
 # Log AI responses.
 log_ai_responses = true
+log_raw_ai_responses = false
+
 
 # Log job success/failure outcomes.
 log_job_outcomes = false

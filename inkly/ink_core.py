@@ -73,7 +73,13 @@ from inkly.config import TomlParser
 #
 # The bootstrap guard determines which environment we are running in.
 # -----------------------------------------------------------------------------
-DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+INKLY_HOME_OVERRIDE = os.environ.get("INKLY_HOME_OVERRIDE")
+
+if INKLY_HOME_OVERRIDE:
+    DEFAULT_INKLY_HOME = Path(INKLY_HOME_OVERRIDE)
+else:
+    DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 
@@ -109,6 +115,13 @@ def ensure_bootstrap_import():
     except Exception:
         pass
 
+    # If running in container with override,
+    # do NOT fall back to host lib injection.
+    if INKLY_HOME_OVERRIDE:
+        raise SystemExit(
+            "Ink runtime not properly packaged inside container."
+        )
+    
     # Otherwise fall back to installed layout under ~/.inkly/lib
     if LIB_DIR.exists():
         sys.path.insert(0, str(LIB_DIR))
@@ -684,12 +697,8 @@ def main() -> int:
         os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
-        die(
-            f"Inkly config error: {e}",
-            logging_cfg=cfg.logging,
-            state=state,
-            resolved_hostname=resolved_hostname,
-        )
+        print(f"Inkly config error: {e}", file=sys.stderr)
+        raise SystemExit(1)
 
     # Start session logging (includes session id + environment context)
     log_event(

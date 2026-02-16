@@ -174,6 +174,12 @@ def parse_args() -> argparse.Namespace:
         help="Prompt to send to Copilot (to start interactive mode type ink without arguments)",
     )
 
+    runtime.add_argument(
+        "--context",
+        type=str,
+        help=argparse.SUPPRESS,  # internal flag (not shown in help)
+    )
+
     # Metadata / informational flags
     meta = parser.add_argument_group("meta")
     meta.add_argument("--version", action="version", version=f"ink {__version__}")
@@ -263,7 +269,13 @@ def get_event_log_path(logging_cfg, state) -> Path:
 
 # Fatal Error Handling
 def die(
-    msg: str, code: int = 1, *, logging_cfg=None, state=None, event_type: str = "error"
+    msg: str,
+    code: int = 1,
+    *,
+    logging_cfg=None,
+    state=None,
+    event_type: str = "error",
+    resolved_hostname: Optional[str] = None,
 ):
     """
     Terminate execution with optional structured logging.
@@ -282,6 +294,7 @@ def die(
             },
             logging_cfg=logging_cfg,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
     raise SystemExit(code)
@@ -291,6 +304,22 @@ def die(
 def command_exists(cmd: str) -> bool:
     """Return True if a command exists in PATH."""
     return shutil.which(cmd) is not None
+
+
+def load_external_context(path: Path) -> Optional[dict]:
+    """
+    Load structured HPC context from JSON file.
+
+    Used when Inkly is executed inside a container and
+    host context has already been gathered.
+    """
+    try:
+        if path.exists():
+            return json.loads(path.read_text())
+    except Exception:
+        pass
+
+    return None
 
 
 # Run a command and capture stdout, return None or stdout string
@@ -407,7 +436,14 @@ def enforce_network_policy(config: dict):
 
 
 # Logging
-def log_event(event_type: str, payload: dict, logging_cfg, state):
+def log_event(
+    event_type: str,
+    payload: dict,
+    logging_cfg,
+    state,
+    *,
+    resolved_hostname: Optional[str] = None,
+):
     """
     Append a structured event to the Inkly event log.
 
@@ -439,7 +475,7 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
         "schema_version": logging_cfg.schema_version,
         "event_type": event_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "session": build_session_context(state),
+        "session": build_session_context(state, resolved_hostname=resolved_hostname),
         "payload": payload,
     }
 
@@ -522,82 +558,23 @@ def debug_dump_prompt(prompt: str, config: dict):
     print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
 
 
-def build_session_context(state) -> dict:
+def build_session_context(state, resolved_hostname: Optional[str] = None) -> dict:
     """
     Build a minimal session context for structured logging.
 
     Includes a stable user hash, host name, PID, and session id.
     """
+    host_value = resolved_hostname or os.uname().nodename
+
     return {
         "session_id": SESSION_ID,
         "user_id": get_user_hash(state),
-        "host": os.uname().nodename,
+        "host": host_value,
         "pid": os.getpid(),
     }
 
 
-def main() -> int:
-    """
-    Inkly entrypoint.
-
-    Loads config, enforces policy, gathers HPC context, and either
-    runs Copilot once (prompt mode) or launches interactive mode.
-    """
-    ensure_bootstrap_import()  # ensure that we can import from the internal library, fail fast if not
-
-    # Parse CLI arguments early to decide prompt vs. interactive mode
-    args = parse_args()
-    user_prompt = ""
-
-    try:
-        # Load validated policy/config and state paths
-        cfg, config, state = load_config_and_state()
-        # Ensure Copilot uses Inkly-managed config dir
-        os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
-    except Exception as e:
-        # Fail fast with a structured error if config cannot be loaded
-        raise PolicyViolation(f"Inkly config error: {e}")
-
-    # Start session logging (includes session id + environment context)
-    log_event(
-        event_type="session_start",
-        payload={
-            "ink_version": __version__,
-            "logging_enabled": True,
-        },
-        logging_cfg=cfg.logging,
-        state=state,
-    )
-    # PRIVACY NOTICE — raw prompt logging opt-in
-    if cfg.logging.log_raw_prompts:
-        log_event(
-            event_type="privacy_notice",
-            payload={
-                "raw_prompt_logging": True,
-                "message": "Raw user prompts are being logged in plaintext.",
-            },
-            logging_cfg=cfg.logging,
-            state=state,
-        )
-
-    # Pre-flight runtime checks
-    enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
-    enforce_network_policy(config)
-
-    if args.prompt:
-        user_prompt = " ".join(args.prompt)
-
-        # HARD enforcement gates (order does not matter, but must be before Copilot)
-        try:
-            enforce_prompt_filter(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-            enforce_deny_shell_commands(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-        except PolicyViolation as e:
-            die(str(e), logging_cfg=cfg.logging, state=state)
-
+def gather_inline_context() -> List[str]:
     # Gather HPC context
     ctx: List[str] = []
 
@@ -641,6 +618,129 @@ def main() -> int:
             if gpu:
                 ctx.append(f"GPU: {gpu.splitlines()[0]}")
 
+    return ctx
+
+
+def build_context_block_from_json(data: dict) -> str:
+    """
+    Convert structured JSON context into formatted prompt block.
+    """
+    lines: List[str] = []
+
+    host = data.get("host", {})
+    if host.get("hostname"):
+        lines.append(f"Hostname: {host['hostname']}")
+    if host.get("os"):
+        lines.append(f"OS: {host['os']}")
+
+    slurm = data.get("slurm", {})
+    if slurm.get("present"):
+        lines.append("SLURM Queues (top):")
+        for line in slurm.get("summary", [])[:3]:
+            lines.append(f"  {line}")
+
+    gpu = data.get("gpu", {})
+    if gpu.get("present"):
+        for line in gpu.get("summary", [])[:1]:
+            lines.append(f"GPU: {line}")
+
+    return "\n".join(lines)
+
+
+def resolve_context_block(args) -> str:
+    if args.context:
+        external = load_external_context(Path(args.context))
+        if external:
+            return build_context_block_from_json(external)
+
+    inline_ctx = gather_inline_context()
+    return "\n".join(inline_ctx)
+
+
+def main() -> int:
+    """
+    Inkly entrypoint.
+
+    Loads config, enforces policy, gathers HPC context, and either
+    runs Copilot once (prompt mode) or launches interactive mode.
+    """
+    ensure_bootstrap_import()  # ensure that we can import from the internal library, fail fast if not
+
+    # Parse CLI arguments early to decide prompt vs. interactive mode
+    args = parse_args()
+    user_prompt = ""
+
+    resolved_hostname = None
+
+    if args.context:
+        external = load_external_context(Path(args.context))
+        if external:
+            resolved_hostname = external.get("host", {}).get("hostname")
+
+    try:
+        # Load validated policy/config and state paths
+        cfg, config, state = load_config_and_state()
+        # Ensure Copilot uses Inkly-managed config dir
+        os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
+    except Exception as e:
+        # Fail fast with a structured error if config cannot be loaded
+        die(
+            f"Inkly config error: {e}",
+            logging_cfg=cfg.logging,
+            state=state,
+            resolved_hostname=resolved_hostname,
+        )
+
+    # Start session logging (includes session id + environment context)
+    log_event(
+        event_type="session_start",
+        payload={
+            "ink_version": __version__,
+            "logging_enabled": True,
+        },
+        logging_cfg=cfg.logging,
+        state=state,
+        resolved_hostname=resolved_hostname,
+    )
+    # PRIVACY NOTICE — raw prompt logging opt-in
+    if cfg.logging.log_raw_prompts:
+        log_event(
+            event_type="privacy_notice",
+            payload={
+                "raw_prompt_logging": True,
+                "message": "Raw user prompts are being logged in plaintext.",
+            },
+            logging_cfg=cfg.logging,
+            state=state,
+            resolved_hostname=resolved_hostname,
+        )
+
+    # Pre-flight runtime checks
+    enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
+    enforce_network_policy(config)
+
+    if args.prompt:
+        user_prompt = " ".join(args.prompt)
+
+        # HARD enforcement gates (order does not matter, but must be before Copilot)
+        try:
+            enforce_prompt_filter(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+            enforce_deny_shell_commands(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+        except PolicyViolation as e:
+            die(
+                str(e),
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
+
+    # Determine context source
+    context_block = resolve_context_block(args)
+
     # Build Copilot command
     cmd = ["copilot"]
     # Safe to log now — prompt passed all guardrails
@@ -658,8 +758,8 @@ def main() -> int:
             payload=payload,
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
-        context_block = "\n".join(ctx)
 
         full_prompt = (
             "Using the following HPC environment context:\n"
@@ -692,6 +792,7 @@ def main() -> int:
             },
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
         log_event(
@@ -704,6 +805,7 @@ def main() -> int:
             },
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
         print(assistant_output)

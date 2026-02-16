@@ -13,7 +13,6 @@ Design Goals
 - Produce structured JSON (not formatted text)
 """
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -118,7 +117,6 @@ def gather_host_context() -> Dict:
 
 
 # Context Serialization
-
 def write_host_context(state_dir: Path) -> Path:
     """
     Serialize host context to JSON file.

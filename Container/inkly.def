@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: python:3.11-slim
+# Very lightweight if we want to go with 311 slim, we could use unbuntu too, might be more stable, just a not as light??
+
+%labels
+    Author Ryan Vargas
+    Version 0.1
+    Description Inkly Copilot Execution Container
+
+%environment
+    export PATH=/usr/local/bin:$PATH
+    export PYTHONUNBUFFERED=1
+
+%post
+    apt-get update
+    apt-get install -y curl git bash ca-certificates
+
+    # Install Node (lightweight install)
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+
+    # Install Copilot CLI
+    npm install -g @github/copilot
+
+    # Create runtime directory
+    mkdir -p /opt/inkly
+
+%files
+    ../inkly /opt/inkly/inkly
+    ../ink /opt/inkly/ink
+
+%post
+    chmod +x /opt/inkly/ink
+
+%runscript
+    exec python3 /opt/inkly/ink "$@"

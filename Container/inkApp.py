@@ -11,33 +11,41 @@ COPILOT_AUTH = HOME / ".copilot"
 CONTAINER_IMAGE = Path(__file__).parent / "inkly.sif"
 CONTEXT_FILE = INKLY_HOME / "context.json"
 
+
 def main():
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
     # 1. Generate fresh context.json
     SCRIPT_DIR = Path(__file__).parent
     HOST_CONTEXT_SCRIPT = SCRIPT_DIR / "ink_host_context.py"
 
-    subprocess.run(
-        ["python3", str(HOST_CONTEXT_SCRIPT), str(CONTEXT_FILE)],
-        check=True
-    )
+    subprocess.run(["python3", str(HOST_CONTEXT_SCRIPT), str(CONTEXT_FILE)], check=True)
 
     # 2. Build apptainer command
     cmd = [
-    "apptainer", "exec", "--cleanenv", "--nv",
-    "--bind", f"{INKLY_HOME}:/host_inkly",
-    "--bind", f"{COPILOT_AUTH}:/host_copilot",
-    "--bind", f"{CONTEXT_FILE}:/context.json",
-    "--env", "INKLY_HOME_OVERRIDE=/host_inkly",
-    "--env", "COPILOT_CONFIG_DIR=/host_copilot",
-    str(CONTAINER_IMAGE),
-    "ink",
-    "--context", "/context.json",
-    *sys.argv[1:]
-]
+        "apptainer",
+        "exec",
+        "--cleanenv",
+        "--nv",
+        "--bind",
+        f"{INKLY_HOME}:/host_inkly",
+        "--bind",
+        f"{COPILOT_AUTH}:/host_copilot",
+        "--bind",
+        f"{CONTEXT_FILE}:/context.json",
+        "--env",
+        "INKLY_HOME_OVERRIDE=/host_inkly",
+        "--env",
+        "COPILOT_CONFIG_DIR=/host_copilot",
+        str(CONTAINER_IMAGE),
+        "ink",
+        "--context",
+        "/context.json",
+        *sys.argv[1:],
+    ]
 
     # 3. Run container
     return subprocess.call(cmd)
+
 
 if __name__ == "__main__":
     sys.exit(main())

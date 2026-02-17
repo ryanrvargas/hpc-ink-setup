@@ -5,8 +5,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
-DEF_FILE = REPO_ROOT / "Container" / "inkly.def"
-OUT_SIF = REPO_ROOT / "Container" / "inkly.sif"
+CONTAINER_DIR = REPO_ROOT / "Container"
+DEF_FILE = CONTAINER_DIR / "inkly.def"
+OUT_SIF = CONTAINER_DIR / "inkly.sif"
 
 def main() -> int:
     if not DEF_FILE.exists():
@@ -18,10 +19,11 @@ def main() -> int:
         print("Missing apptainer/singularity on PATH.", file=sys.stderr)
         return 2
 
-    cmd = [apptainer, "build", str(OUT_SIF), str(DEF_FILE)]
+    cmd = [apptainer, "build", str(OUT_SIF.name), str(DEF_FILE.name)]
 
     print("-> " + " ".join(cmd))
-    return subprocess.call(cmd)
+
+    return subprocess.call(cmd, cwd=DEF_FILE.parent)
 
 if __name__ == "__main__":
     raise SystemExit(main())

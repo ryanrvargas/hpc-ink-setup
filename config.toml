@@ -89,7 +89,7 @@ inkly_home = "~/.inkly"
 bin_dir = "~/.inkly/bin"
 
 # Storage for Copilot configuration and session state.
-copilot_config_dir = "~/.inkly/copilot"
+# copilot_config_dir = "~/.inkly/copilot"
 
 # Root directory for all logs.
 log_dir = "~/.inkly/logs"

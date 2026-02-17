@@ -594,8 +594,9 @@ def main() -> int:
     try:
         # Load validated policy/config and state paths
         cfg, config, state = load_config_and_state()
-        # Ensure Copilot uses Inkly-managed config dir
-        os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
+        # Ensure Copilot uses Inkly-managed config dir...
+        # NOT BEING USED CURRENTLY - COPILOT CONFIG MANAGEMENT
+        # os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
         print(f"Inkly config error: {e}", file=sys.stderr)

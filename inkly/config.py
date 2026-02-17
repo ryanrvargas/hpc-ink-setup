@@ -108,7 +108,7 @@ class StateConfig:
 
     inkly_home: Path = Path("~/.inkly")
     bin_dir: Path = Path("~/.inkly/bin")
-    copilot_config_dir: Path = Path("~/.inkly/copilot")
+    # copilot_config_dir: Path = Path("~/.inkly/copilot")
     log_dir: Path = Path("~/.inkly/logs")
 
     def resolve(self) -> "StateConfig":
@@ -125,7 +125,7 @@ class StateConfig:
         """
         self.inkly_home = Path(self.inkly_home).expanduser()
         self.bin_dir = Path(self.bin_dir).expanduser()
-        self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
+        # self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
         self.log_dir = Path(self.log_dir).expanduser()
         return self
 
@@ -150,10 +150,10 @@ class StateConfig:
         except ValueError:
             raise ConfigError("bin_dir must live under inkly_home")
 
-        try:
-            self.copilot_config_dir.relative_to(self.inkly_home)
-        except ValueError:
-            raise ConfigError("copilot_config_dir must live under inkly_home")
+        # try:
+        #     self.copilot_config_dir.relative_to(self.inkly_home)
+        # except ValueError:
+        #     raise ConfigError("copilot_config_dir must live under inkly_home")
 
         try:
             self.log_dir.relative_to(self.inkly_home)

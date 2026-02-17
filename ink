@@ -51,14 +51,15 @@ import os
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 
+# Inject installed runtime directory BEFORE importing ink_core
+if LIB_DIR.exists():
+    sys.path.insert(0, str(LIB_DIR))
+
 # Import Runtime Core (after path injection)
 # This must happen AFTER modifying sys.path.
 # Otherwise, Python will raise ModuleNotFoundError.
 from inkly.ink_core import main
 
-# Inject installed runtime directory BEFORE importing ink_core
-if LIB_DIR.exists():
-    sys.path.insert(0, str(LIB_DIR))
 
 # The wrapper does nothing if INKLY_HOME_OVERRIDE is set.
 # All CLI behavior is handled inside ink_core.main().

@@ -19,7 +19,7 @@ def main():
     SCRIPT_DIR = Path(__file__).parent
     HOST_CONTEXT_SCRIPT = SCRIPT_DIR / "ink_host_context.py"
     # Generate fresh context on host and write to INKLY_HOME/context.json
-    subprocess.run([sys.executable, str(HOST_CONTEXT_SCRIPT), str(CONTEXT_FILE)], check=True)
+    subprocess.run([sys.executable, str(HOST_CONTEXT_SCRIPT), str(INKLY_HOME)], check=True)
 
     # 2. Build apptainer command
     cmd = [

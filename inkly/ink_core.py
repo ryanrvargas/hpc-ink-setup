@@ -80,12 +80,8 @@ from inkly.policy import (
 #
 # The bootstrap guard determines which environment we are running in.
 # -----------------------------------------------------------------------------
-INKLY_HOME_OVERRIDE = os.environ.get("INKLY_HOME_OVERRIDE")
 
-if INKLY_HOME_OVERRIDE:
-    DEFAULT_INKLY_HOME = Path(INKLY_HOME_OVERRIDE)
-else:
-    DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
@@ -121,11 +117,6 @@ def ensure_bootstrap_import():
         return
     except Exception:
         pass
-
-    # If running in container with override,
-    # do NOT fall back to host lib injection.
-    if INKLY_HOME_OVERRIDE:
-        raise SystemExit("Ink runtime not properly packaged inside container.")
 
     # Otherwise fall back to installed layout under ~/.inkly/lib
     if LIB_DIR.exists():
@@ -594,9 +585,7 @@ def main() -> int:
     try:
         # Load validated policy/config and state paths
         cfg, config, state = load_config_and_state()
-        # Ensure Copilot uses Inkly-managed config dir...
-        # NOT BEING USED CURRENTLY - COPILOT CONFIG MANAGEMENT
-        # os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
+        
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
         print(f"Inkly config error: {e}", file=sys.stderr)

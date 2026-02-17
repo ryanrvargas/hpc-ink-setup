@@ -50,11 +50,6 @@ import os
 
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
-INKLY_HOME_OVERRIDE = os.environ.get("INKLY_HOME_OVERRIDE")
-
-# Inject installed runtime directory BEFORE importing ink_core
-if not INKLY_HOME_OVERRIDE and LIB_DIR.exists():
-    sys.path.insert(0, str(LIB_DIR))
 
 # Import Runtime Core (after path injection)
 # This must happen AFTER modifying sys.path.

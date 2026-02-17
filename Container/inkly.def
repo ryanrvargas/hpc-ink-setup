@@ -9,10 +9,6 @@ From: ubuntu:22.04
     # Make baked-in inkly importable
     export PYTHONPATH=/opt/inkly:$PYTHONPATH
 
-    # Default locations (can be overridden by inkApp via --env)
-    export INKLY_HOME_OVERRIDE=${INKLY_HOME_OVERRIDE:-/host_inkly}
-    export COPILOT_CONFIG_DIR=${COPILOT_CONFIG_DIR:-/host_copilot}
-
 %post
     set -eux
 

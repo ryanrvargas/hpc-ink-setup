@@ -27,11 +27,9 @@ def main():
         "exec",
         "--cleanenv",
         "--nv",
-        "--bind", f"{INKLY_HOME}:/host_inkly",
+        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
         "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
         "--bind", f"{CONTEXT_FILE}:/context.json",
-        "--env", "INKLY_HOME_OVERRIDE=/host_inkly",
-        "--env", "COPILOT_CONFIG_DIR=/host_copilot",
         str(CONTAINER_IMAGE),
         "ink",
         "--context", "/context.json",

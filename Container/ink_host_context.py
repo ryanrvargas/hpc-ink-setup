@@ -132,3 +132,13 @@ def write_host_context(state_dir: Path) -> Path:
     output_path.write_text(json.dumps(context, indent=2))
 
     return output_path
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) != 2:
+        print("Usage: ink_host_context.py <state_dir>", file=sys.stderr)
+        sys.exit(1)
+
+    state_dir = Path(sys.argv[1])
+    write_host_context(state_dir)

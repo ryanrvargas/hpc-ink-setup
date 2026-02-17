@@ -1,36 +1,50 @@
 Bootstrap: docker
-From: python:3.11-slim
-# Very lightweight if we want to go with 311 slim, we could use unbuntu too, might be more stable, just a not as light??
+From: ubuntu:22.04
 
 %labels
-    Author Ryan Vargas
-    Version 0.1
-    Description Inkly Copilot Execution Container
+    Author Inkly
+    Version 0.1.0
 
 %environment
-    export PATH=/usr/local/bin:$PATH
-    export PYTHONUNBUFFERED=1
+    # Make baked-in inkly importable
+    export PYTHONPATH=/opt/inkly:$PYTHONPATH
+
+    # Default locations (can be overridden by inkApp via --env)
+    export INKLY_HOME_OVERRIDE=${INKLY_HOME_OVERRIDE:-/host_inkly}
+    export COPILOT_CONFIG_DIR=${COPILOT_CONFIG_DIR:-/host_copilot}
 
 %post
+    set -eux
+
     apt-get update
-    apt-get install -y curl git bash ca-certificates
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl git python3 python3-venv python3-pip \
+        bash coreutils jq
+    rm -rf /var/lib/apt/lists/*
 
-    # Install Node (lightweight install)
+    # ---- Node 20 + Copilot CLI ----
+    # Use NodeSource to get Node 20 on Ubuntu 22.04.
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
+    apt-get update
+    apt-get install -y --no-install-recommends nodejs
+    rm -rf /var/lib/apt/lists/*
 
-    # Install Copilot CLI
     npm install -g @github/copilot
 
-    # Create runtime directory
+    # ---- Inkly runtime ----
     mkdir -p /opt/inkly
+    chmod 755 /opt/inkly
+
+    # Put entrypoint on PATH
+    chmod 755 /usr/local/bin
 
 %files
+    # Copy Inkly runtime package into image
     ../inkly /opt/inkly/inkly
-    ../ink /opt/inkly/ink
 
-%post
-    chmod +x /opt/inkly/ink
+    # Copy thin wrapper into image
+    ../ink /usr/local/bin/ink
 
 %runscript
-    exec python3 /opt/inkly/ink "$@"
+    # Default run: ink (interactive) or ink "prompt"
+    exec ink "$@"

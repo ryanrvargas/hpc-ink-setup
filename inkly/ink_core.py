@@ -661,11 +661,36 @@ def main() -> int:
             resolved_hostname=resolved_hostname,
         )
 
+        BASE_PROMPT = """
+            You are Inkly, an HPC assistant.
+
+            STRICT OPERATING RULES:
+            - You are in TEXT-ONLY MODE.
+            - Do NOT attempt to create, modify, or suggest writing files.
+            - Do NOT simulate file creation.
+            - Do NOT propose file paths.
+            - Return plain text only.
+            - Follow the required output format exactly.
+            """
+
+
         full_prompt = (
-            "Using the following HPC environment context:\n"
+            BASE_PROMPT +
+            "\n\n"
+            "Respond in the following exact format:\n\n"
+            "=== CODE START ===\n"
+            "<complete code here>\n"
+            "=== CODE END ===\n\n"
+            "=== INSTRUCTIONS ===\n"
+            "1. Step one\n"
+            "2. Step two\n"
+            "3. Step three\n"
+            "=== END ===\n\n"
+            "Cluster Context:\n"
             f"{context_block}\n\n"
-            f"Now: {user_prompt}"
+            f"Task:\n{user_prompt}\n"
         )
+
 
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]

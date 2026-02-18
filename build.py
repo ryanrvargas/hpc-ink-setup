@@ -9,6 +9,7 @@ CONTAINER_DIR = REPO_ROOT / "Container"
 DEF_FILE = CONTAINER_DIR / "inkly.def"
 OUT_SIF = CONTAINER_DIR / "inkly.sif"
 
+
 def main() -> int:
     if not DEF_FILE.exists():
         print(f"Missing def file: {DEF_FILE}", file=sys.stderr)
@@ -24,6 +25,7 @@ def main() -> int:
     print("-> " + " ".join(cmd))
 
     return subprocess.call(cmd, cwd=DEF_FILE.parent)
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

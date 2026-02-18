@@ -585,7 +585,7 @@ def main() -> int:
     try:
         # Load validated policy/config and state paths
         cfg, config, state = load_config_and_state()
-        
+
     except Exception as e:
         # Fail fast with a structured error if config cannot be loaded
         print(f"Inkly config error: {e}", file=sys.stderr)

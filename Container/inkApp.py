@@ -19,7 +19,9 @@ def main():
     SCRIPT_DIR = Path(__file__).parent
     HOST_CONTEXT_SCRIPT = SCRIPT_DIR / "ink_host_context.py"
     # Generate fresh context on host and write to INKLY_HOME/context.json
-    subprocess.run([sys.executable, str(HOST_CONTEXT_SCRIPT), str(INKLY_HOME)], check=True)
+    subprocess.run(
+        [sys.executable, str(HOST_CONTEXT_SCRIPT), str(INKLY_HOME)], check=True
+    )
 
     # 2. Build apptainer command
     cmd = [
@@ -27,12 +29,16 @@ def main():
         "exec",
         "--cleanenv",
         "--nv",
-        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
-        "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
-        "--bind", f"{CONTEXT_FILE}:/context.json",
+        "--bind",
+        f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
+        "--bind",
+        f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
+        "--bind",
+        f"{CONTEXT_FILE}:/context.json",
         str(CONTAINER_IMAGE),
         "ink",
-        "--context", "/context.json",
+        "--context",
+        "/context.json",
         *sys.argv[1:],
     ]
 

@@ -133,6 +133,7 @@ def write_host_context(state_dir: Path) -> Path:
 
     return output_path
 
+
 if __name__ == "__main__":
     import sys
 

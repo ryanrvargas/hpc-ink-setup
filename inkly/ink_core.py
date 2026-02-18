@@ -673,11 +673,8 @@ def main() -> int:
             2) Short numbered instructions
             """
 
-
-
         full_prompt = (
-            BASE_PROMPT +
-            "\n\n"
+            BASE_PROMPT + "\n\n"
             "Respond in the following exact format:\n\n"
             "=== CODE START ===\n"
             "<complete code here>\n"
@@ -691,7 +688,6 @@ def main() -> int:
             f"{context_block}\n\n"
             f"Task:\n{user_prompt}\n"
         )
-
 
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]

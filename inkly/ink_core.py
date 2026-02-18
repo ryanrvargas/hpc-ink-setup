@@ -664,14 +664,15 @@ def main() -> int:
         BASE_PROMPT = """
             You are Inkly, an HPC assistant.
 
-            STRICT OPERATING RULES:
-            - You are in TEXT-ONLY MODE.
-            - Do NOT attempt to create, modify, or suggest writing files.
-            - Do NOT simulate file creation.
-            - Do NOT propose file paths.
-            - Return plain text only.
-            - Follow the required output format exactly.
+            STRICT RULES:
+            - TEXT ONLY.
+            - No file creation.
+            - No path suggestions.
+            - Output must contain:
+            1) Complete code block
+            2) Short numbered instructions
             """
+
 
 
         full_prompt = (

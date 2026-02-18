@@ -2,8 +2,12 @@ Bootstrap: docker
 From: ubuntu:22.04
 
 %labels
-    Author Inkly
-    Version 0.1.0
+    Author "Ryan Vargas"
+    Version "1.0"
+    Description "Inkly HPC AI Container"
+    Maintainer "Ryan Vargas <ryanr99@live.com>"
+    License "PolyForm Noncommercial 1.0.0"
+
 
 %environment
     # Make baked-in inkly importable

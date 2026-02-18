@@ -51,7 +51,8 @@ import shutil
 import pytest
 from types import SimpleNamespace
 
-import policy as ink
+import inkly.ink_core as ink
+# import inkly.policy as policy
 
 
 @pytest.fixture
@@ -371,11 +372,9 @@ def test_wrapper_passes_when_authenticated(monkeypatch, fake_state, fake_logging
 
 
 def test_main_short_circuits_before_subprocess(monkeypatch):
-    import ink_core as ink  # Import here to ensure monkeypatching works before enforcement logic runs
-
     # Prevent actual subprocess execution
     monkeypatch.setattr(
-        "ink_core.subprocess.run",
+        "inkly.ink_core.subprocess.run",
         lambda *a, **k: pytest.fail("subprocess should not run"),
     )
 
@@ -386,7 +385,7 @@ def test_main_short_circuits_before_subprocess(monkeypatch):
     fake_state = SimpleNamespace(copilot_config_dir=".", log_dir=".")
 
     monkeypatch.setattr(
-        "ink_core.load_config_and_state",
+        "inkly.ink_core.load_config_and_state",
         lambda: (
             fake_cfg,
             {
@@ -402,11 +401,11 @@ def test_main_short_circuits_before_subprocess(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "ink_core.parse_args", lambda: SimpleNamespace(prompt=["rm -rf /"])
+        "inkly.ink_core.parse_args", lambda: SimpleNamespace(prompt=["rm -rf /"])
     )
 
-    monkeypatch.setattr("ink_core.ensure_bootstrap_import", lambda: None)
-    monkeypatch.setattr("ink_core.log_event", lambda *a, **k: None)
+    monkeypatch.setattr("inkly.ink_core.ensure_bootstrap_import", lambda: None)
+    monkeypatch.setattr("inkly.ink_core.log_event", lambda *a, **k: None)
 
     with pytest.raises(SystemExit):
         ink.main()

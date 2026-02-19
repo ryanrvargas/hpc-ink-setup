@@ -310,13 +310,14 @@ def load_external_context(path: Path) -> Optional[dict]:
     Used when Inkly is executed inside a container and
     host context has already been gathered.
     """
-    try:
-        if path.exists():
-            return json.loads(path.read_text())
-    except Exception:
-        pass
+    if not path.exists():
+        return None
 
-    return None
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[ink] Failed to load external context from {path}: {e}", file=sys.stderr)
+        return None
 
 
 # Run a command and capture stdout, return None or stdout string

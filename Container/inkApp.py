@@ -29,9 +29,11 @@ def main():
     HOST_CONTEXT_SCRIPT = SCRIPT_DIR / "ink_host_context.py"
 
     if not HOST_CONTEXT_SCRIPT.exists():
-        print(f"Error: missing host context script: {HOST_CONTEXT_SCRIPT}", file=sys.stderr)
+        print(
+            f"Error: missing host context script: {HOST_CONTEXT_SCRIPT}",
+            file=sys.stderr,
+        )
         return 1
-
 
     INKLY_HOME.mkdir(parents=True, exist_ok=True)
     # 1. Generate fresh context.json
@@ -50,18 +52,22 @@ def main():
         "--contain",
         "--no-home",
         "--nv",
-        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
-        "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
-        "--bind", f"{CONTEXT_FILE}:/context.json",
+        "--bind",
+        f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
+        "--bind",
+        f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
+        "--bind",
+        f"{CONTEXT_FILE}:/context.json",
         str(CONTAINER_IMAGE),
         "ink",
-        "--context", "/context.json",
+        "--context",
+        "/context.json",
         *sys.argv[1:],
     ]
 
     # 3. Run container
     return subprocess.call(cmd)
 
-    
+
 if __name__ == "__main__":
     sys.exit(main())

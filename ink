@@ -61,7 +61,6 @@ if LIB_DIR.exists():
 from inkly.ink_core import main
 
 
-# The wrapper does nothing if INKLY_HOME_OVERRIDE is set.
 # All CLI behavior is handled inside ink_core.main().
 if __name__ == "__main__":
     sys.exit(main())

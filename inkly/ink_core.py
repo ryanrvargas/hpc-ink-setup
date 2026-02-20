@@ -317,7 +317,9 @@ def load_external_context(path: Path) -> Optional[dict]:
     try:
         return json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as e:
-        print(f"[ink] Failed to load external context from {path}: {e}", file=sys.stderr)
+        print(
+            f"[ink] Failed to load external context from {path}: {e}", file=sys.stderr
+        )
         return None
 
 

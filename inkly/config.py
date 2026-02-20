@@ -129,7 +129,7 @@ class StateConfig:
     def validate(self) -> "StateConfig":
         """Validates that all paths are properly set
 
-        Validation checks that bin_dir andlog_dir all live under inkly_home
+        Validation checks that bin_dir and log_dir all live under inkly_home
         to prevent misconfiguration that could lead to data being stored in unintended locations.
 
         Parameters:

@@ -47,6 +47,7 @@ This file must support both modes cleanly.
 """
 
 import os
+import textwrap
 import sys
 import shutil
 import subprocess
@@ -662,7 +663,7 @@ def main() -> int:
             resolved_hostname=resolved_hostname,
         )
 
-        BASE_PROMPT = """
+        BASE_PROMPT = textwrap.dedent("""
             You are Inkly, an HPC assistant.
 
             STRICT RULES:
@@ -672,7 +673,7 @@ def main() -> int:
             - Output must contain:
             1) Complete code block
             2) Short numbered instructions
-            """
+            """)
 
         full_prompt = (
             BASE_PROMPT + "\n\n"

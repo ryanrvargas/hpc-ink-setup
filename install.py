@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -85,7 +84,6 @@ def verify_dirs():
 
     STATE_CFG.inkly_home.mkdir(parents=True, exist_ok=True)
     STATE_CFG.bin_dir.mkdir(parents=True, exist_ok=True)
-    STATE_CFG.copilot_config_dir.mkdir(parents=True, exist_ok=True)
     STATE_CFG.log_dir.mkdir(parents=True, exist_ok=True)
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
@@ -304,9 +302,6 @@ def main():
     NODE_CFG = cfg.node
     INSTALL_CFG = cfg.install
     STATE_CFG = cfg.state
-
-    # Ensure Copilot uses Inkly’s state directory
-    os.environ["COPILOT_CONFIG_DIR"] = str(STATE_CFG.copilot_config_dir)
 
     verify_dirs()
     verify_nvm_and_node()

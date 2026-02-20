@@ -46,8 +46,8 @@ Installed Mode:
 This file must support both modes cleanly.
 """
 
-import re
 import os
+import textwrap
 import sys
 import shutil
 import subprocess
@@ -59,6 +59,14 @@ import argparse
 import uuid
 import hashlib
 from inkly.config import TomlParser
+from inkly.policy import (
+    PolicyViolation,
+    enforce_prompt_filter,
+    enforce_deny_shell_commands,
+    enforce_wrapper_policy,
+    enforce_network_policy,
+)
+
 
 ## -----------------------------------------------------------------------------
 # Bootstrap Path Configuration
@@ -73,7 +81,9 @@ from inkly.config import TomlParser
 #
 # The bootstrap guard determines which environment we are running in.
 # -----------------------------------------------------------------------------
+
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
+
 CONFIG_PATH = DEFAULT_INKLY_HOME / "config.toml"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 
@@ -125,18 +135,6 @@ __version__ = "0.1.0"
 SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
 
 
-class PolicyViolation(Exception):
-    """
-    Raised when a user request violates an Inkly policy rule.
-
-    This represents a domain-level failure (not a process crash).
-    The CLI layer is responsible for converting this into
-    a user-facing message and exit code.
-    """
-
-    pass
-
-
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
     """
@@ -172,6 +170,12 @@ def parse_args() -> argparse.Namespace:
         "prompt",
         nargs=argparse.REMAINDER,
         help="Prompt to send to Copilot (to start interactive mode type ink without arguments)",
+    )
+
+    runtime.add_argument(
+        "--context",
+        type=str,
+        help=argparse.SUPPRESS,  # internal flag (not shown in help)
     )
 
     # Metadata / informational flags
@@ -263,7 +267,13 @@ def get_event_log_path(logging_cfg, state) -> Path:
 
 # Fatal Error Handling
 def die(
-    msg: str, code: int = 1, *, logging_cfg=None, state=None, event_type: str = "error"
+    msg: str,
+    code: int = 1,
+    *,
+    logging_cfg=None,
+    state=None,
+    event_type: str = "error",
+    resolved_hostname: Optional[str] = None,
 ):
     """
     Terminate execution with optional structured logging.
@@ -282,6 +292,7 @@ def die(
             },
             logging_cfg=logging_cfg,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
     raise SystemExit(code)
@@ -291,6 +302,25 @@ def die(
 def command_exists(cmd: str) -> bool:
     """Return True if a command exists in PATH."""
     return shutil.which(cmd) is not None
+
+
+def load_external_context(path: Path) -> Optional[dict]:
+    """
+    Load structured HPC context from JSON file.
+
+    Used when Inkly is executed inside a container and
+    host context has already been gathered.
+    """
+    if not path.exists():
+        return None
+
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        print(
+            f"[ink] Failed to load external context from {path}: {e}", file=sys.stderr
+        )
+        return None
 
 
 # Run a command and capture stdout, return None or stdout string
@@ -314,100 +344,15 @@ def run_capture(cmd: List[str]) -> Optional[str]:
         return None
 
 
-# Policy Enforcement
-# Policy level semantics restrictions on what users are allowed to ask
-def enforce_prompt_filter(user_prompt: str, config: dict, *, state, logging_cfg):
-    """
-    Enforce prompt-level intent restrictions.
-
-    Blocks disallowed keywords or patterns before any
-    tool-level execution occurs.
-    """
-    pf = config.get("prompt_filter", {})  #
-    if not pf.get("enabled", False):
-        return  # filtering disabled, allow everything
-
-    text = user_prompt
-    if pf.get("case_insensitive", False):
-        text = text.lower()
-
-    # Keyword blocking
-    for kw in pf.get("blocked_keywords", []):  # return list of keywords
-        check_kw = kw.lower() if pf.get("case_insensitive", False) else kw
-        # .escape turns userspecified keyword into literal match. \b is word boundary, so the key word is a standalone word
-        if re.search(rf"\b{re.escape(check_kw)}\b", text):
-            # If any blocked keyword is found, die with policy block message
-            raise PolicyViolation("Blocked by policy")
-
-    # Regex blocking
-    for pattern in pf.get("blocked_regex", []):
-        flags = re.IGNORECASE if pf.get("case_insensitive", False) else 0
-        if re.search(pattern, user_prompt, flags):
-            raise PolicyViolation("Blocked by policy")
-
-
-def enforce_deny_shell_commands(
-    user_prompt: str, config: dict, *, state, logging_cfg
-):  # * forces callers to pass state as keyword argument
-    """
-    Enforce hard denial of dangerous shell commands.
-
-    This layer prevents filesystem destruction or
-    privilege escalation regardless of intent.
-    """
-    guardrails = config.get("copilot", {}).get(
-        "guardrails", {}
-    )  # get copilot/guardrails section of config into a dict
-    rules = guardrails.get(
-        "deny_shell_commands", []
-    )  # find deny_shell_commands keyword, return list of rules, emypty list if missing
-
-    if not rules:
-        return  # nothing to enforce, exit function
-
-    text = user_prompt.strip()
-
-    for rule in rules:
-        # Format: "rm:*", "sudo:*"
-        cmd = rule.split(":", 1)[0]  # everything before the first colon is kept
-
-        # Very intentional: shell-like word boundary
-        if re.search(rf"\b{re.escape(cmd)}\b", text):
-            raise PolicyViolation(f"Blocked by policy: shell command '{cmd}'")
-
-
-def enforce_wrapper_policy(config: dict, *, state, logging_cfg):
-    """
-    Enforce wrapper-level runtime requirements.
-
-    Validates authentication and required tooling
-    before invoking Copilot.
-    """
-    wrapper = config.get("wrapper", {})
-
-    if wrapper.get("require_login", False):
-        if not os.environ.get("COPILOT_AUTHENTICATED"):
-            raise PolicyViolation("Copilot login required by policy")
-
-    if wrapper.get("fail_on_missing_copilot", True):
-        if not shutil.which("copilot"):
-            raise PolicyViolation("Copilot CLI not found (required by policy)")
-
-
-def enforce_network_policy(config: dict):
-    """
-    Apply network access constraints.
-
-    Signals downstream tools when outbound
-    network access is prohibited.
-    """
-    net = config.get("network", {})
-    if not net.get("require_internet", True):
-        os.environ["NO_NETWORK"] = "1"
-
-
 # Logging
-def log_event(event_type: str, payload: dict, logging_cfg, state):
+def log_event(
+    event_type: str,
+    payload: dict,
+    logging_cfg,
+    state,
+    *,
+    resolved_hostname: Optional[str] = None,
+):
     """
     Append a structured event to the Inkly event log.
 
@@ -439,7 +384,7 @@ def log_event(event_type: str, payload: dict, logging_cfg, state):
         "schema_version": logging_cfg.schema_version,
         "event_type": event_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "session": build_session_context(state),
+        "session": build_session_context(state, resolved_hostname=resolved_hostname),
         "payload": payload,
     }
 
@@ -522,82 +467,23 @@ def debug_dump_prompt(prompt: str, config: dict):
     print("===== INK DEBUG PROMPT END =====\n", file=sys.stderr)
 
 
-def build_session_context(state) -> dict:
+def build_session_context(state, resolved_hostname: Optional[str] = None) -> dict:
     """
     Build a minimal session context for structured logging.
 
     Includes a stable user hash, host name, PID, and session id.
     """
+    host_value = resolved_hostname or os.uname().nodename
+
     return {
         "session_id": SESSION_ID,
         "user_id": get_user_hash(state),
-        "host": os.uname().nodename,
+        "host": host_value,
         "pid": os.getpid(),
     }
 
 
-def main() -> int:
-    """
-    Inkly entrypoint.
-
-    Loads config, enforces policy, gathers HPC context, and either
-    runs Copilot once (prompt mode) or launches interactive mode.
-    """
-    ensure_bootstrap_import()  # ensure that we can import from the internal library, fail fast if not
-
-    # Parse CLI arguments early to decide prompt vs. interactive mode
-    args = parse_args()
-    user_prompt = ""
-
-    try:
-        # Load validated policy/config and state paths
-        cfg, config, state = load_config_and_state()
-        # Ensure Copilot uses Inkly-managed config dir
-        os.environ.setdefault("COPILOT_CONFIG_DIR", str(state.copilot_config_dir))
-    except Exception as e:
-        # Fail fast with a structured error if config cannot be loaded
-        raise PolicyViolation(f"Inkly config error: {e}")
-
-    # Start session logging (includes session id + environment context)
-    log_event(
-        event_type="session_start",
-        payload={
-            "ink_version": __version__,
-            "logging_enabled": True,
-        },
-        logging_cfg=cfg.logging,
-        state=state,
-    )
-    # PRIVACY NOTICE — raw prompt logging opt-in
-    if cfg.logging.log_raw_prompts:
-        log_event(
-            event_type="privacy_notice",
-            payload={
-                "raw_prompt_logging": True,
-                "message": "Raw user prompts are being logged in plaintext.",
-            },
-            logging_cfg=cfg.logging,
-            state=state,
-        )
-
-    # Pre-flight runtime checks
-    enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
-    enforce_network_policy(config)
-
-    if args.prompt:
-        user_prompt = " ".join(args.prompt)
-
-        # HARD enforcement gates (order does not matter, but must be before Copilot)
-        try:
-            enforce_prompt_filter(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-            enforce_deny_shell_commands(
-                user_prompt, config, state=state, logging_cfg=cfg.logging
-            )
-        except PolicyViolation as e:
-            die(str(e), logging_cfg=cfg.logging, state=state)
-
+def gather_inline_context() -> List[str]:
     # Gather HPC context
     ctx: List[str] = []
 
@@ -641,10 +527,128 @@ def main() -> int:
             if gpu:
                 ctx.append(f"GPU: {gpu.splitlines()[0]}")
 
+    return ctx
+
+
+def build_context_block_from_json(data: dict) -> str:
+    """
+    Convert structured JSON context into formatted prompt block.
+    """
+    lines: List[str] = []
+
+    host = data.get("host", {})
+    if host.get("hostname"):
+        lines.append(f"Hostname: {host['hostname']}")
+    if host.get("os"):
+        lines.append(f"OS: {host['os']}")
+
+    slurm = data.get("slurm", {})
+    if slurm.get("present"):
+        lines.append("SLURM Queues (top):")
+        for line in slurm.get("summary", [])[:3]:
+            lines.append(f"  {line}")
+
+    gpu = data.get("gpu", {})
+    if gpu.get("present"):
+        for line in gpu.get("summary", [])[:1]:
+            lines.append(f"GPU: {line}")
+
+    return "\n".join(lines)
+
+
+def resolve_context_block(args) -> str:
+    if getattr(args, "context", None):
+        external = load_external_context(Path(args.context))
+        if external:
+            return build_context_block_from_json(external)
+
+    inline_ctx = gather_inline_context()
+    return "\n".join(inline_ctx)
+
+
+def main() -> int:
+    """
+    Inkly entrypoint.
+
+    Loads config, enforces policy, gathers HPC context, and either
+    runs Copilot once (prompt mode) or launches interactive mode.
+    """
+    ensure_bootstrap_import()  # ensure that we can import from the internal library, fail fast if not
+
+    # Parse CLI arguments early to decide prompt vs. interactive mode
+    args = parse_args()
+    user_prompt = ""
+
+    resolved_hostname = None
+
+    if getattr(args, "context", None):
+        external = load_external_context(Path(args.context))
+        if external:
+            resolved_hostname = external.get("host", {}).get("hostname")
+
+    try:
+        # Load validated policy/config and state paths
+        cfg, config, state = load_config_and_state()
+
+    except Exception as e:
+        # Fail fast with a structured error if config cannot be loaded
+        print(f"Inkly config error: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    # Start session logging (includes session id + environment context)
+    log_event(
+        event_type="session_start",
+        payload={
+            "ink_version": __version__,
+            "logging_enabled": True,
+        },
+        logging_cfg=cfg.logging,
+        state=state,
+        resolved_hostname=resolved_hostname,
+    )
+    # PRIVACY NOTICE — raw prompt logging opt-in
+    if cfg.logging.log_raw_prompts:
+        log_event(
+            event_type="privacy_notice",
+            payload={
+                "raw_prompt_logging": True,
+                "message": "Raw user prompts are being logged in plaintext.",
+            },
+            logging_cfg=cfg.logging,
+            state=state,
+            resolved_hostname=resolved_hostname,
+        )
+
+    # Pre-flight runtime checks
+    enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
+    enforce_network_policy(config)
+
+    if args.prompt:
+        user_prompt = " ".join(args.prompt)
+
+        # HARD enforcement gates (order does not matter, but must be before Copilot)
+        try:
+            enforce_prompt_filter(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+            enforce_deny_shell_commands(
+                user_prompt, config, state=state, logging_cfg=cfg.logging
+            )
+        except PolicyViolation as e:
+            die(
+                str(e),
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
+
     # Build Copilot command
     cmd = ["copilot"]
     # Safe to log now — prompt passed all guardrails
     if args.prompt:
+        # Determine context source
+        context_block = resolve_context_block(args)
+
         payload = {
             "length": len(user_prompt),
             "prompt_hash": hashlib.sha256(user_prompt.encode("utf-8")).hexdigest(),
@@ -658,13 +662,35 @@ def main() -> int:
             payload=payload,
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
-        context_block = "\n".join(ctx)
+
+        BASE_PROMPT = textwrap.dedent("""
+            You are Inkly, an HPC assistant.
+
+            STRICT RULES:
+            - TEXT ONLY.
+            - No file creation.
+            - No path suggestions.
+            - Output must contain:
+            1) Complete code block
+            2) Short numbered instructions
+            """)
 
         full_prompt = (
-            "Using the following HPC environment context:\n"
+            BASE_PROMPT + "\n\n"
+            "Respond in the following exact format:\n\n"
+            "=== CODE START ===\n"
+            "<complete code here>\n"
+            "=== CODE END ===\n\n"
+            "=== INSTRUCTIONS ===\n"
+            "1. Step one\n"
+            "2. Step two\n"
+            "3. Step three\n"
+            "=== END ===\n\n"
+            "Cluster Context:\n"
             f"{context_block}\n\n"
-            f"Now: {user_prompt}"
+            f"Task:\n{user_prompt}\n"
         )
 
         debug_dump_prompt(full_prompt, config)
@@ -692,6 +718,7 @@ def main() -> int:
             },
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
         log_event(
@@ -704,6 +731,7 @@ def main() -> int:
             },
             logging_cfg=cfg.logging,
             state=state,
+            resolved_hostname=resolved_hostname,
         )
 
         print(assistant_output)

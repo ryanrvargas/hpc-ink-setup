@@ -32,6 +32,7 @@ If we import first, Python will fail to locate ink_core.
 
 import sys
 from pathlib import Path
+import os
 
 # Bootstrap Installed Runtime Path
 # In installed mode, Inkly runtime files live in:
@@ -59,7 +60,7 @@ if LIB_DIR.exists():
 # Otherwise, Python will raise ModuleNotFoundError.
 from inkly.ink_core import main
 
-# The wrapper does nothing else.
+
 # All CLI behavior is handled inside ink_core.main().
 if __name__ == "__main__":
     sys.exit(main())

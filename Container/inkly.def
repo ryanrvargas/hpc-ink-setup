@@ -16,21 +16,18 @@ From: ubuntu:22.04
 %post
     set -eux
 
-    apt-get update
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl git python3 python3-venv python3-pip \
-        bash coreutils jq
+        bash coreutils jq && \
     rm -rf /var/lib/apt/lists/*
 
-    # ---- Node 20 + Copilot CLI ----
-    # Use NodeSource to get Node 20 on Ubuntu 22.04.
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get update
-    apt-get install -y --no-install-recommends nodejs
-    apt-get install -y python3-pip
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
     pip3 install tomli
-    rm -rf /var/lib/apt/lists/*
-
     npm install -g @github/copilot
 
     # ---- Inkly runtime ----

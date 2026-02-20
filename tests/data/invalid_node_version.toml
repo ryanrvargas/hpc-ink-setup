@@ -1,8 +1,0 @@
-[node]
-node_version = 12345
-
-[state]
-inkly_home = "~/.inkly"
-bin_dir = "~/.inkly/bin"
-copilot_config_dir = "~/.config/inkly"
-log_dir = "~/.inkly/logs"

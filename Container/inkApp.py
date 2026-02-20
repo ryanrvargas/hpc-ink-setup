@@ -17,8 +17,10 @@ CONTEXT_FILE = INKLY_HOME / "context.json"
 def main():
     # --- Pre-flight host checks (NO SIDE EFFECTS FIRST) ---
 
-    if not shutil.which("apptainer"):
-        print("Error: apptainer not found on PATH.", file=sys.stderr)
+    runtime = shutil.which("apptainer") or shutil.which("singularity")
+
+    if not runtime:
+        print("Error: neither apptainer nor singularity found on PATH.", file=sys.stderr)
         return 1
 
     if not CONTAINER_IMAGE.exists():
@@ -44,24 +46,25 @@ def main():
         [sys.executable, str(HOST_CONTEXT_SCRIPT), str(INKLY_HOME)], check=True
     )
 
+    enable_nv = shutil.which("nvidia-smi") is not None
+    
     # 2. Build apptainer command
     cmd = [
-        "apptainer",
+        runtime,
         "exec",
         "--cleanenv",
         "--contain",
         "--no-home",
-        "--nv",
-        "--bind",
-        f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
-        "--bind",
-        f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
-        "--bind",
-        f"{CONTEXT_FILE}:/context.json",
+    ]
+    if enable_nv:
+        cmd.append("--nv")
+    cmd += [
+        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",  # Bind entire Inkly state dir for flexibility
+        "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",  # Bind entire copilot auth dir for flexibility
+        "--bind", f"{CONTEXT_FILE}:/context.json",
         str(CONTAINER_IMAGE),
         "ink",
-        "--context",
-        "/context.json",
+        "--context", "/context.json",
         *sys.argv[1:],
     ]
 

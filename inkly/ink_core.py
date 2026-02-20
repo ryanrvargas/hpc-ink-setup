@@ -687,6 +687,7 @@ def main() -> int:
             "1. Step one\n"
             "2. Step two\n"
             "3. Step three\n"
+            "And so on... if needed\n"
             "=== END ===\n\n"
             "Cluster Context:\n"
             f"{context_block}\n\n"

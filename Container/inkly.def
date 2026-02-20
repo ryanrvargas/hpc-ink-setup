@@ -1,0 +1,49 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author "Ryan Vargas"
+    Version "1.0"
+    Description "Inkly HPC AI Container"
+    Maintainer "Ryan Vargas <ryanr99@live.com>"
+    License "PolyForm Noncommercial 1.0.0"
+
+
+%environment
+    # Make baked-in inkly importable
+    export PYTHONPATH=/opt/inkly:$PYTHONPATH
+
+%post
+    set -eux
+
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl git python3 python3-venv python3-pip \
+        bash coreutils jq && \
+    rm -rf /var/lib/apt/lists/*
+
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+    pip3 install tomli
+    npm install -g @github/copilot
+
+    # ---- Inkly runtime ----
+    mkdir -p /opt/inkly
+    chmod 755 /opt/inkly
+
+    # Put entrypoint on PATH
+    chmod 755 /usr/local/bin
+
+%files
+    # Copy Inkly runtime package into image
+    ../inkly /opt/inkly/inkly
+
+    # Copy thin wrapper into image
+    ../ink /usr/local/bin/ink
+
+%runscript
+    # Default run: ink (interactive) or ink "prompt"
+    exec ink "$@"

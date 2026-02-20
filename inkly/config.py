@@ -101,14 +101,12 @@ class StateConfig:
     Attributes:
         inkly_home (Path): The root directory for all Inkly state and data.
         bin_dir (Path): The directory where Inkly-managed binaries (like Node.js) are stored.
-        copilot_config_dir (Path): The directory where Inkly stores Copilot configuration and state.
         log_dir (Path): The directory where Inkly stores logs.
 
     """
 
     inkly_home: Path = Path("~/.inkly")
     bin_dir: Path = Path("~/.inkly/bin")
-    copilot_config_dir: Path = Path("~/.inkly/copilot")
     log_dir: Path = Path("~/.inkly/logs")
 
     def resolve(self) -> "StateConfig":
@@ -125,14 +123,13 @@ class StateConfig:
         """
         self.inkly_home = Path(self.inkly_home).expanduser()
         self.bin_dir = Path(self.bin_dir).expanduser()
-        self.copilot_config_dir = Path(self.copilot_config_dir).expanduser()
         self.log_dir = Path(self.log_dir).expanduser()
         return self
 
     def validate(self) -> "StateConfig":
         """Validates that all paths are properly set
 
-        Validation checks that bin_dir, copilot_config_dir, and log_dir all live under inkly_home
+        Validation checks that bin_dir and log_dir all live under inkly_home
         to prevent misconfiguration that could lead to data being stored in unintended locations.
 
         Parameters:
@@ -149,11 +146,6 @@ class StateConfig:
             self.bin_dir.relative_to(self.inkly_home)
         except ValueError:
             raise ConfigError("bin_dir must live under inkly_home")
-
-        try:
-            self.copilot_config_dir.relative_to(self.inkly_home)
-        except ValueError:
-            raise ConfigError("copilot_config_dir must live under inkly_home")
 
         try:
             self.log_dir.relative_to(self.inkly_home)

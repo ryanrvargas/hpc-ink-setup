@@ -28,7 +28,7 @@ From: ubuntu:22.04
     rm -rf /var/lib/apt/lists/*
 
     pip3 install tomli
-    npm install -g @github/copilot
+    npm install -g @github/copilot@0.0.412
 
     # ---- Inkly runtime ----
     mkdir -p /opt/inkly

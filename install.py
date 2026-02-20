@@ -238,7 +238,7 @@ def install_copilot():
             "Disable system Node or allow NVM install."
         )
 
-    run_with_nvm("npm install -g @github/copilot")
+    run_with_nvm("npm install -g @github/copilot@0.0.412")
 
 
 # Ink Launcher Installation

@@ -1,0 +1,4 @@
+[node]
+node_version = "20.11.1"
+[logging]
+log_ai_responses = true

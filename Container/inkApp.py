@@ -83,11 +83,9 @@ def main() -> int:
         cmd.append("--nv")
 
     cmd += [
-        "--bind", f"{cfg_path}:{cfg_path}",
-        "--bind", f"{INKLY_HOME / 'logs'}:{INKLY_HOME / 'logs'}",
+        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",
         "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",
         "--bind", f"{context_file}:/context.json",
-        "--bind", f"{cfg_path}:{cfg_path}",
         str(CONTAINER_IMAGE),
         "ink",
         "--context", "/context.json",

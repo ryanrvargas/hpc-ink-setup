@@ -32,6 +32,22 @@ def main() -> int:
     (INKLY_HOME / "logs").mkdir(parents=True, exist_ok=True)
 
     cfg_path = INKLY_HOME / "config.toml"
+    default_cfg = Path(__file__).parent.parent / "config.toml"
+
+    if not cfg_path.exists():
+        if not default_cfg.exists():
+            print(
+                f"Error: missing config: {cfg_path}\n"
+                f"Also missing default template in repo: {default_cfg}\n"
+                "Reinstall or restore the repository config.toml.",
+                file=sys.stderr,
+            )
+            return 1
+
+        shutil.copy2(default_cfg, cfg_path)
+        print(f"[inkApp] Installed default config to: {cfg_path}", file=sys.stderr)
+
+    cfg_path = INKLY_HOME / "config.toml"
     if not cfg_path.exists():
         print(f"Error: missing config: {cfg_path}", file=sys.stderr)
         return 1
@@ -71,6 +87,7 @@ def main() -> int:
         "--bind", f"{INKLY_HOME / 'logs'}:{INKLY_HOME / 'logs'}",
         "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",
         "--bind", f"{context_file}:/context.json",
+        "--bind", f"{cfg_path}:{cfg_path}",
         str(CONTAINER_IMAGE),
         "ink",
         "--context", "/context.json",

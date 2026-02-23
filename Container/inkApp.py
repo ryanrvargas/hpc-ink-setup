@@ -42,6 +42,18 @@ def main() -> int:
 
     enable_nv = shutil.which("nvidia-smi") is not None
 
+    # Copilot auth dir must exist for first run
+    if not COPILOT_DIR.exists():
+        print(
+            f"Error: Copilot auth directory not found: {COPILOT_DIR}\n"
+            "Run Copilot login on the host first:\n"
+            "  copilot auth login\n"
+            "Then re-run:\n"
+            "  python Container/inkApp.py",
+            file=sys.stderr,
+        )
+        return 1
+
     # Build container command
     cmd = [
         runtime,

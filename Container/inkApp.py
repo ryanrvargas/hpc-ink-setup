@@ -11,10 +11,13 @@ INKLY_HOME = HOME / ".inkly"
 COPILOT_DIR = HOME / ".copilot"
 CONTAINER_IMAGE = Path(__file__).parent / "inkly.sif"
 
+
 def main() -> int:
     runtime = shutil.which("apptainer") or shutil.which("singularity")
     if not runtime:
-        print("Error: neither apptainer nor singularity found on PATH.", file=sys.stderr)
+        print(
+            "Error: neither apptainer nor singularity found on PATH.", file=sys.stderr
+        )
         return 1
 
     if not CONTAINER_IMAGE.exists():
@@ -24,7 +27,10 @@ def main() -> int:
     script_dir = Path(__file__).parent
     host_context_script = script_dir / "ink_host_context.py"
     if not host_context_script.exists():
-        print(f"Error: missing host context script: {host_context_script}", file=sys.stderr)
+        print(
+            f"Error: missing host context script: {host_context_script}",
+            file=sys.stderr,
+        )
         return 1
 
     # Pre-flight: state layout
@@ -53,7 +59,9 @@ def main() -> int:
         return 1
 
     # Generate fresh context.json
-    subprocess.run([sys.executable, str(host_context_script), str(INKLY_HOME)], check=True)
+    subprocess.run(
+        [sys.executable, str(host_context_script), str(INKLY_HOME)], check=True
+    )
     context_file = INKLY_HOME / "context.json"
 
     enable_nv = shutil.which("nvidia-smi") is not None
@@ -83,12 +91,16 @@ def main() -> int:
         cmd.append("--nv")
 
     cmd += [
-        "--bind", f"{INKLY_HOME}:{INKLY_HOME}",
-        "--bind", f"{COPILOT_DIR}:{COPILOT_DIR}",
-        "--bind", f"{context_file}:/context.json",
+        "--bind",
+        f"{INKLY_HOME}:{INKLY_HOME}",
+        "--bind",
+        f"{COPILOT_DIR}:{COPILOT_DIR}",
+        "--bind",
+        f"{context_file}:/context.json",
         str(CONTAINER_IMAGE),
         "ink",
-        "--context", "/context.json",
+        "--context",
+        "/context.json",
         *sys.argv[1:],
     ]
 

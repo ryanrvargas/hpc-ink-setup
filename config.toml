@@ -222,10 +222,8 @@ log_raw_ai_responses = false
 log_job_outcomes = false
 
 # EXPERIMENTAL / RESEARCH ONLY
-# If enabled, raw user prompts are logged in plaintext.
-# This may include sensitive research data.
-# Default: disabled
-log_raw_prompts = true
+# Raw prompts disabled by default for public release
+log_raw_prompts = false
 
 # Where logs are written.
 # Paths are resolved via StateConfig at runtime.

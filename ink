@@ -32,7 +32,6 @@ If we import first, Python will fail to locate ink_core.
 
 import sys
 from pathlib import Path
-import os
 
 # Bootstrap Installed Runtime Path
 # In installed mode, Inkly runtime files live in:

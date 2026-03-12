@@ -1,207 +1,174 @@
-# 🐙 Inkly
-### An AI-Assisted Interface for Slurm-Based HPC Clusters
+## 🐙 Inkly
+AI-Assisted Interface for Slurm-Based HPC Clusters
 
-Inkly is a **cluster-aware command-line assistant** that integrates GitHub Copilot CLI with Slurm-based HPC environments. It provides a safer, more accessible way to generate job scripts, inspect queue state, and understand cluster behavior—without requiring deep prior knowledge of Slurm or Linux system internals.
+Inkly is a cluster-aware command-line assistant for Slurm-based HPC environments.
+It integrates GitHub Copilot CLI with live cluster context and safety guardrails.
 
-Inkly is designed for **real HPC environments** with permission restrictions, shared infrastructure, and safety requirements.  
-It does **not** bypass cluster policies and does **not** execute destructive operations.
+Inkly is designed for real HPC environments with shared infrastructure, permission restrictions, and administrative policies.
 
----
+It does not bypass cluster rules.
+It does not execute destructive operations.
+It runs entirely in user space.
 
-## 🔍 Overview
+## 🚀 What This Release Provides
 
-High-performance computing systems are powerful but difficult to use correctly. New users often struggle with:
+This repository distributes:
+- A prebuilt Apptainer/Singularity container (inkly.sif)
+- A host-side launcher (Container/inkApp.py)
+- A policy-driven runtime (ink_core.py)
+- A hardened default configuration (config.toml)
+No container build is required.
 
-- Writing valid `sbatch` scripts  
-- Requesting appropriate resources  
-- Understanding queue behavior  
-- Debugging failed jobs  
-- Navigating permission-restricted environments  
+## 🧱 Runtime Requirements
+To use Inkly, a cluster must provide:
+- Slurm
+- Apptainer or Singularity
+- Python 3 on login node
+- Outbound internet access (for Copilot API)
+- GitHub Copilot CLI authentication on the host
+GPU support is optional.
+Inkly automatically detects GPU availability and enables --nv only when supported.
 
-Inkly reduces these barriers by adding an **AI-assisted layer** on top of existing HPC tools, while remaining constrained by cluster rules and administrator intent.
+## 🔐 Authentication Requirement
+Inkly uses GitHub Copilot CLI inside the container but relies on host-side authentication.
+Before first use:
+```
+copilot auth login
+```
+After successful login:
+```
+python Container/inkApp.py
+```
+Inkly will bind the Copilot auth directory into the container securely.
 
----
-
-## ❓ The Problem Inkly Solves
-
-Most HPC onboarding assumes users already understand:
-
-- Slurm flags and partitions  
-- Module systems  
-- Resource limits  
-- Cluster-specific conventions  
-
-In practice, this knowledge gap leads to:
-
-- Job failures  
-- Over-requested resources  
-- Wasted compute time  
-- Frustration for both users and administrators  
-
-Inkly addresses this by combining:
-
-- Live cluster context  
-- AI-assisted explanation and generation  
-- Guarded execution paths  
-
----
-
-## 🧠 Core Design Philosophy
-
-Inkly is built on three principles:
-
-1. **AI assists, it does not replace system rules**  
-2. **Automation must be non-destructive**  
-3. **Cluster behavior must remain transparent**
-
-Inkly does not hide Slurm.  
-**It explains it.**
-
----
-
-## ⚙️ How Inkly Works
-
-Inkly wraps GitHub Copilot CLI with **cluster-aware shell and Python helpers**.
-
-At runtime, Inkly:
-
-- Gathers live HPC context (Slurm configuration, modules, OS metadata)  
-- Injects that context into AI prompts  
-- Filters and constrains outputs to safe operations  
-- Presents results in human-readable form  
-
-The heavy lifting is intentionally handled by **local helpers**, not raw AI-generated shell commands.
-
----
-
-## 🔒 Safety and Guardrails
-
-Inkly is explicitly designed to prevent destructive behavior.
-
-Safeguards include:
-
-- Blocking dangerous commands (`rm -rf`, mass deletion, system edits)  
-- Restricting file access to user-owned paths  
-- Containerized execution via **Apptainer**  
-- No modification of Slurm configuration or system files  
-
-Inkly cannot alter cluster state beyond what the user could already do manually.
-
----
-
-## ✨ Features
-
-- Natural-language `sbatch` generation using real cluster limits  
-- Readable wrappers around `squeue`, `sinfo`, and related tools  
-- Context-aware explanations of job failures  
-- Installer designed for environments **without sudo access**  
-- Apptainer-based isolation for safer execution  
-
----
-
-## 📦 Installation and Deployment
-
-Inkly is intended to be deployed in **user space** or via **Apptainer**.
-
-Deployment goals:
-
-- No root access required  
-- Minimal admin involvement  
-- Clear separation between cluster config and tool logic  
-
-Cluster-specific values (partitions, modules, paths) are **configuration-driven**, not hardcoded.
-
----
-
-## 🚀 Quick Start
-
-> ⚠️ Use the `tester` branch **only** if you are testing new or experimental features.
-
-```bash
+## ⚙️ Quick Start
+```
 git clone https://github.com/ryanrvargas/hpc-ink-setup.git
 cd hpc-ink-setup
-bash install.sh
-inkly
+
+python3 Container/inkApp.py "Write a Slurm sbatch script for 2 GPU nodes for 24 hours"
 ```
-Log into copilot using the /login command, once complete exit out using ctrl + c twice
+No container build required.
 
-```bash
-cd Container
-. run.sh
+## 🧠 How Inkly Works
+At runtime, Inkly:
+1. Gathers live cluster context:
+- sinfo
+- OS metadata
+- GPU availability
+- Slurm configuration hints
+
+2. Injects that context into Copilot prompts.
+
+3.Enforces:
+- Prompt filtering
+- Shell command deny lists
+- Output sanitization
+
+4. Runs Copilot inside a container with minimal host bind exposure.
+
+## 🔒 Security Model
+Inkly enforces multiple layers of protection:
+
+### Container Isolation
+- --contain --no-home
+- Minimal bind mounts
+- Optional GPU passthrough
+- No root privileges required
+
+### Prompt Filtering
+- Blocks destructive intent before reaching Copilot:
+- rm
+- mv
+- chmod
+- sudo
+- Recursive copy misuse
+- Explicit regex checks
+
+### Shell Guardrails
+Copilot tool execution is constrained by deny rules defined in config.toml.
+
+### Logging Safety
+Raw prompt logging is disabled by default in this release.
+
+##📦 Container Stability
+This release:
+- Pins GitHub Copilot CLI version
+- Pins Node.js version inside container
+- Does not auto-upgrade dependencies
+- Produces deterministic runtime behavior
+
+Container rebuild is not required for usage.
+
+## 🌍 Supported Environments
+Tested against:
+- Slurm-based clusters
+- Apptainer runtimes
+- Singularity runtimes
+- CPU-only nodes
+- GPU-enabled nodes
+
+Internet access is required for Copilot API calls.
+Air-gapped clusters are not supported in this version.
+
+## ⚠ Known Limitations
+- Requires outbound internet access.
+- Requires user-level Copilot authentication.
+- Does not support non-Slurm schedulers.
+- Does not function on clusters without container runtime.
+- Does not provide offline AI inference.
+- Inkly is an assistive interface, not an autonomous scheduler.
+
+## 📊 Logging & Research Mode
+Inkly supports structured logging for research evaluation.
+By default:
+- Prompt logging: enabled (sanitized)
+- Raw prompt logging: disabled
+- AI response logging: enabled
+- Job outcome logging: disabled
+
+Logging behavior is configurable via config.toml.
+
+## 🧪 Validation Criteria for v0.1.0-portable
+This release is considered portable when:
+- A user on a different Slurm cluster can:
+  - Clone repository
+  - Run inkApp.py
+  - Authenticate Copilot
+  - Generate Slurm job scripts
+- No container rebuild required
+- No GPU requirement
+- No unsafe logging defaults
+- Works with Apptainer or Singularity
+
+## 🏷 Version
+First portable release:
+```
+v0.1.0-portable
 ```
 
-## 🚀 Usage Example
-```bash
-ink "Write a Slurm sbatch script for 2 GPU nodes for 24 hours"
+## 🧭 Architecture Overview
 ```
-```bash
-ink "Why is my job pending"
+User → inkApp.py → Container (inkly.sif) → ink → ink_core → Copilot CLI
 ```
+Host provides:
+- Copilot authentication
+- Configuration
+- Logging directory
 
-## 📊 Logging and Research Component
+Container provides:
+- Node
+- Copilot CLI
+- Python runtime
+- Isolated execution
 
-Inkly is also designed as a **research platform**.
-
-Planned logging includes:
-- User prompts  
-- AI responses  
-- Job submission outcomes  
-- Error patterns over time  
-
-Logs are structured for:
-- Aggregate analysis  
-- Per-user tracking  
-- Opt-in pilot studies  
-
-The goal is to measure whether AI assistance improves job success rates,
-efficiency, and user confidence.
-
----
-
-## 🌍 Portability and Cluster Adaptation
-
-Inkly is built to be adaptable beyond a single cluster.
-
-Portability features:
-- Configuration-based cluster metadata  
-- Containerized execution  
-- Minimal assumptions about filesystem layout  
-
-This allows other institutions to audit, adapt, and deploy Inkly safely.
-
----
-
-## ⚠️ Limitations
-
-Inkly intentionally does **not**:
-- Execute privileged commands  
-- Modify cluster configuration  
-- Replace scheduler policies  
-- Guarantee optimal job performance  
-
-It is a **guidance and assistive tool**, not an autonomous agent.
-
----
-
-## 🔮 Future Work
-
-Planned extensions include:
-- Automated `.out` / `.err` analysis  
-- Resource recommendations based on historical jobs  
-- Domain-specific workflow profiles  
-- Safer dry-run validation of job scripts  
-
----
-
-## 👥 Who This Is For
-
-Inkly is for:
-- Students learning HPC  
-- Researchers onboarding to Slurm  
-- Labs seeking safer AI tooling  
-- Administrators interested in usability research  
-
-It is **not** for:
-- Bypassing cluster rules  
-- Fully autonomous job control  
-- Production automation without human oversight  
+## 🎯 Who Inkly Is For
+- Students learning HPC
+- Researchers onboarding to Slurm
+- Labs improving job success rates
+- Administrators exploring AI-assisted usability
+Inkly is not intended for:
+- Privilege escalation
+- Autonomous job management
+- Scheduler replacement
+- Production automation without review

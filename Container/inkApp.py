@@ -1,47 +1,111 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
-import stat
+import shutil
 
-# User-local paths for Inkly runtime and persistent state
+
 HOME = Path.home()
-INKLY_DIR = HOME / ".inkly"
-COPILOT_STATE = INKLY_DIR / "copilot"
-IMAGE = INKLY_DIR / "inkly1.sif"
+INKLY_HOME = HOME / ".inkly"
+COPILOT_DIR = HOME / ".copilot"
+CONTAINER_IMAGE = Path(__file__).parent / "inkly.sif"
 
-# Create persistent Copilot token directory (host-side)
-COPILOT_STATE.mkdir(parents=True, exist_ok=True)
 
-# Restrict token access to the owning user only
-os.chmod(COPILOT_STATE, stat.S_IRWXU)
+def main() -> int:
+    runtime = shutil.which("apptainer") or shutil.which("singularity")
+    if not runtime:
+        print(
+            "Error: neither apptainer nor singularity found on PATH.", file=sys.stderr
+        )
+        return 1
 
-# Fail early if the container image is missing
-if not IMAGE.exists():
-    print(f"Inkly container not found at: {IMAGE}", file=sys.stderr)
-    print("Place inkly1.sif in ~/.inkly/", file=sys.stderr)
-    sys.exit(1)
+    if not CONTAINER_IMAGE.exists():
+        print(f"Error: container image not found: {CONTAINER_IMAGE}", file=sys.stderr)
+        return 1
 
-# Apptainer execution with full isolation and minimal persistence
-cmd = [
-    "apptainer", "exec",
-    "--containall",
-    "--cleanenv",
-    "--no-home",
-    "--writable-tmpfs",
-    f"--bind={COPILOT_STATE}:/opt/inkhome/.config/.copilot",
-    str(IMAGE),
-    "ink",
-]
+    script_dir = Path(__file__).parent
+    host_context_script = script_dir / "ink_host_context.py"
+    if not host_context_script.exists():
+        print(
+            f"Error: missing host context script: {host_context_script}",
+            file=sys.stderr,
+        )
+        return 1
 
-# Pass user prompt directly to the ink entrypoint
-cmd.extend(sys.argv[1:])
+    # Pre-flight: state layout
+    INKLY_HOME.mkdir(parents=True, exist_ok=True)
+    (INKLY_HOME / "logs").mkdir(parents=True, exist_ok=True)
 
-# Replace the current process with Apptainer
-try:
-    subprocess.execvp(cmd[0], cmd)
-except FileNotFoundError:
-    print("Apptainer not found in PATH.", file=sys.stderr)
-    sys.exit(1)
+    cfg_path = INKLY_HOME / "config.toml"
+    default_cfg = Path(__file__).parent.parent / "config.toml"
+
+    if not cfg_path.exists():
+        if not default_cfg.exists():
+            print(
+                f"Error: missing config: {cfg_path}\n"
+                f"Also missing default template in repo: {default_cfg}\n"
+                "Reinstall or restore the repository config.toml.",
+                file=sys.stderr,
+            )
+            return 1
+
+        shutil.copy2(default_cfg, cfg_path)
+        print(f"[inkApp] Installed default config to: {cfg_path}", file=sys.stderr)
+
+    cfg_path = INKLY_HOME / "config.toml"
+    if not cfg_path.exists():
+        print(f"Error: missing config: {cfg_path}", file=sys.stderr)
+        return 1
+
+    # Generate fresh context.json
+    subprocess.run(
+        [sys.executable, str(host_context_script), str(INKLY_HOME)], check=True
+    )
+    context_file = INKLY_HOME / "context.json"
+
+    enable_nv = shutil.which("nvidia-smi") is not None
+
+    # Copilot auth dir must exist for first run
+    if not COPILOT_DIR.exists():
+        print(
+            f"Error: Copilot auth directory not found: {COPILOT_DIR}\n"
+            "Run Copilot login on the host first:\n"
+            "  copilot auth login\n"
+            "Then re-run:\n"
+            "  python Container/inkApp.py",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Build container command
+    cmd = [
+        runtime,
+        "exec",
+        "--cleanenv",
+        "--contain",
+        "--no-home",
+    ]
+
+    if enable_nv:
+        cmd.append("--nv")
+
+    cmd += [
+        "--bind",
+        f"{INKLY_HOME}:{INKLY_HOME}",
+        "--bind",
+        f"{COPILOT_DIR}:{COPILOT_DIR}",
+        "--bind",
+        f"{context_file}:/context.json",
+        str(CONTAINER_IMAGE),
+        "ink",
+        "--context",
+        "/context.json",
+        *sys.argv[1:],
+    ]
+
+    return subprocess.call(cmd)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -163,10 +163,10 @@ def is_terminal_job_state(state: str) -> bool:
 
 def should_ingest(record: SacctJobRecord) -> bool:
     """
-    Apply milestone v0.2.0 ingestion rules.
+    Appling milestone v0.2.0 ingestion rules.
 
     Rules:
-    - Ignore JobIDs containing '.'
+    - Ignore JobIDs containing '.', meaning they are batch or extern steps rather than top-level jobs
     - Ignore RUNNING jobs
     - Ignore PENDING jobs
     - Only ingest completed lifecycle jobs

@@ -206,5 +206,5 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
 if __name__ == "__main__":
     records = fetch_sacct_job_records()
     print(f"Fetched {len(records)} filtered jobs")
-    for record in records[:5]:
+    for record in records[:15]:
         print(record)

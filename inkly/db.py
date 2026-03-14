@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-
+from datetime import datetime, timezone
 
 DEFAULT_DB_PATH = Path.home() / ".inkly" / "jobs.db"
 
@@ -35,6 +35,34 @@ CREATE INDEX IF NOT EXISTS idx_jobs_req_mem_mb
     ON jobs(req_mem_mb);
 """
 
+UPSERT_JOB_SQL = """
+INSERT INTO jobs (
+    job_id,
+    user,
+    account,
+    partition,
+    alloc_cpus,
+    req_mem_mb,
+    elapsed_sec,
+    state,
+    exit_code,
+    success,
+    ingested_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+ON CONFLICT(job_id) DO UPDATE SET
+    user=excluded.user,
+    account=excluded.account,
+    partition=excluded.partition,
+    alloc_cpus=excluded.alloc_cpus,
+    req_mem_mb=excluded.req_mem_mb,
+    elapsed_sec=excluded.elapsed_sec,
+    state=excluded.state,
+    exit_code=excluded.exit_code,
+    success=excluded.success,
+    ingested_at=excluded.ingested_at
+"""
 
 class JobsDatabase:
     """SQLite database wrapper for Inkly structured Slurm job intelligence."""
@@ -60,6 +88,49 @@ class JobsDatabase:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
+    def upsert_job(self, record):
+        now = datetime.now(timezone.utc).isoformat()
+
+        self._conn.execute(
+            UPSERT_JOB_SQL,
+            (
+                record.job_id,
+                record.user,
+                record.account,
+                record.partition,
+                record.alloc_cpus,
+                record.req_mem_mb,
+                record.elapsed_sec,
+                record.state,
+                record.exit_code,
+                record.success,
+                now,
+            ),
+        )
+    def upsert_jobs(self, records):
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+
+        rows = [
+            (
+                r.job_id,
+                r.user,
+                r.account,
+                r.partition,
+                r.alloc_cpus,
+                r.req_mem_mb,
+                r.elapsed_sec,
+                r.state,
+                r.exit_code,
+                r.success,
+                now,
+            )
+            for r in records
+        ]
+
+        self._conn.executemany(UPSERT_JOB_SQL, rows)
+        self._conn.commit()
 
 def initialize_jobs_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize the Inkly jobs database and return its resolved path."""

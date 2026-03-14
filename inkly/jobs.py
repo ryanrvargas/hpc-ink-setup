@@ -32,6 +32,7 @@ class SacctJobRecord:
     elapsed_raw: Optional[str]
     state: str
     exit_code: Optional[str]
+    success: Optional[int] = None
 
 
 def build_sacct_command(window_days: int = 90) -> List[str]:
@@ -198,13 +199,36 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
         if record is None:
             continue
         if should_ingest(record):
+            record.success = classify_job_success(record.state, record.exit_code)
             records.append(record)
 
     return records
 
+def classify_job_success(state: str, exit_code: Optional[str]) -> int:
+    """
+    Deterministically classify whether a Slurm job succeeded.
+
+    Rules:
+    - success = 1 if state == COMPLETED AND exit_code starts with "0:"
+    - success = 0 otherwise
+
+    Special case:
+    - TIMEOUT 0:0 is still considered failure
+    """
+
+    if state is None:
+        return 0
+
+    normalized = state.strip().upper()
+
+    if normalized == "COMPLETED":
+        if exit_code and exit_code.startswith("0:"):
+            return 1
+
+    return 0
 
 if __name__ == "__main__":
     records = fetch_sacct_job_records()
     print(f"Fetched {len(records)} filtered jobs")
-    for record in records[:15]:
+    for record in records[:8]:
         print(record)

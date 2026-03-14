@@ -1,4 +1,4 @@
-from inkly.jobs import parse_sacct_line, should_ingest
+from inkly.jobs import classify_job_success, parse_sacct_line, should_ingest
 # Run: python -m pytest
 
 
@@ -37,3 +37,18 @@ def test_keep_failed_terminal_job():
 
     assert record is not None
     assert should_ingest(record) is True
+
+def test_completed_success():
+    assert classify_job_success("COMPLETED", "0:0") == 1
+
+
+def test_completed_nonzero_exit():
+    assert classify_job_success("COMPLETED", "1:0") == 0
+
+
+def test_timeout_even_if_zero_exit():
+    assert classify_job_success("TIMEOUT", "0:0") == 0
+
+
+def test_failed_job():
+    assert classify_job_success("FAILED", "2:0") == 0

@@ -204,6 +204,7 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
 
     return records
 
+
 def classify_job_success(state: str, exit_code: Optional[str]) -> int:
     """
     Deterministically classify whether a Slurm job succeeded.
@@ -226,6 +227,7 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
             return 1
 
     return 0
+
 
 if __name__ == "__main__":
     records = fetch_sacct_job_records()

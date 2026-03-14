@@ -38,6 +38,7 @@ def test_keep_failed_terminal_job():
     assert record is not None
     assert should_ingest(record) is True
 
+
 def test_completed_success():
     assert classify_job_success("COMPLETED", "0:0") == 1
 

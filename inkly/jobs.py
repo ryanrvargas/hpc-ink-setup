@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import subprocess
 from typing import List, Optional
+from inkly.db import JobsDatabase
 
 
 SACCT_FIELDS = [
@@ -33,6 +34,8 @@ class SacctJobRecord:
     state: str
     exit_code: Optional[str]
     success: Optional[int] = None
+    req_mem_mb: Optional[int] = None
+    elapsed_sec: Optional[int] = None
 
 
 def build_sacct_command(window_days: int = 90) -> List[str]:
@@ -200,6 +203,8 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
             continue
         if should_ingest(record):
             record.success = classify_job_success(record.state, record.exit_code)
+            record.req_mem_mb = parse_req_mem_mb(record.req_mem_raw)
+            record.elapsed_sec = parse_elapsed_sec(record.elapsed_raw)
             records.append(record)
 
     return records
@@ -228,9 +233,70 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
 
     return 0
 
+def ingest_jobs_to_db(records):
+    with JobsDatabase() as db:
+        db.upsert_jobs(records)
+
+def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
+    """
+    Convert Slurm ReqMem string into megabytes.
+
+    Examples:
+        64000M -> 64000
+        64G    -> 65536
+        4000K  -> 3 (approx)
+    """
+    if not mem:
+        return None
+
+    mem = mem.strip().upper()
+
+    try:
+        if mem.endswith("M"):
+            return int(mem[:-1])
+
+        if mem.endswith("G"):
+            return int(mem[:-1]) * 1024
+
+        if mem.endswith("K"):
+            return int(mem[:-1]) // 1024
+
+    except ValueError:
+        return None
+
+    return None
+
+def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
+    """
+    Convert Slurm elapsed time into seconds.
+
+    Formats observed in sacct:
+        HH:MM:SS
+        MM:SS
+    """
+    if not elapsed:
+        return None
+
+    parts = elapsed.split(":")
+
+    try:
+        if len(parts) == 3:
+            h, m, s = parts
+            return int(h) * 3600 + int(m) * 60 + int(s)
+
+        if len(parts) == 2:
+            m, s = parts
+            return int(m) * 60 + int(s)
+
+    except ValueError:
+        return None
+
+    return None
 
 if __name__ == "__main__":
     records = fetch_sacct_job_records()
     print(f"Fetched {len(records)} filtered jobs")
+    ingest_jobs_to_db(records)
+
     for record in records[:8]:
         print(record)

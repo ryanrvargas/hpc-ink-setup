@@ -226,6 +226,21 @@ class LoggingConfig:
         self.history.validate()
         return self
 
+@dataclass
+class IntelligenceConfig:
+    """Configuration for structured cluster intelligence prompt enrichment."""
+
+    enabled: bool = True
+    window_days: int = 90
+    min_jobs_required: int = 500
+    auto_refresh: bool = False
+
+    def validate(self) -> "IntelligenceConfig":
+        if self.window_days <= 0:
+            raise ConfigError("intelligence.window_days must be > 0")
+        if self.min_jobs_required < 0:
+            raise ConfigError("intelligence.min_jobs_required must be >= 0")
+        return self
 
 # NOTE:
 # Runtime code must consume resolved config objects only.
@@ -237,6 +252,7 @@ class InklyConfig:
     install: InstallConfig
     state: StateConfig
     logging: LoggingConfig
+    intelligence: IntelligenceConfig
 
 
 class TomlParser:
@@ -269,6 +285,7 @@ class TomlParser:
         )
         logging_cfg.validate()
 
+        intelligence = IntelligenceConfig(**raw.get("intelligence", {})).validate()
         return InklyConfig(
-            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg
+            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg, intelligence=intelligence
         )

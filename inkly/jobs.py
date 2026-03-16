@@ -202,7 +202,7 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
         if record is None:
             continue
         if should_ingest(record):
-            record.success = classify_job_success(record.state, record.exit_code)
+            record.success = classify_job_success(record)
             record.req_mem_mb = parse_req_mem_mb(record.req_mem_raw)
             record.elapsed_sec = parse_elapsed_sec(record.elapsed_raw)
             records.append(record)

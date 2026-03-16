@@ -285,7 +285,13 @@ class TomlParser:
         )
         logging_cfg.validate()
 
-        intelligence = IntelligenceConfig(**raw.get("intelligence", {})).validate()
+        intelligence_raw = dict(raw.get("intelligence", {}))
+
+        if "enable" in intelligence_raw and "enabled" not in intelligence_raw:
+            intelligence_raw["enabled"] = intelligence_raw.pop("enable")
+
+        intelligence = IntelligenceConfig(**intelligence_raw).validate()
+
         return InklyConfig(
             raw_config=raw, node=node, install=install, state=state, logging=logging_cfg, intelligence=intelligence
         )

@@ -36,3 +36,15 @@ def build_intelligence_block(db_path):
     lines.append("\nOptimize resource allocation accordingly.")
 
     return "\n".join(lines), dataset_size
+
+def maybe_inject_intelligence(prompt, config, db_path):
+
+    if not config.intelligence.enabled:
+        return prompt
+
+    block, dataset_size = build_intelligence_block(db_path)
+
+    if dataset_size < config.intelligence.min_jobs_required:
+        return prompt
+
+    return f"{prompt}\n\n{block}\n"

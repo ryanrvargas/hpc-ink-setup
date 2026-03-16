@@ -245,6 +245,8 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
         64000M -> 64000
         64G    -> 65536
         4000K  -> 3 (approx)
+        64000Mc -> 64000
+        64000Mn -> 64000
     """
     if not mem:
         return None
@@ -252,6 +254,10 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     mem = mem.strip().upper()
 
     try:
+        # Remove Slurm per-cpu / per-node suffix
+        if mem.endswith("MC") or mem.endswith("MN"):
+            mem = mem[:-1]
+            
         if mem.endswith("M"):
             return int(mem[:-1])
 

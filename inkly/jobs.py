@@ -273,25 +273,39 @@ def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
     Formats observed in sacct:
         HH:MM:SS
         MM:SS
+        D-HH:MM:SS
     """
     if not elapsed:
         return None
 
-    parts = elapsed.split(":")
+    elapsed = elapsed.strip()
 
     try:
+        # Handle day prefix
+        if "-" in elapsed:
+            days_part, time_part = elapsed.split("-", 1)
+            days = int(days_part)
+        else:
+            days = 0
+            time_part = elapsed
+
+        parts = time_part.split(":")
+
         if len(parts) == 3:
             h, m, s = parts
-            return int(h) * 3600 + int(m) * 60 + int(s)
+            seconds = int(h) * 3600 + int(m) * 60 + int(s)
 
-        if len(parts) == 2:
+        elif len(parts) == 2:
             m, s = parts
-            return int(m) * 60 + int(s)
+            seconds = int(m) * 60 + int(s)
+
+        else:
+            return None
+
+        return days * 86400 + seconds
 
     except ValueError:
         return None
-
-    return None
 
 if __name__ == "__main__":
     records = fetch_sacct_job_records()

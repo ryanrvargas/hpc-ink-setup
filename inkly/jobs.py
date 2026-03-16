@@ -236,6 +236,7 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
 def ingest_jobs_to_db(records):
     with JobsDatabase() as db:
         db.upsert_jobs(records)
+        db.cleanup_old_jobs()
 
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
@@ -257,7 +258,7 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
         # Remove Slurm per-cpu / per-node suffix
         if mem.endswith("MC") or mem.endswith("MN"):
             mem = mem[:-1]
-            
+
         if mem.endswith("M"):
             return int(mem[:-1])
 

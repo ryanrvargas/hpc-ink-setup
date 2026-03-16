@@ -132,6 +132,21 @@ class JobsDatabase:
         self._conn.executemany(UPSERT_JOB_SQL, rows)
         self._conn.commit()
 
+    def cleanup_old_jobs(self, window_days: int = 90) -> None:
+        """
+        Remove jobs older than the rolling window.
+        """
+
+        threshold = f"-{window_days} days"
+
+        query = """
+        DELETE FROM jobs
+        WHERE ingested_at < datetime('now', ?)
+        """
+
+        self._conn.execute(query, (threshold,))
+        self._conn.commit()
+
 def initialize_jobs_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize the Inkly jobs database and return its resolved path."""
     resolved_path = Path(db_path).expanduser()

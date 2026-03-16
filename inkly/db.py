@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     state TEXT,
     exit_code TEXT,
     success INTEGER,
-    ingested_at TEXT
+    ingested_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_partition

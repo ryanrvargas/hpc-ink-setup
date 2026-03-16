@@ -66,7 +66,7 @@ from inkly.policy import (
     enforce_wrapper_policy,
     enforce_network_policy,
 )
-from inkly.intelligence.analytics import compute_cluster_intelligence
+from inkly.intelligence.prompt_builder import maybe_inject_intelligence
 from inkly.db import DEFAULT_DB_PATH
 
 
@@ -567,33 +567,6 @@ def resolve_context_block(args) -> str:
     inline_ctx = gather_inline_context()
     return "\n".join(inline_ctx)
 
-def build_intelligence_prompt(db_path):
-
-    metrics = compute_cluster_intelligence(db_path)
-
-    if metrics["dataset_size"] < 100:
-        return ""
-
-    general = metrics["partition_success"].get("general")
-    cpu = metrics["cpu_analysis"].get("65+")
-    mem = metrics["memory_analysis"].get("<4GB")
-
-    lines = []
-    lines.append("Cluster Intelligence (last 90 days):")
-
-    if general:
-        rate = round(general["success_rate"] * 100)
-        lines.append(f"- General partition success rate: {rate}%")
-
-    if cpu:
-        rate = round(cpu["failure_rate"] * 100)
-        lines.append(f"- 65+ CPU jobs fail {rate}% of the time")
-
-    if mem:
-        rate = round(mem["failure_rate"] * 100)
-        lines.append(f"- Jobs requesting <4GB memory fail {rate}% of the time")
-
-    return "\n".join(lines)
 
 def main() -> int:
     """
@@ -706,8 +679,6 @@ def main() -> int:
             2) Short numbered instructions
             """)
 
-        intel_block = build_intelligence_prompt(DEFAULT_DB_PATH)
-
         full_prompt = (
             BASE_PROMPT + "\n\n"
             "Respond in the following exact format:\n\n"
@@ -722,10 +693,15 @@ def main() -> int:
             "=== END ===\n\n"
             "Cluster Context:\n"
             f"{context_block}\n\n"
-            f"{intel_block}\n\n"
             f"Task:\n{user_prompt}\n"
         )
 
+        full_prompt = maybe_inject_intelligence(
+            full_prompt,
+            cfg,
+            str(DEFAULT_DB_PATH),
+        )
+    
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]
     # else: interactive mode (no flags)

@@ -143,7 +143,8 @@ class JobsDatabase:
         DELETE FROM jobs
         WHERE ingested_at < datetime('now', ?)
         """
-
+        cursor = self._conn.execute(query, (threshold,))
+        print(f"Removed {cursor.rowcount} old jobs")
         self._conn.execute(query, (threshold,))
         self._conn.commit()
 

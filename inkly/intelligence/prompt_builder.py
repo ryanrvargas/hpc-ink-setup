@@ -31,14 +31,14 @@ def build_intelligence_block(db_path: str):
             timeout_pct = round(timeout_rate * 100)
 
             # Choose the more informative signal
-            if timeout_rate > 0.2:  # significant timeout behavior
+            if failure_rate > 0.8:
+                lines.append(
+                    f"- 65+ CPU jobs fail {failure_pct}% of the time (very high failure rate)"
+                )
+            elif timeout_rate > 0.2:
                 lines.append(f"- 65+ CPU jobs timeout {timeout_pct}% of the time")
             else:
                 lines.append(f"- 65+ CPU jobs fail {failure_pct}% of the time")
-            if failure_rate > 0.8:
-                lines.append(f"- 65+ CPU jobs fail {failure_pct}% of the time (very high failure rate)")
-            elif timeout_rate > 0.2:
-                lines.append(f"- 65+ CPU jobs timeout {timeout_pct}% of the time")
 
     # Memory insight
     mem = metrics["memory_analysis"].get("<4GB")

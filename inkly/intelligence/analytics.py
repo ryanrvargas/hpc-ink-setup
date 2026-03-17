@@ -48,7 +48,6 @@ def partition_success_rate(conn):
 
 
 def cpu_bucket_analysis(conn):
-
     query = """
     SELECT
         CASE
@@ -59,7 +58,14 @@ def cpu_bucket_analysis(conn):
         END AS cpu_bucket,
         COUNT(*) AS total_jobs,
         SUM(success) AS successful_jobs,
-        ROUND(1 - AVG(success), 3) AS failure_rate
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failed_jobs,
+        SUM(CASE WHEN state = 'TIMEOUT' THEN 1 ELSE 0 END) AS timeout_jobs,
+        ROUND(1.0 - AVG(success), 3) AS failure_rate,
+        ROUND(
+            CAST(SUM(CASE WHEN state = 'TIMEOUT' THEN 1 ELSE 0 END) AS FLOAT)
+            / COUNT(*),
+            3
+        ) AS timeout_rate
     FROM jobs
     GROUP BY cpu_bucket
     """
@@ -72,7 +78,10 @@ def cpu_bucket_analysis(conn):
         result[r["cpu_bucket"]] = {
             "total_jobs": r["total_jobs"],
             "successful_jobs": r["successful_jobs"],
+            "failed_jobs": r["failed_jobs"],
+            "timeout_jobs": r["timeout_jobs"],
             "failure_rate": r["failure_rate"],
+            "timeout_rate": r["timeout_rate"],
         }
 
     return result

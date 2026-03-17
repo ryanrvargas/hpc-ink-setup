@@ -77,6 +77,6 @@ def maybe_inject_intelligence(prompt: str, config, db_path: str) -> str:
     if dataset_size < config.intelligence.min_jobs_required:
         return prompt
 
-    #Debugging output
+    # Debugging output
     print(f"[ink] dataset_size={dataset_size}", file=sys.stderr)
     return f"{prompt}\n\n{block}\n"

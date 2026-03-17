@@ -261,6 +261,7 @@ def refresh_jobs(window_days: int = 90) -> int:
     ingest_jobs_to_db(records, window_days=window_days)
     return len(records)
 
+
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
     Convert Slurm ReqMem string into megabytes.

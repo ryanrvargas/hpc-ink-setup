@@ -696,7 +696,7 @@ def main() -> int:
             f"{context_block}\n\n"
             f"Task:\n{user_prompt}\n"
         )
-        
+
         if cfg.intelligence.enabled and cfg.intelligence.auto_refresh:
             try:
                 refresh_jobs(window_days=cfg.intelligence.window_days)

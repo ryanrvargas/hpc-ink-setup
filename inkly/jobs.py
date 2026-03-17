@@ -234,11 +234,32 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
     return 0
 
 
-def ingest_jobs_to_db(records):
+def ingest_jobs_to_db(records, window_days: int = 90):
+    """
+    Ingest parsed job records into the database and enforce the rolling window.
+
+    Args:
+        records: Parsed top-level sacct job records.
+        window_days: Number of days of history to retain in the DB.
+    """
     with JobsDatabase() as db:
         db.upsert_jobs(records)
-        db.cleanup_old_jobs()
+        db.cleanup_old_jobs(window_days)
 
+
+def refresh_jobs(window_days: int = 90) -> int:
+    """
+    Fetch historical jobs from sacct and ingest them into the SQLite dataset.
+
+    Args:
+        window_days: Number of days of history to query and retain.
+
+    Returns:
+        Number of filtered top-level records ingested.
+    """
+    records = fetch_sacct_job_records(window_days=window_days)
+    ingest_jobs_to_db(records, window_days=window_days)
+    return len(records)
 
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
@@ -319,9 +340,9 @@ def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
 
 
 if __name__ == "__main__":
-    records = fetch_sacct_job_records()
+    records = fetch_sacct_job_records(window_days=90)
     print(f"Fetched {len(records)} filtered jobs")
-    ingest_jobs_to_db(records)
+    ingest_jobs_to_db(records, window_days=90)
 
     for record in records[:8]:
         print(record)

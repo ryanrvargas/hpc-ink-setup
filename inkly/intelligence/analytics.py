@@ -23,7 +23,6 @@ def compute_cluster_intelligence(db_path):
 
 
 def partition_success_rate(conn):
-
     query = """
     SELECT
         partition,
@@ -88,7 +87,6 @@ def cpu_bucket_analysis(conn):
 
 
 def memory_bucket_analysis(conn):
-
     query = """
     SELECT
         CASE
@@ -146,7 +144,6 @@ def failure_distribution(conn):
 
 
 def dataset_size(conn):
-
     query = "SELECT COUNT(*) AS total FROM jobs"
     row = conn.execute(query).fetchone()
 

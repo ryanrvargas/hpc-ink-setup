@@ -233,10 +233,12 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
 
     return 0
 
+
 def ingest_jobs_to_db(records):
     with JobsDatabase() as db:
         db.upsert_jobs(records)
         db.cleanup_old_jobs()
+
 
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
@@ -272,6 +274,7 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
         return None
 
     return None
+
 
 def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
     """
@@ -313,6 +316,7 @@ def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
 
     except ValueError:
         return None
+
 
 if __name__ == "__main__":
     records = fetch_sacct_job_records()

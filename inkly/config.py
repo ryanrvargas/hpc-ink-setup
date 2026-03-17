@@ -226,6 +226,7 @@ class LoggingConfig:
         self.history.validate()
         return self
 
+
 @dataclass
 class IntelligenceConfig:
     """Configuration for structured cluster intelligence prompt enrichment."""
@@ -236,11 +237,24 @@ class IntelligenceConfig:
     auto_refresh: bool = False
 
     def validate(self) -> "IntelligenceConfig":
+        if not isinstance(self.enabled, bool):
+            raise ConfigError("intelligence.enabled must be a boolean")
+
+        if not isinstance(self.window_days, int):
+            raise ConfigError("intelligence.window_days must be an integer")
         if self.window_days <= 0:
             raise ConfigError("intelligence.window_days must be > 0")
+
+        if not isinstance(self.min_jobs_required, int):
+            raise ConfigError("intelligence.min_jobs_required must be an integer")
         if self.min_jobs_required < 0:
             raise ConfigError("intelligence.min_jobs_required must be >= 0")
+
+        if not isinstance(self.auto_refresh, bool):
+            raise ConfigError("intelligence.auto_refresh must be a boolean")
+
         return self
+
 
 # NOTE:
 # Runtime code must consume resolved config objects only.
@@ -290,5 +304,10 @@ class TomlParser:
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
 
         return InklyConfig(
-            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg, intelligence=intelligence
+            raw_config=raw,
+            node=node,
+            install=install,
+            state=state,
+            logging=logging_cfg,
+            intelligence=intelligence,
         )

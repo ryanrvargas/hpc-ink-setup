@@ -701,7 +701,7 @@ def main() -> int:
             cfg,
             str(DEFAULT_DB_PATH),
         )
-    
+
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]
     # else: interactive mode (no flags)

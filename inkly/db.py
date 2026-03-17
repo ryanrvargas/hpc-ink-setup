@@ -64,6 +64,7 @@ ON CONFLICT(job_id) DO UPDATE SET
     ingested_at=excluded.ingested_at
 """
 
+
 class JobsDatabase:
     """SQLite database wrapper for Inkly structured Slurm job intelligence."""
 
@@ -107,6 +108,7 @@ class JobsDatabase:
                 now,
             ),
         )
+
     def upsert_jobs(self, records):
         from datetime import datetime, timezone
 
@@ -147,6 +149,7 @@ class JobsDatabase:
         print(f"Removed {cursor.rowcount} old jobs")
         self._conn.execute(query, (threshold,))
         self._conn.commit()
+
 
 def initialize_jobs_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize the Inkly jobs database and return its resolved path."""

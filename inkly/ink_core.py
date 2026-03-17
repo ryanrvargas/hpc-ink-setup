@@ -68,6 +68,7 @@ from inkly.policy import (
 )
 from inkly.intelligence.prompt_builder import maybe_inject_intelligence
 from inkly.db import DEFAULT_DB_PATH
+from inkly.jobs import refresh_jobs
 
 
 ## -----------------------------------------------------------------------------
@@ -695,6 +696,12 @@ def main() -> int:
             f"{context_block}\n\n"
             f"Task:\n{user_prompt}\n"
         )
+        
+        if cfg.intelligence.enabled and cfg.intelligence.auto_refresh:
+            try:
+                refresh_jobs(window_days=cfg.intelligence.window_days)
+            except Exception as e:
+                print(f"[ink] Intelligence auto-refresh failed: {e}", file=sys.stderr)
 
         full_prompt = maybe_inject_intelligence(
             full_prompt,

@@ -1,7 +1,7 @@
 from inkly.intelligence.analytics import compute_cluster_intelligence
 
 
-def build_intelligence_block(db_path: str):
+def build_intelligence_block(db_path: str, config):
     """
     Build the structured intelligence prompt block from analytics output.
 
@@ -11,7 +11,7 @@ def build_intelligence_block(db_path: str):
     metrics = compute_cluster_intelligence(db_path)
     dataset_size = metrics["dataset_size"]
 
-    lines = ["Cluster Intelligence (last 90 days):"]
+    lines = [f"Cluster Intelligence (last {config.intelligence.window_days} days):"]
 
     # Partition success
     partition = metrics["partition_success"].get("general")
@@ -70,7 +70,7 @@ def maybe_inject_intelligence(prompt: str, config, db_path: str) -> str:
     if not config.intelligence.enabled:
         return prompt
 
-    block, dataset_size = build_intelligence_block(db_path)
+    block, dataset_size = build_intelligence_block(db_path, config)
 
     if dataset_size < config.intelligence.min_jobs_required:
         return prompt

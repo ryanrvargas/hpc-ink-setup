@@ -285,10 +285,7 @@ class TomlParser:
         )
         logging_cfg.validate()
 
-        intelligence_raw = dict(raw.get("intelligence", {}))
-
-        if "enable" in intelligence_raw and "enabled" not in intelligence_raw:
-            intelligence_raw["enabled"] = intelligence_raw.pop("enable")
+        intelligence_raw = dict(raw.get("intelligence") or {})
 
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
 

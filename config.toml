@@ -250,7 +250,7 @@ name = "default"
 description = "Safe default Inkly configuration"
 
 [intelligence]
-enable = true
+enabled = true
 min_jobs_required = 100
-window_dyas = 90
+window_days = 90
 auto_refresh = false

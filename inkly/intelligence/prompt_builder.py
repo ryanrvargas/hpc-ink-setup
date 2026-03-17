@@ -21,9 +21,20 @@ def build_intelligence_block(db_path: str):
 
     # CPU bucket insight
     cpu = metrics["cpu_analysis"].get("65+")
-    if cpu and cpu.get("failure_rate") is not None:
-        rate = round(cpu["failure_rate"] * 100)
-        lines.append(f"- 65+ CPU jobs fail {rate}% of the time")
+
+    if cpu:
+        failure_rate = cpu.get("failure_rate")
+        timeout_rate = cpu.get("timeout_rate")
+
+        if failure_rate is not None and timeout_rate is not None:
+            failure_pct = round(failure_rate * 100)
+            timeout_pct = round(timeout_rate * 100)
+
+            # Choose the more informative signal
+            if timeout_rate > 0.2:  # significant timeout behavior
+                lines.append(f"- 65+ CPU jobs timeout {timeout_pct}% of the time")
+            else:
+                lines.append(f"- 65+ CPU jobs fail {failure_pct}% of the time")
 
     # Memory insight
     mem = metrics["memory_analysis"].get("<4GB")

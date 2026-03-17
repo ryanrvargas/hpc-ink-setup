@@ -119,7 +119,6 @@ def memory_bucket_analysis(conn):
 
 
 def failure_distribution(conn):
-
     query = """
     SELECT
         state,
@@ -132,10 +131,16 @@ def failure_distribution(conn):
 
     rows = conn.execute(query).fetchall()
 
+    total_failures = sum(r["count"] for r in rows)
+
     result = {}
 
     for r in rows:
-        result[r["state"]] = r["count"]
+        pct = round(r["count"] / total_failures, 3) if total_failures > 0 else 0.0
+        result[r["state"]] = {
+            "count": r["count"],
+            "percentage": pct,
+        }
 
     return result
 

@@ -35,6 +35,10 @@ def build_intelligence_block(db_path: str):
                 lines.append(f"- 65+ CPU jobs timeout {timeout_pct}% of the time")
             else:
                 lines.append(f"- 65+ CPU jobs fail {failure_pct}% of the time")
+            if failure_rate > 0.8:
+                lines.append(f"- 65+ CPU jobs fail {failure_pct}% of the time (very high failure rate)")
+            elif timeout_rate > 0.2:
+                lines.append(f"- 65+ CPU jobs timeout {timeout_pct}% of the time")
 
     # Memory insight
     mem = metrics["memory_analysis"].get("<4GB")
@@ -45,8 +49,9 @@ def build_intelligence_block(db_path: str):
     # Most common failure
     failures = metrics["failure_distribution"]
     if failures:
-        top = max(failures, key=failures.get)
-        lines.append(f"- {top} is the most common failure")
+        top = max(failures, key=lambda k: failures[k]["count"])
+        pct = round(failures[top]["percentage"] * 100)
+        lines.append(f"- {top} is the most common failure ({pct}%)")
 
     lines.append("")
     lines.append("Optimize resource allocation accordingly.")

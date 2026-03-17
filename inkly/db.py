@@ -147,7 +147,6 @@ class JobsDatabase:
         """
         cursor = self._conn.execute(query, (threshold,))
         print(f"Removed {cursor.rowcount} old jobs")
-        self._conn.execute(query, (threshold,))
         self._conn.commit()
 
 

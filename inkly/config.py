@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
+import sys
 from typing import Literal
 
 
@@ -301,7 +303,25 @@ class TomlParser:
 
         intelligence_raw = dict(raw.get("intelligence") or {})
 
+        # Apply environment overrides
+        env_map = {
+            "enabled": ("INKLY_INTELLIGENCE_ENABLED", lambda v: v.lower() == "true"),
+            "window_days": ("INKLY_INTELLIGENCE_WINDOW_DAYS", int),
+            "min_jobs_required": ("INKLY_INTELLIGENCE_MIN_JOBS_REQUIRED", int),
+            "auto_refresh": ("INKLY_INTELLIGENCE_AUTO_REFRESH", lambda v: v.lower() == "true"),
+        }
+
+        for key, (env_var, cast) in env_map.items():
+            if env_var in os.environ:
+                try:
+                    intelligence_raw[key] = cast(os.environ[env_var])
+                except Exception:
+                    raise ConfigError(f"Invalid value for {env_var}")
+
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
+
+        #debugging output
+        print(f"[ink] ENV override: {env_var} -> {intelligence_raw[key]}", file=sys.stderr)
 
         return InklyConfig(
             raw_config=raw,

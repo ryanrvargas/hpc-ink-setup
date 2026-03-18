@@ -22,17 +22,49 @@ CREATE TABLE IF NOT EXISTS jobs (
     ingested_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_jobs_partition
-    ON jobs(partition);
+CREATE INDEX IF NOT EXISTS idx_jobs_partition ON jobs(partition);
+CREATE INDEX IF NOT EXISTS idx_jobs_success ON jobs(success);
+CREATE INDEX IF NOT EXISTS idx_jobs_alloc_cpus ON jobs(alloc_cpus);
+CREATE INDEX IF NOT EXISTS idx_jobs_req_mem_mb ON jobs(req_mem_mb);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_success
-    ON jobs(success);
+CREATE TABLE IF NOT EXISTS intelligence_partition_stats (
+    partition TEXT PRIMARY KEY,
+    total_jobs INTEGER NOT NULL,
+    successful_jobs INTEGER NOT NULL,
+    success_rate REAL NOT NULL,
+    computed_at TEXT NOT NULL
+);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_alloc_cpus
-    ON jobs(alloc_cpus);
+CREATE TABLE IF NOT EXISTS intelligence_cpu_bucket_stats (
+    cpu_bucket TEXT PRIMARY KEY,
+    total_jobs INTEGER NOT NULL,
+    successful_jobs INTEGER NOT NULL,
+    failed_jobs INTEGER NOT NULL,
+    timeout_jobs INTEGER NOT NULL,
+    failure_rate REAL NOT NULL,
+    timeout_rate REAL NOT NULL,
+    computed_at TEXT NOT NULL
+);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_req_mem_mb
-    ON jobs(req_mem_mb);
+CREATE TABLE IF NOT EXISTS intelligence_memory_bucket_stats (
+    mem_bucket TEXT PRIMARY KEY,
+    total_jobs INTEGER NOT NULL,
+    failure_rate REAL NOT NULL,
+    computed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS intelligence_failure_stats (
+    state TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    percentage REAL NOT NULL,
+    computed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS intelligence_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    computed_at TEXT NOT NULL
+);
 """
 
 UPSERT_JOB_SQL = """

@@ -140,48 +140,75 @@ SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
 
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="ink",
-        description=(
-            "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
-            "It injects live HPC context into prompts and supports job intelligence tools."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+    argv = sys.argv[1:]
+
+    # Handle top-level flags that should work in either mode
+    if "--version" in argv:
+        parser = argparse.ArgumentParser(prog="ink")
+        parser.add_argument("--version", action="version", version=f"ink {__version__}")
+        parser.parse_args(["--version"])
+
+    context_value = None
+    cleaned_argv = []
+    i = 0
+
+    while i < len(argv):
+        if argv[i] == "--context":
+            if i + 1 >= len(argv):
+                raise SystemExit("ink: error: --context requires a value")
+            context_value = argv[i + 1]
+            i += 2
+        else:
+            cleaned_argv.append(argv[i])
+            i += 1
+
+    # Structured command mode
+    if cleaned_argv and cleaned_argv[0] == "jobs":
+        parser = argparse.ArgumentParser(
+            prog="ink",
+            description=(
+                "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
+                "It injects live HPC context into prompts and supports job intelligence tools."
+            ),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+
+        parser.add_argument("--version", action="version", version=f"ink {__version__}")
+        parser.add_argument("--context", type=str, default=context_value, help=argparse.SUPPRESS)
+
+        subparsers = parser.add_subparsers(dest="command", required=True)
+
+        jobs_parser = subparsers.add_parser(
+            "jobs", help="Structured job intelligence tools"
+        )
+        jobs_subparsers = jobs_parser.add_subparsers(dest="jobs_command", required=True)
+
+        refresh_parser = jobs_subparsers.add_parser(
+            "refresh",
+            help="Refresh historical Slurm jobs from sacct into SQLite",
+        )
+        refresh_parser.add_argument(
+            "--window-days",
+            type=int,
+            default=None,
+            help="Override configured intelligence.window_days for this refresh",
+        )
+
+        jobs_subparsers.add_parser(
+            "stats",
+            help="Reserved for future job intelligence summary commands",
+        )
+
+        return parser.parse_args(argv)
+
+    # Prompt mode
+    return argparse.Namespace(
+        command=None,
+        jobs_command=None,
+        window_days=None,
+        context=context_value,
+        prompt=cleaned_argv,
     )
-
-    parser.add_argument("--version", action="version", version=f"ink {__version__}")
-    parser.add_argument("--context", type=str, help=argparse.SUPPRESS)
-
-    subparsers = parser.add_subparsers(dest="command")
-
-    jobs_parser = subparsers.add_parser(
-        "jobs", help="Structured job intelligence tools"
-    )
-    jobs_subparsers = jobs_parser.add_subparsers(dest="jobs_command")
-
-    refresh_parser = jobs_subparsers.add_parser(
-        "refresh",
-        help="Refresh historical Slurm jobs from sacct into SQLite",
-    )
-    refresh_parser.add_argument(
-        "--window-days",
-        type=int,
-        default=None,
-        help="Override configured intelligence.window_days for this refresh",
-    )
-
-    jobs_subparsers.add_parser(
-        "stats",
-        help="Reserved for future job intelligence summary commands",
-    )
-
-    parser.add_argument(
-        "prompt",
-        nargs=argparse.REMAINDER,
-        help="Prompt to send to Copilot. Leave empty for interactive mode.",
-    )
-
-    return parser.parse_args()
 
 
 # Configuration & State Loading

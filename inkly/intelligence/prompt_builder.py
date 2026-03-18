@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass
+from typing import Optional
 
 from inkly.intelligence.analytics import (
     compute_cluster_intelligence,
@@ -12,7 +13,7 @@ class IntelligenceInjectionResult:
     prompt: str
     injected: bool
     dataset_size: int
-    message: str | None = None
+    message: Optional[str] = None
 
 
 def build_intelligence_block(db_path: str, config):

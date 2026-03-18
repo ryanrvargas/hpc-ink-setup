@@ -2,6 +2,9 @@ import sqlite3
 import time
 import sys
 
+_CACHE = {}
+_CACHE_TTL_SECONDS = 30
+
 
 def _timed_query(label: str, fn):
     start = time.perf_counter()
@@ -35,6 +38,25 @@ def compute_cluster_intelligence(db_path):
     Compute deterministic cluster intelligence metrics from the jobs dataset.
     """
 
+    now = time.time()
+    cache_key = str(db_path)
+
+    cached = _CACHE.get(cache_key)
+    if cached is not None:
+        cached_result, cached_at = cached
+        age = now - cached_at
+        if age < _CACHE_TTL_SECONDS:
+            cached_copy = dict(cached_result)
+            cached_timings = dict(cached_copy.get("timings", {}))
+            cached_timings["cache_hit"] = True
+            cached_timings["total_intelligence_ms"] = 0.0
+            cached_copy["timings"] = cached_timings
+            print(
+                f"[ink][perf] intelligence_cache_hit: age={age:.2f}s",
+                file=sys.stderr,
+            )
+            return cached_copy
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
@@ -62,9 +84,11 @@ def compute_cluster_intelligence(db_path):
                 "memory_analysis_ms": round(memory_ms, 2),
                 "failure_distribution_ms": round(failure_ms, 2),
                 "total_intelligence_ms": round(total_ms, 2),
+                "cache_hit": False,
             },
         }
 
+        _CACHE[cache_key] = (intelligence, now)
         return intelligence
     finally:
         conn.close()

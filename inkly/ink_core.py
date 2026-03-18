@@ -782,6 +782,18 @@ def main() -> int:
                 resolved_hostname=resolved_hostname,
             )
 
+        if intelligence_result.injected and intelligence_result.timings:
+            log_event(
+                event_type="intelligence_performance",
+                payload={
+                    "dataset_size": intelligence_result.dataset_size,
+                    **intelligence_result.timings,
+                },
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
+
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]
     # else: interactive mode (no flags)

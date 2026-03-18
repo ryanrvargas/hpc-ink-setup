@@ -1,5 +1,15 @@
 import sqlite3
+import time
+import sys
 
+def _timed_query(label: str, fn):
+    start = time.perf_counter()
+    result = fn()
+    duration_ms = (time.perf_counter() - start) * 1000
+
+    print(f"[ink][perf] {label}: {duration_ms:.2f} ms", file=sys.stderr)
+
+    return result, duration_ms
 
 def get_dataset_size(db_path) -> int:
     """
@@ -26,17 +36,36 @@ def compute_cluster_intelligence(db_path):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    intelligence = {}
+    try:
+        total_start = time.perf_counter()
 
-    intelligence["partition_success"] = partition_success_rate(conn)
-    intelligence["cpu_analysis"] = cpu_bucket_analysis(conn)
-    intelligence["memory_analysis"] = memory_bucket_analysis(conn)
-    intelligence["failure_distribution"] = failure_distribution(conn)
-    intelligence["dataset_size"] = dataset_size(conn)
+        partition_result, partition_ms = partition_success_rate(conn)
+        cpu_result, cpu_ms = cpu_bucket_analysis(conn)
+        memory_result, memory_ms = memory_bucket_analysis(conn)
+        failure_result, failure_ms = failure_distribution(conn)
+        dataset_size_value = dataset_size(conn)
 
-    conn.close()
+        total_ms = (time.perf_counter() - total_start) * 1000
+        print(f"[ink][perf] total_intelligence: {total_ms:.2f} ms", file=sys.stderr)
 
-    return intelligence
+        intelligence = {
+            "partition_success": partition_result,
+            "cpu_analysis": cpu_result,
+            "memory_analysis": memory_result,
+            "failure_distribution": failure_result,
+            "dataset_size": dataset_size_value,
+            "timings": {
+                "partition_success_ms": round(partition_ms, 2),
+                "cpu_analysis_ms": round(cpu_ms, 2),
+                "memory_analysis_ms": round(memory_ms, 2),
+                "failure_distribution_ms": round(failure_ms, 2),
+                "total_intelligence_ms": round(total_ms, 2),
+            },
+        }
+
+        return intelligence
+    finally:
+        conn.close()
 
 
 def partition_success_rate(conn):
@@ -50,7 +79,10 @@ def partition_success_rate(conn):
     GROUP BY partition
     """
 
-    rows = conn.execute(query).fetchall()
+    def _query():
+        return conn.execute(query).fetchall()
+    
+    rows, duration_ms = _timed_query("partition_success", _query)
 
     result = {}
     for r in rows:
@@ -60,7 +92,7 @@ def partition_success_rate(conn):
             "success_rate": r["success_rate"],
         }
 
-    return result
+    return result, duration_ms
 
 
 def cpu_bucket_analysis(conn):
@@ -86,7 +118,10 @@ def cpu_bucket_analysis(conn):
     GROUP BY cpu_bucket
     """
 
-    rows = conn.execute(query).fetchall()
+    def _query():
+        return conn.execute(query).fetchall()
+    
+    rows, duration_ms = _timed_query("cpu_bucket_analysis", _query)
 
     result = {}
 
@@ -100,7 +135,7 @@ def cpu_bucket_analysis(conn):
             "timeout_rate": r["timeout_rate"],
         }
 
-    return result
+    return result, duration_ms
 
 
 def memory_bucket_analysis(conn):
@@ -119,8 +154,10 @@ def memory_bucket_analysis(conn):
     FROM jobs
     GROUP BY mem_bucket
     """
+    def _query():
+        return conn.execute(query).fetchall()
 
-    rows = conn.execute(query).fetchall()
+    rows, duration_ms = _timed_query("memory_analysis", _query)
 
     result = {}
 
@@ -130,7 +167,7 @@ def memory_bucket_analysis(conn):
             "failure_rate": r["failure_rate"],
         }
 
-    return result
+    return result, duration_ms
 
 
 def failure_distribution(conn):
@@ -144,7 +181,10 @@ def failure_distribution(conn):
     ORDER BY count DESC
     """
 
-    rows = conn.execute(query).fetchall()
+    def _query():
+        return conn.execute(query).fetchall()
+
+    rows, duration_ms = _timed_query("failure_distribution", _query)
 
     total_failures = sum(r["count"] for r in rows)
 
@@ -157,7 +197,7 @@ def failure_distribution(conn):
             "percentage": pct,
         }
 
-    return result
+    return result, duration_ms
 
 
 def dataset_size(conn):

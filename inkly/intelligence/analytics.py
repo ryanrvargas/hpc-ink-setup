@@ -1,6 +1,23 @@
 import sqlite3
 
 
+def get_dataset_size(db_path) -> int:
+    """
+    Return the number of rows currently available in the jobs dataset.
+
+    This is the lightweight guard query used before computing
+    full cluster intelligence metrics.
+    """
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        row = conn.execute("SELECT COUNT(*) AS total FROM jobs").fetchone()
+        return row["total"] if row is not None else 0
+    finally:
+        conn.close()
+
+
 def compute_cluster_intelligence(db_path):
     """
     Compute deterministic cluster intelligence metrics from the jobs dataset.

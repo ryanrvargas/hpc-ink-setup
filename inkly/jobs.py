@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import subprocess
 from typing import List, Optional
 from inkly.db import JobsDatabase
-import sqlite3
 
 
 SACCT_FIELDS = [

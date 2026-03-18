@@ -570,7 +570,7 @@ def print_refresh_summary(summary) -> None:
     print()
     print(f"Jobs scanned:  {summary.jobs_scanned:,}")
     print(f"Jobs inserted: {summary.jobs_inserted:,}")
-    print(f"Jobs updated:  {summary.jobs_updated:,}")
+    print(f"Existing jobs upserted:  {summary.jobs_updated:,}")
     if summary.jobs_removed:
         print(f"Jobs removed:  {summary.jobs_removed:,}")
     print(f"Window:        {summary.window_days} days")
@@ -630,9 +630,6 @@ def main() -> int:
             state=state,
             resolved_hostname=resolved_hostname,
         )
-
-    # Load config first
-    cfg, config, state = load_config_and_state()
 
     if args.command == "jobs":
         if args.jobs_command == "refresh":

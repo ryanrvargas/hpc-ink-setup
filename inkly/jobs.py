@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 import subprocess
 from typing import List, Optional
 from inkly.db import JobsDatabase
-
+from inkly.intelligence.analytics import rebuild_intelligence_summaries
+from inkly.db import DEFAULT_DB_PATH
 
 SACCT_FIELDS = [
     "JobID",
@@ -266,6 +267,8 @@ def ingest_jobs_to_db(records, window_days: int = 90) -> RefreshSummary:
         after_cleanup = db._conn.total_changes
 
         jobs_removed = after_cleanup - before_cleanup
+
+    rebuild_intelligence_summaries(DEFAULT_DB_PATH)
 
     return RefreshSummary(
         jobs_scanned=len(records),

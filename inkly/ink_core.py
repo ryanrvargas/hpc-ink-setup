@@ -174,7 +174,9 @@ def parse_args() -> argparse.Namespace:
         )
 
         parser.add_argument("--version", action="version", version=f"ink {__version__}")
-        parser.add_argument("--context", type=str, default=context_value, help=argparse.SUPPRESS)
+        parser.add_argument(
+            "--context", type=str, default=context_value, help=argparse.SUPPRESS
+        )
 
         subparsers = parser.add_subparsers(dest="command", required=True)
 

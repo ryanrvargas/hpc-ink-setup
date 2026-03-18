@@ -2,6 +2,7 @@ import sqlite3
 import time
 import sys
 
+
 def _timed_query(label: str, fn):
     start = time.perf_counter()
     result = fn()
@@ -10,6 +11,7 @@ def _timed_query(label: str, fn):
     print(f"[ink][perf] {label}: {duration_ms:.2f} ms", file=sys.stderr)
 
     return result, duration_ms
+
 
 def get_dataset_size(db_path) -> int:
     """
@@ -81,7 +83,7 @@ def partition_success_rate(conn):
 
     def _query():
         return conn.execute(query).fetchall()
-    
+
     rows, duration_ms = _timed_query("partition_success", _query)
 
     result = {}
@@ -120,7 +122,7 @@ def cpu_bucket_analysis(conn):
 
     def _query():
         return conn.execute(query).fetchall()
-    
+
     rows, duration_ms = _timed_query("cpu_bucket_analysis", _query)
 
     result = {}
@@ -154,6 +156,7 @@ def memory_bucket_analysis(conn):
     FROM jobs
     GROUP BY mem_bucket
     """
+
     def _query():
         return conn.execute(query).fetchall()
 

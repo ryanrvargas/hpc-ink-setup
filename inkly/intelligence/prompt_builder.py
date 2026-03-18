@@ -14,6 +14,7 @@ class IntelligenceInjectionResult:
     injected: bool
     dataset_size: int
     message: Optional[str] = None
+    timings: Optional[dict] = None
 
 
 def build_intelligence_block(db_path: str, config):
@@ -25,6 +26,7 @@ def build_intelligence_block(db_path: str, config):
     """
     metrics = compute_cluster_intelligence(db_path)
     dataset_size = metrics["dataset_size"]
+    timings = metrics.get("timings")
 
     lines = [f"Cluster Intelligence (last {config.intelligence.window_days} days):"]
 
@@ -65,7 +67,7 @@ def build_intelligence_block(db_path: str, config):
     lines.append("")
     lines.append("Optimize resource allocation accordingly.")
 
-    return "\n".join(lines), dataset_size
+    return "\n".join(lines), dataset_size, timings
 
 
 def maybe_inject_intelligence(
@@ -104,7 +106,7 @@ def maybe_inject_intelligence(
             message=message,
         )
 
-    block, dataset_size = build_intelligence_block(db_path, config)
+    block, dataset_size, timings = build_intelligence_block(db_path, config)
 
     print(f"[ink] dataset_size={dataset_size}", file=sys.stderr)
 
@@ -113,4 +115,5 @@ def maybe_inject_intelligence(
         injected=True,
         dataset_size=dataset_size,
         message=None,
+        timings=timings,
     )

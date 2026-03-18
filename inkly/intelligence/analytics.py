@@ -6,6 +6,78 @@ from datetime import datetime
 _CACHE = {}
 _CACHE_TTL_SECONDS = 30
 
+def load_cluster_intelligence_summary(db_path: str):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        partition_rows = conn.execute(
+            "SELECT partition, total_jobs, successful_jobs, success_rate "
+            "FROM intelligence_partition_stats"
+        ).fetchall()
+
+        cpu_rows = conn.execute(
+            "SELECT cpu_bucket, total_jobs, successful_jobs, failed_jobs, "
+            "timeout_jobs, failure_rate, timeout_rate "
+            "FROM intelligence_cpu_bucket_stats"
+        ).fetchall()
+
+        memory_rows = conn.execute(
+            "SELECT mem_bucket, total_jobs, failure_rate "
+            "FROM intelligence_memory_bucket_stats"
+        ).fetchall()
+
+        failure_rows = conn.execute(
+            "SELECT state, count, percentage "
+            "FROM intelligence_failure_stats"
+        ).fetchall()
+
+        dataset_row = conn.execute(
+            "SELECT value FROM intelligence_metadata WHERE key = 'dataset_size'"
+        ).fetchone()
+
+        return {
+            "partition_success": {
+                r["partition"]: {
+                    "total_jobs": r["total_jobs"],
+                    "successful_jobs": r["successful_jobs"],
+                    "success_rate": r["success_rate"],
+                }
+                for r in partition_rows
+            },
+            "cpu_analysis": {
+                r["cpu_bucket"]: {
+                    "total_jobs": r["total_jobs"],
+                    "successful_jobs": r["successful_jobs"],
+                    "failed_jobs": r["failed_jobs"],
+                    "timeout_jobs": r["timeout_jobs"],
+                    "failure_rate": r["failure_rate"],
+                    "timeout_rate": r["timeout_rate"],
+                }
+                for r in cpu_rows
+            },
+            "memory_analysis": {
+                r["mem_bucket"]: {
+                    "total_jobs": r["total_jobs"],
+                    "failure_rate": r["failure_rate"],
+                }
+                for r in memory_rows
+            },
+            "failure_distribution": {
+                r["state"]: {
+                    "count": r["count"],
+                    "percentage": r["percentage"],
+                }
+                for r in failure_rows
+            },
+            "dataset_size": int(dataset_row["value"]) if dataset_row else 0,
+            "timings": {
+                "cache_hit": None,
+                "total_intelligence_ms": 0.0,
+            },
+        }
+    finally:
+        conn.close()
 
 def rebuild_intelligence_summaries(db_path: str) -> None:
     """

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from inkly.intelligence.analytics import (
-    compute_cluster_intelligence,
+    load_cluster_intelligence_summary,
     get_dataset_size,
 )
 
@@ -24,7 +24,7 @@ def build_intelligence_block(db_path: str, config):
     Returns:
         tuple[str, int]: (formatted block, dataset_size)
     """
-    metrics = compute_cluster_intelligence(db_path)
+    metrics = load_cluster_intelligence_summary(db_path)
     dataset_size = metrics["dataset_size"]
     timings = metrics.get("timings")
 

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import subprocess
 from typing import List, Optional
 from inkly.db import JobsDatabase
+import sqlite3
 
 
 SACCT_FIELDS = [
@@ -37,6 +38,13 @@ class SacctJobRecord:
     req_mem_mb: Optional[int] = None
     elapsed_sec: Optional[int] = None
 
+@dataclass
+class RefreshSummary:
+    jobs_scanned: int
+    jobs_inserted: int
+    jobs_updated: int
+    jobs_removed: int
+    window_days: int
 
 def build_sacct_command(window_days: int = 90) -> List[str]:
     """
@@ -234,32 +242,45 @@ def classify_job_success(state: str, exit_code: Optional[str]) -> int:
     return 0
 
 
-def ingest_jobs_to_db(records, window_days: int = 90):
+def ingest_jobs_to_db(records, window_days: int = 90) -> RefreshSummary:
     """
     Ingest parsed job records into the database and enforce the rolling window.
-
-    Args:
-        records: Parsed top-level sacct job records.
-        window_days: Number of days of history to retain in the DB.
+    Returns a structured summary for CLI reporting.
     """
     with JobsDatabase() as db:
+        existing_ids = {
+            row["job_id"]
+            for row in db._conn.execute("SELECT job_id FROM jobs").fetchall()
+        }
+
+        incoming_ids = {r.job_id for r in records}
+
+        jobs_updated = sum(1 for job_id in incoming_ids if job_id in existing_ids)
+        jobs_inserted = sum(1 for job_id in incoming_ids if job_id not in existing_ids)
+
         db.upsert_jobs(records)
+
+        before_cleanup = db._conn.total_changes
         db.cleanup_old_jobs(window_days)
+        after_cleanup = db._conn.total_changes
+
+        jobs_removed = after_cleanup - before_cleanup
+
+    return RefreshSummary(
+        jobs_scanned=len(records),
+        jobs_inserted=jobs_inserted,
+        jobs_updated=jobs_updated,
+        jobs_removed=jobs_removed,
+        window_days=window_days,
+    )
 
 
-def refresh_jobs(window_days: int = 90) -> int:
+def refresh_jobs(window_days: int = 90) -> RefreshSummary:
     """
     Fetch historical jobs from sacct and ingest them into the SQLite dataset.
-
-    Args:
-        window_days: Number of days of history to query and retain.
-
-    Returns:
-        Number of filtered top-level records ingested.
     """
     records = fetch_sacct_job_records(window_days=window_days)
-    ingest_jobs_to_db(records, window_days=window_days)
-    return len(records)
+    return ingest_jobs_to_db(records, window_days=window_days)
 
 
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:

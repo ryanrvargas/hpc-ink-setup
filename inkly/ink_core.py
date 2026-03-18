@@ -733,11 +733,27 @@ def main() -> int:
             except Exception as e:
                 print(f"[ink] Intelligence auto-refresh failed: {e}", file=sys.stderr)
 
-        full_prompt = maybe_inject_intelligence(
+        intelligence_result = maybe_inject_intelligence(
             full_prompt,
             cfg,
             str(DEFAULT_DB_PATH),
         )
+
+        full_prompt = intelligence_result.prompt
+
+        if intelligence_result.message:
+            print(f"[ink] {intelligence_result.message}", file=sys.stderr)
+            log_event(
+                event_type="intelligence_guard",
+                payload={
+                    "dataset_size": intelligence_result.dataset_size,
+                    "min_jobs_required": cfg.intelligence.min_jobs_required,
+                    "message": intelligence_result.message,
+                },
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
 
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]

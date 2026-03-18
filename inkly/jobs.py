@@ -38,6 +38,7 @@ class SacctJobRecord:
     req_mem_mb: Optional[int] = None
     elapsed_sec: Optional[int] = None
 
+
 @dataclass
 class RefreshSummary:
     jobs_scanned: int
@@ -45,6 +46,7 @@ class RefreshSummary:
     jobs_updated: int
     jobs_removed: int
     window_days: int
+
 
 def build_sacct_command(window_days: int = 90) -> List[str]:
     """

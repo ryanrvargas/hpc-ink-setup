@@ -140,50 +140,46 @@ SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
 
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
-    """
-    Parse command-line arguments for Inkly.
-
-    Inkly supports two execution modes:
-    - Prompt mode: a prompt is provided and executed once
-    - Interactive mode: Copilot CLI is launched directly
-
-    Returns:
-        argparse.Namespace: Parsed runtime arguments.
-    """
     parser = argparse.ArgumentParser(
         prog="ink",
-        usage='ink "[prompt]"',
         description=(
             "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
-            "It injects live HPC context (Slurm, GPUs, OS, queues) into prompts\n"
-            "and enforces safety guardrails before execution."
-        ),
-        epilog=(
-            "Examples:\n"
-            '  ink "Generate a Slurm sbatch for 2 GPUs for 24 hours"\n'
-            '  ink "Why did my job get stuck in PD state?"\n'
-            "  ink            # start interactive Copilot session\n"
+            "It injects live HPC context into prompts and supports job intelligence tools."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Runtime prompt handling
-    runtime = parser.add_argument_group("runtime options")
-    runtime.add_argument(
+    parser.add_argument("--version", action="version", version=f"ink {__version__}")
+    parser.add_argument("--context", type=str, help=argparse.SUPPRESS)
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    jobs_parser = subparsers.add_parser(
+        "jobs", help="Structured job intelligence tools"
+    )
+    jobs_subparsers = jobs_parser.add_subparsers(dest="jobs_command")
+
+    refresh_parser = jobs_subparsers.add_parser(
+        "refresh",
+        help="Refresh historical Slurm jobs from sacct into SQLite",
+    )
+    refresh_parser.add_argument(
+        "--window-days",
+        type=int,
+        default=None,
+        help="Override configured intelligence.window_days for this refresh",
+    )
+
+    jobs_subparsers.add_parser(
+        "stats",
+        help="Reserved for future job intelligence summary commands",
+    )
+
+    parser.add_argument(
         "prompt",
         nargs=argparse.REMAINDER,
-        help="Prompt to send to Copilot (to start interactive mode type ink without arguments)",
+        help="Prompt to send to Copilot. Leave empty for interactive mode.",
     )
-
-    runtime.add_argument(
-        "--context",
-        type=str,
-        help=argparse.SUPPRESS,  # internal flag (not shown in help)
-    )
-
-    # Metadata / informational flags
-    meta = parser.add_argument_group("meta")
-    meta.add_argument("--version", action="version", version=f"ink {__version__}")
 
     return parser.parse_args()
 
@@ -569,6 +565,19 @@ def resolve_context_block(args) -> str:
     return "\n".join(inline_ctx)
 
 
+def print_refresh_summary(summary) -> None:
+    print("Inkly Job Intelligence Refresh")
+    print()
+    print(f"Jobs scanned:  {summary.jobs_scanned:,}")
+    print(f"Jobs inserted: {summary.jobs_inserted:,}")
+    print(f"Jobs updated:  {summary.jobs_updated:,}")
+    if summary.jobs_removed:
+        print(f"Jobs removed:  {summary.jobs_removed:,}")
+    print(f"Window:        {summary.window_days} days")
+    print()
+    print("Database updated successfully.")
+
+
 def main() -> int:
     """
     Inkly entrypoint.
@@ -621,6 +630,30 @@ def main() -> int:
             state=state,
             resolved_hostname=resolved_hostname,
         )
+
+    # Load config first
+    cfg, config, state = load_config_and_state()
+
+    if args.command == "jobs":
+        if args.jobs_command == "refresh":
+            window_days = (
+                args.window_days
+                if args.window_days is not None
+                else cfg.intelligence.window_days
+            )
+
+            try:
+                summary = refresh_jobs(window_days=window_days)
+            except Exception as e:
+                print(f"Inkly job refresh failed: {e}", file=sys.stderr)
+                return 1
+
+            print_refresh_summary(summary)
+            return 0
+
+        if args.jobs_command == "stats":
+            print("ink jobs stats is not implemented yet.", file=sys.stderr)
+            return 1
 
     # Pre-flight runtime checks
     enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)

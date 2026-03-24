@@ -181,26 +181,122 @@ class PerformanceValidator:
 
 def _default_queries() -> List[str]:
     """
-    Provide a default set of queries for performance validation.
+    Default query set for performance validation.
 
-    Returns
-    -------
-    List[str]
-        A list of SQL queries that exercise common analytics patterns.  These
-        should be adjusted to match the actual schema of your job‑history
-        database.  See the milestone documentation for suggestions.
+    These queries are intentionally aligned with the analytics workload
+    implemented in `inkly/intelligence/analytics.py`. The goal is to ensure
+    that the same queries used for prompt enrichment are performant at scale.
+
+    This function serves two purposes:
+    1. Validate that core analytics queries execute within acceptable latency.
+    2. Verify that indexed columns are being utilized where expected.
+
+    Query Categories:
+    -----------------
+    - Dataset Size:
+        Ensures COUNT(*) operations remain fast for dataset guard logic.
+
+    - Partition Analytics:
+        Mirrors partition-level success rate calculations used in prompt injection.
+
+    - CPU Bucket Analytics:
+        Validates CASE-based bucketing logic and aggregation performance.
+
+    - Memory Bucket Analytics:
+        Tests memory-based grouping and failure rate calculations.
+
+    - Failure Distribution:
+        Ensures grouping + filtering on failed jobs is efficient.
+
+    - Indexed Filters:
+        Directly tests whether indexes on key columns are being used:
+            - partition
+            - success
+            - alloc_cpus
+            - req_mem_mb
+
+    Important:
+    ----------
+    These queries MUST stay in sync with analytics.py.
+    If analytics logic changes, this list must be updated accordingly.
+
+    This validator does NOT measure total system latency (including caching
+    and prompt construction). It strictly measures raw SQL execution cost.
+
+    Returns:
+        List[str]: SQL queries used for performance validation.
     """
     return [
-        # Total number of jobs in the database
-        "SELECT COUNT(*) FROM jobs",
-        # Job count per user (assuming a 'user' column exists)
-        "SELECT user, COUNT(*) FROM jobs GROUP BY user",
-        # Job count per job state (assuming a 'state' column exists)
-        "SELECT state, COUNT(*) FROM jobs GROUP BY state",
-        # Average runtime per user (assuming start_time and end_time columns exist)
-        "SELECT user, AVG(julianday(end_time) - julianday(start_time)) * 86400 AS avg_runtime_seconds FROM jobs GROUP BY user",
-        # Filtered query to check index usage on the user column
-        "SELECT * FROM jobs WHERE user = 'alice'",
+        # dataset size guard query
+        "SELECT COUNT(*) AS total FROM jobs",
+
+        # partition analytics
+        """
+        SELECT
+            partition,
+            COUNT(*) AS total_jobs,
+            SUM(success) AS successful_jobs,
+            ROUND(AVG(success), 3) AS success_rate
+        FROM jobs
+        GROUP BY partition
+        """,
+
+        # cpu bucket analytics
+        """
+        SELECT
+            CASE
+                WHEN alloc_cpus BETWEEN 1 AND 4 THEN '1-4'
+                WHEN alloc_cpus BETWEEN 5 AND 16 THEN '5-16'
+                WHEN alloc_cpus BETWEEN 17 AND 64 THEN '17-64'
+                ELSE '65+'
+            END AS cpu_bucket,
+            COUNT(*) AS total_jobs,
+            SUM(success) AS successful_jobs,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failed_jobs,
+            SUM(CASE WHEN state = 'TIMEOUT' THEN 1 ELSE 0 END) AS timeout_jobs,
+            ROUND(1.0 - AVG(success), 3) AS failure_rate,
+            ROUND(
+                CAST(SUM(CASE WHEN state = 'TIMEOUT' THEN 1 ELSE 0 END) AS FLOAT)
+                / COUNT(*),
+                3
+            ) AS timeout_rate
+        FROM jobs
+        GROUP BY cpu_bucket
+        """,
+
+        # memory bucket analytics
+        """
+        SELECT
+            CASE
+                WHEN req_mem_mb < 4096 THEN '<4GB'
+                WHEN req_mem_mb < 8192 THEN '4-8GB'
+                WHEN req_mem_mb < 16384 THEN '8-16GB'
+                WHEN req_mem_mb < 32768 THEN '16-32GB'
+                WHEN req_mem_mb < 65536 THEN '32-64GB'
+                ELSE '64GB+'
+            END AS mem_bucket,
+            COUNT(*) AS total_jobs,
+            ROUND(1 - AVG(success), 3) AS failure_rate
+        FROM jobs
+        GROUP BY mem_bucket
+        """,
+
+        # failure distribution
+        """
+        SELECT
+            state,
+            COUNT(*) AS count
+        FROM jobs
+        WHERE success = 0
+        GROUP BY state
+        ORDER BY count DESC
+        """,
+
+        # simple indexed filter checks
+        "SELECT * FROM jobs WHERE partition = 'general'",
+        "SELECT * FROM jobs WHERE success = 0",
+        "SELECT * FROM jobs WHERE alloc_cpus = 4",
+        "SELECT * FROM jobs WHERE req_mem_mb = 4096",
     ]
 
 

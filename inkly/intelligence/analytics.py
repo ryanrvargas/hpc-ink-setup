@@ -6,6 +6,7 @@ from datetime import datetime
 _CACHE = {}
 _CACHE_TTL_SECONDS = 30
 
+
 def load_cluster_intelligence_summary(db_path: str):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -28,8 +29,7 @@ def load_cluster_intelligence_summary(db_path: str):
         ).fetchall()
 
         failure_rows = conn.execute(
-            "SELECT state, count, percentage "
-            "FROM intelligence_failure_stats"
+            "SELECT state, count, percentage FROM intelligence_failure_stats"
         ).fetchall()
 
         dataset_row = conn.execute(
@@ -78,6 +78,7 @@ def load_cluster_intelligence_summary(db_path: str):
         }
     finally:
         conn.close()
+
 
 def rebuild_intelligence_summaries(db_path: str) -> None:
     """

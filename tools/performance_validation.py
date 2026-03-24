@@ -1,7 +1,4 @@
 """
-performance_validation.py
-=========================
-
 This module provides utilities to measure the performance of SQL queries
 against the Inkly job‑history SQLite database and verify that appropriate
 indexes are being used.  The intent is to ensure that analytics queries
@@ -42,7 +39,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List
 
 
 @dataclass

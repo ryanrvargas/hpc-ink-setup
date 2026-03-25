@@ -15,19 +15,12 @@ class ConversationManager:
 
     def __init__(self, config):
         self.config = config
-        self.enabled = self._is_enabled()
+        self.enabled = self.config.conversation.enabled
         self.base_dir = Path.home() / ".inkly" / "conversations"
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    def _is_enabled(self) -> bool:
-        raw = getattr(self.config, "raw_config", {}) or {}
-        conversation_cfg = raw.get("conversation", {})
-        return conversation_cfg.get("enabled", True)
-
     def _max_messages(self) -> int:
-        raw = getattr(self.config, "raw_config", {}) or {}
-        conversation_cfg = raw.get("conversation", {})
-        return int(conversation_cfg.get("max_messages", 20))
+        return self.config.conversation.max_messages
 
     def _conversation_file(self, user_id: str) -> Path:
         return self.base_dir / f"{user_id}.json"

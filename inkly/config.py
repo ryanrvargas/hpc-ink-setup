@@ -256,7 +256,60 @@ class IntelligenceConfig:
             raise ConfigError("intelligence.auto_refresh must be a boolean")
 
         return self
+    
+@dataclass
+class ConversationConfig:
+    enabled: bool = True
+    max_messages: int = 20
 
+    def validate(self) -> "ConversationConfig":
+        if not isinstance(self.enabled, bool):
+            raise ConfigError("conversation.enabled must be a boolean")
+
+        if not isinstance(self.max_messages, int):
+            raise ConfigError("conversation.max_messages must be an integer")
+        if self.max_messages <= 0:
+            raise ConfigError("conversation.max_messages must be > 0")
+
+        return self
+
+
+@dataclass
+class LLMConfig:
+    backend: Literal["github", "ollama"] = "github"
+    model: str = "llama3"
+
+    def validate(self) -> "LLMConfig":
+        allowed_backends = {"github", "ollama"}
+        if self.backend not in allowed_backends:
+            raise ConfigError(
+                f"Invalid llm.backend: {self.backend}. "
+                f"Expected one of {sorted(allowed_backends)}"
+            )
+
+        if not isinstance(self.model, str) or not self.model.strip():
+            raise ConfigError("llm.model must be a non-empty string")
+
+        return self
+
+
+@dataclass
+class CoreConfig:
+    max_concurrent_requests: int = 4
+    max_prompt_length: int = 8000
+
+    def validate(self) -> "CoreConfig":
+        if not isinstance(self.max_concurrent_requests, int):
+            raise ConfigError("core.max_concurrent_requests must be an integer")
+        if self.max_concurrent_requests <= 0:
+            raise ConfigError("core.max_concurrent_requests must be > 0")
+
+        if not isinstance(self.max_prompt_length, int):
+            raise ConfigError("core.max_prompt_length must be an integer")
+        if self.max_prompt_length <= 0:
+            raise ConfigError("core.max_prompt_length must be > 0")
+
+        return self
 
 # NOTE:
 # Runtime code must consume resolved config objects only.
@@ -269,7 +322,9 @@ class InklyConfig:
     state: StateConfig
     logging: LoggingConfig
     intelligence: IntelligenceConfig
-
+    conversation: ConversationConfig
+    llm: LLMConfig
+    core: CoreConfig
 
 class TomlParser:
     def __init__(self, path: Path):
@@ -303,6 +358,14 @@ class TomlParser:
 
         intelligence_raw = dict(raw.get("intelligence") or {})
 
+        conversation_data = raw.get("conversation", {}) or {}
+        llm_data = raw.get("llm", {}) or {}
+        core_data = raw.get("core", {}) or {}
+
+        conversation_cfg = ConversationConfig(**conversation_data).validate()
+        llm_cfg = LLMConfig(**llm_data).validate()
+        core_cfg = CoreConfig(**core_data).validate()
+
         # Apply environment overrides
         env_map = {
             "enabled": ("INKLY_INTELLIGENCE_ENABLED", lambda v: v.lower() == "true"),
@@ -335,4 +398,7 @@ class TomlParser:
             state=state,
             logging=logging_cfg,
             intelligence=intelligence,
+            conversation=conversation_cfg,
+            llm=llm_cfg,
+            core=core_cfg,
         )

@@ -13,20 +13,13 @@ class LLMBackend:
         self.config = config
 
     def selected_backend(self) -> str:
-        # Temporary bridge until config.py grows typed llm/core sections.
-        raw = getattr(self.config, "raw_config", {}) or {}
-        llm_cfg = raw.get("llm", {})
-        return llm_cfg.get("backend", "github")
+        return self.config.llm.backend
 
     def selected_model(self) -> str:
-        raw = getattr(self.config, "raw_config", {}) or {}
-        llm_cfg = raw.get("llm", {})
-        return llm_cfg.get("model", "llama3")
+        return self.config.llm.model
 
     def max_prompt_length(self) -> int:
-        raw = getattr(self.config, "raw_config", {}) or {}
-        core_cfg = raw.get("core", {})
-        return int(core_cfg.get("max_prompt_length", 8000))
+        return self.config.core.max_prompt_length
 
     def generate(self, prompt: str) -> str:
         prompt = prompt[: self.max_prompt_length()]

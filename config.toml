@@ -261,6 +261,7 @@ max_messages = 20
 
 [llm]
 backend = "github"
+model = "llama3"
 
 [core]
 max_concurrent_requests = 99999

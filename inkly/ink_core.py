@@ -54,7 +54,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, List
 import json
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 import argparse
 import uuid
 import hashlib
@@ -762,11 +762,16 @@ def main() -> int:
             except Exception as e:
                 print(f"[ink] Intelligence auto-refresh failed: {e}", file=sys.stderr)
 
+        enrich_start = time.perf_counter()
+
         intelligence_result = maybe_inject_intelligence(
             full_prompt,
             cfg,
             str(DEFAULT_DB_PATH),
         )
+
+        enrich_ms = (time.perf_counter() - enrich_start) * 1000
+        print(f"[ink][perf] prompt_enrichment: {enrich_ms:.2f} ms", file=sys.stderr)
 
         full_prompt = intelligence_result.prompt
 
@@ -784,13 +789,18 @@ def main() -> int:
                 resolved_hostname=resolved_hostname,
             )
 
-        if intelligence_result.injected and intelligence_result.timings:
+        if intelligence_result.injected:
+            payload = {
+                "dataset_size": intelligence_result.dataset_size,
+                "prompt_enrichment_ms": round(enrich_ms, 2),
+            }
+
+            if intelligence_result.timings:
+                payload.update(intelligence_result.timings)
+
             log_event(
                 event_type="intelligence_performance",
-                payload={
-                    "dataset_size": intelligence_result.dataset_size,
-                    **intelligence_result.timings,
-                },
+                payload=payload,
                 logging_cfg=cfg.logging,
                 state=state,
                 resolved_hostname=resolved_hostname,

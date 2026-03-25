@@ -229,7 +229,6 @@ def _default_queries() -> List[str]:
     return [
         # dataset size guard query
         "SELECT COUNT(*) AS total FROM jobs",
-
         # partition analytics
         """
         SELECT
@@ -240,7 +239,6 @@ def _default_queries() -> List[str]:
         FROM jobs
         GROUP BY partition
         """,
-
         # cpu bucket analytics
         """
         SELECT
@@ -263,7 +261,6 @@ def _default_queries() -> List[str]:
         FROM jobs
         GROUP BY cpu_bucket
         """,
-
         # memory bucket analytics
         """
         SELECT
@@ -280,7 +277,6 @@ def _default_queries() -> List[str]:
         FROM jobs
         GROUP BY mem_bucket
         """,
-
         # failure distribution
         """
         SELECT
@@ -291,7 +287,6 @@ def _default_queries() -> List[str]:
         GROUP BY state
         ORDER BY count DESC
         """,
-
         # simple indexed filter checks
         "SELECT * FROM jobs WHERE partition = 'general'",
         "SELECT * FROM jobs WHERE success = 0",

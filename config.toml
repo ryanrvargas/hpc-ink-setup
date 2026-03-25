@@ -254,3 +254,14 @@ enabled = true
 min_jobs_required = 500
 window_days = 90
 auto_refresh = false
+
+[conversation]
+enabled = true
+max_messages = 20
+
+[llm]
+backend = "github"
+
+[core]
+max_concurrent_requests = 99999
+max_prompt_length = 99999

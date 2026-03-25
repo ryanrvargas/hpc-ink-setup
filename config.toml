@@ -248,3 +248,9 @@ max_prompts = 5
 [profile]
 name = "default"
 description = "Safe default Inkly configuration"
+
+[intelligence]
+enabled = true
+min_jobs_required = 500
+window_days = 90
+auto_refresh = false

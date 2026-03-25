@@ -101,6 +101,23 @@ def verify_dirs():
     shutil.copytree(RUNTIME_SRC, RUNTIME_DST, dirs_exist_ok=True)
 
 
+def initialize_jobs_database():
+    """
+    Initialize the Inkly structured job intelligence database.
+
+    This creates ~/.inkly/jobs.db with the required schema so the
+    runtime has a ready-to-use database after installation.
+    """
+    if STATE_CFG is None:
+        raise RuntimeError(
+            "STATE_CFG not initialized before initialize_jobs_database()"
+        )
+
+    from inkly.db import initialize_jobs_db
+
+    initialize_jobs_db(STATE_CFG.inkly_home / "jobs.db")
+
+
 # Node & NVM Verification
 def verify_nvm_and_node():
     """
@@ -304,6 +321,7 @@ def main():
     STATE_CFG = cfg.state
 
     verify_dirs()
+    initialize_jobs_database()
     verify_nvm_and_node()
     configure_npm()
     install_copilot()

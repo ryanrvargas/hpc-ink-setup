@@ -55,6 +55,7 @@ from pathlib import Path
 from typing import Optional, List
 import json
 from datetime import datetime, timezone
+import time
 import argparse
 import uuid
 import hashlib
@@ -66,6 +67,9 @@ from inkly.policy import (
     enforce_wrapper_policy,
     enforce_network_policy,
 )
+from inkly.intelligence.prompt_builder import maybe_inject_intelligence
+from inkly.db import DEFAULT_DB_PATH
+from inkly.jobs import refresh_jobs
 
 
 ## -----------------------------------------------------------------------------
@@ -137,52 +141,77 @@ SESSION_ID = uuid.uuid4().hex  # unique session identifier, for logging each run
 
 # Argument Parsing
 def parse_args() -> argparse.Namespace:
-    """
-    Parse command-line arguments for Inkly.
+    argv = sys.argv[1:]
 
-    Inkly supports two execution modes:
-    - Prompt mode: a prompt is provided and executed once
-    - Interactive mode: Copilot CLI is launched directly
+    # Handle top-level flags that should work in either mode
+    if "--version" in argv:
+        parser = argparse.ArgumentParser(prog="ink")
+        parser.add_argument("--version", action="version", version=f"ink {__version__}")
+        parser.parse_args(["--version"])
 
-    Returns:
-        argparse.Namespace: Parsed runtime arguments.
-    """
-    parser = argparse.ArgumentParser(
-        prog="ink",
-        usage='ink "[prompt]"',
-        description=(
-            "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
-            "It injects live HPC context (Slurm, GPUs, OS, queues) into prompts\n"
-            "and enforces safety guardrails before execution."
-        ),
-        epilog=(
-            "Examples:\n"
-            '  ink "Generate a Slurm sbatch for 2 GPUs for 24 hours"\n'
-            '  ink "Why did my job get stuck in PD state?"\n'
-            "  ink            # start interactive Copilot session\n"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+    context_value = None
+    cleaned_argv = []
+    i = 0
+
+    while i < len(argv):
+        if argv[i] == "--context":
+            if i + 1 >= len(argv):
+                raise SystemExit("ink: error: --context requires a value")
+            context_value = argv[i + 1]
+            i += 2
+        else:
+            cleaned_argv.append(argv[i])
+            i += 1
+
+    # Structured command mode
+    if cleaned_argv and cleaned_argv[0] == "jobs":
+        parser = argparse.ArgumentParser(
+            prog="ink",
+            description=(
+                "Ink is a cluster-aware AI assistant wrapper using GitHub Copilot CLI.\n"
+                "It injects live HPC context into prompts and supports job intelligence tools."
+            ),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+
+        parser.add_argument("--version", action="version", version=f"ink {__version__}")
+        parser.add_argument(
+            "--context", type=str, default=context_value, help=argparse.SUPPRESS
+        )
+
+        subparsers = parser.add_subparsers(dest="command", required=True)
+
+        jobs_parser = subparsers.add_parser(
+            "jobs", help="Structured job intelligence tools"
+        )
+        jobs_subparsers = jobs_parser.add_subparsers(dest="jobs_command", required=True)
+
+        refresh_parser = jobs_subparsers.add_parser(
+            "refresh",
+            help="Refresh historical Slurm jobs from sacct into SQLite",
+        )
+        refresh_parser.add_argument(
+            "--window-days",
+            type=int,
+            default=None,
+            help="Override configured intelligence.window_days for this refresh",
+        )
+
+        jobs_subparsers.add_parser(
+            "stats",
+            help="Reserved for future job intelligence summary commands",
+        )
+
+        return parser.parse_args(argv)
+
+    # Prompt mode
+    return argparse.Namespace(
+        command=None,
+        jobs_command=None,
+        window_days=None,
+        context=context_value,
+        prompt=cleaned_argv,
     )
-
-    # Runtime prompt handling
-    runtime = parser.add_argument_group("runtime options")
-    runtime.add_argument(
-        "prompt",
-        nargs=argparse.REMAINDER,
-        help="Prompt to send to Copilot (to start interactive mode type ink without arguments)",
-    )
-
-    runtime.add_argument(
-        "--context",
-        type=str,
-        help=argparse.SUPPRESS,  # internal flag (not shown in help)
-    )
-
-    # Metadata / informational flags
-    meta = parser.add_argument_group("meta")
-    meta.add_argument("--version", action="version", version=f"ink {__version__}")
-
-    return parser.parse_args()
 
 
 # Configuration & State Loading
@@ -566,6 +595,19 @@ def resolve_context_block(args) -> str:
     return "\n".join(inline_ctx)
 
 
+def print_refresh_summary(summary) -> None:
+    print("Inkly Job Intelligence Refresh")
+    print()
+    print(f"Jobs scanned:  {summary.jobs_scanned:,}")
+    print(f"Jobs inserted: {summary.jobs_inserted:,}")
+    print(f"Existing jobs upserted:  {summary.jobs_updated:,}")
+    if summary.jobs_removed:
+        print(f"Jobs removed:  {summary.jobs_removed:,}")
+    print(f"Window:        {summary.window_days} days")
+    print()
+    print("Database updated successfully.")
+
+
 def main() -> int:
     """
     Inkly entrypoint.
@@ -618,6 +660,27 @@ def main() -> int:
             state=state,
             resolved_hostname=resolved_hostname,
         )
+
+    if args.command == "jobs":
+        if args.jobs_command == "refresh":
+            window_days = (
+                args.window_days
+                if args.window_days is not None
+                else cfg.intelligence.window_days
+            )
+
+            try:
+                summary = refresh_jobs(window_days=window_days)
+            except Exception as e:
+                print(f"Inkly job refresh failed: {e}", file=sys.stderr)
+                return 1
+
+            print_refresh_summary(summary)
+            return 0
+
+        if args.jobs_command == "stats":
+            print("ink jobs stats is not implemented yet.", file=sys.stderr)
+            return 1
 
     # Pre-flight runtime checks
     enforce_wrapper_policy(config, state=state, logging_cfg=cfg.logging)
@@ -693,6 +756,56 @@ def main() -> int:
             f"{context_block}\n\n"
             f"Task:\n{user_prompt}\n"
         )
+
+        if cfg.intelligence.enabled and cfg.intelligence.auto_refresh:
+            try:
+                refresh_jobs(window_days=cfg.intelligence.window_days)
+            except Exception as e:
+                print(f"[ink] Intelligence auto-refresh failed: {e}", file=sys.stderr)
+
+        enrich_start = time.perf_counter()
+
+        intelligence_result = maybe_inject_intelligence(
+            full_prompt,
+            cfg,
+            str(DEFAULT_DB_PATH),
+        )
+
+        enrich_ms = (time.perf_counter() - enrich_start) * 1000
+        print(f"[ink][perf] prompt_enrichment: {enrich_ms:.2f} ms", file=sys.stderr)
+
+        full_prompt = intelligence_result.prompt
+
+        if intelligence_result.message:
+            print(f"[ink] {intelligence_result.message}", file=sys.stderr)
+            log_event(
+                event_type="intelligence_guard",
+                payload={
+                    "dataset_size": intelligence_result.dataset_size,
+                    "min_jobs_required": cfg.intelligence.min_jobs_required,
+                    "message": intelligence_result.message,
+                },
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
+
+        if intelligence_result.injected:
+            payload = {
+                "dataset_size": intelligence_result.dataset_size,
+                "prompt_enrichment_ms": round(enrich_ms, 2),
+            }
+
+            if intelligence_result.timings:
+                payload.update(intelligence_result.timings)
+
+            log_event(
+                event_type="intelligence_performance",
+                payload=payload,
+                logging_cfg=cfg.logging,
+                state=state,
+                resolved_hostname=resolved_hostname,
+            )
 
         debug_dump_prompt(full_prompt, config)
         cmd += ["-p", full_prompt]

@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
     import tomli as tomllib  # Python <=3.10
+import sys
 from typing import Literal
 
 
@@ -227,6 +229,35 @@ class LoggingConfig:
         return self
 
 
+@dataclass
+class IntelligenceConfig:
+    """Configuration for structured cluster intelligence prompt enrichment."""
+
+    enabled: bool = True
+    window_days: int = 90
+    min_jobs_required: int = 500
+    auto_refresh: bool = False
+
+    def validate(self) -> "IntelligenceConfig":
+        if not isinstance(self.enabled, bool):
+            raise ConfigError("intelligence.enabled must be a boolean")
+
+        if not isinstance(self.window_days, int):
+            raise ConfigError("intelligence.window_days must be an integer")
+        if self.window_days <= 0:
+            raise ConfigError("intelligence.window_days must be > 0")
+
+        if not isinstance(self.min_jobs_required, int):
+            raise ConfigError("intelligence.min_jobs_required must be an integer")
+        if self.min_jobs_required < 0:
+            raise ConfigError("intelligence.min_jobs_required must be >= 0")
+
+        if not isinstance(self.auto_refresh, bool):
+            raise ConfigError("intelligence.auto_refresh must be a boolean")
+
+        return self
+
+
 # NOTE:
 # Runtime code must consume resolved config objects only.
 # raw_config is not a supported runtime interface.
@@ -237,6 +268,7 @@ class InklyConfig:
     install: InstallConfig
     state: StateConfig
     logging: LoggingConfig
+    intelligence: IntelligenceConfig
 
 
 class TomlParser:
@@ -269,6 +301,38 @@ class TomlParser:
         )
         logging_cfg.validate()
 
+        intelligence_raw = dict(raw.get("intelligence") or {})
+
+        # Apply environment overrides
+        env_map = {
+            "enabled": ("INKLY_INTELLIGENCE_ENABLED", lambda v: v.lower() == "true"),
+            "window_days": ("INKLY_INTELLIGENCE_WINDOW_DAYS", int),
+            "min_jobs_required": ("INKLY_INTELLIGENCE_MIN_JOBS_REQUIRED", int),
+            "auto_refresh": (
+                "INKLY_INTELLIGENCE_AUTO_REFRESH",
+                lambda v: v.lower() == "true",
+            ),
+        }
+
+        for key, (env_var, cast) in env_map.items():
+            if env_var in os.environ:
+                try:
+                    intelligence_raw[key] = cast(os.environ[env_var])
+                    # debugging output
+                    print(
+                        f"[ink] ENV override: {env_var} -> {intelligence_raw[key]}",
+                        file=sys.stderr,
+                    )
+                except Exception:
+                    raise ConfigError(f"Invalid value for {env_var}")
+
+        intelligence = IntelligenceConfig(**intelligence_raw).validate()
+
         return InklyConfig(
-            raw_config=raw, node=node, install=install, state=state, logging=logging_cfg
+            raw_config=raw,
+            node=node,
+            install=install,
+            state=state,
+            logging=logging_cfg,
+            intelligence=intelligence,
         )

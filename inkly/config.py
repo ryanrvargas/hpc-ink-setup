@@ -256,7 +256,8 @@ class IntelligenceConfig:
             raise ConfigError("intelligence.auto_refresh must be a boolean")
 
         return self
-    
+
+
 @dataclass
 class ConversationConfig:
     enabled: bool = True
@@ -311,6 +312,7 @@ class CoreConfig:
 
         return self
 
+
 # NOTE:
 # Runtime code must consume resolved config objects only.
 # raw_config is not a supported runtime interface.
@@ -325,6 +327,7 @@ class InklyConfig:
     conversation: ConversationConfig
     llm: LLMConfig
     core: CoreConfig
+
 
 class TomlParser:
     def __init__(self, path: Path):

@@ -49,8 +49,6 @@ def run() -> str:
     if failure_stats:
         lines.append("Failure distribution:")
         for state, stats in failure_stats.items():
-            lines.append(
-                f"- {state}: {stats['count']} ({stats['percentage']:.3f})"
-            )
+            lines.append(f"- {state}: {stats['count']} ({stats['percentage']:.3f})")
 
     return "\n".join(lines)

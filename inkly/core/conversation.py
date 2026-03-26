@@ -39,7 +39,7 @@ class ConversationManager:
         if not isinstance(data, list):
             return []
 
-        return data[-self._max_messages():]
+        return data[-self._max_messages() :]
 
     def append_turn(self, user_id: str, role: str, content: str) -> None:
         if not self.enabled:
@@ -54,7 +54,7 @@ class ConversationManager:
             }
         )
 
-        history = history[-self._max_messages():]
+        history = history[-self._max_messages() :]
 
         path = self._conversation_file(user_id)
         with path.open("w", encoding="utf-8") as f:

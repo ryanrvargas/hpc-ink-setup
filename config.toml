@@ -264,5 +264,5 @@ backend = "github"
 model = "llama3"
 
 [core]
-max_concurrent_requests = 99999
-max_prompt_length = 99999
+max_concurrent_requests = 4
+max_prompt_length = 8000

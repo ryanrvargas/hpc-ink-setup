@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import BoundedSemaphore
+
 from inkly.core.conversation import ConversationManager
 from inkly.llm.backend import LLMBackend
 from inkly.plugins.manager import PluginManager
@@ -15,27 +17,35 @@ class InklyRuntime:
         self.conversation = ConversationManager(config)
         self.plugins = PluginManager()
         self.backend = LLMBackend(config)
+        self._request_gate = BoundedSemaphore(
+            value=self.config.core.max_concurrent_requests
+        )
 
     def handle_query(self, user_id: str, query: str) -> str:
-        history = self.conversation.load(user_id)
+        with self._request_gate:
+            prior_history = self.conversation.load(user_id)
+            self.conversation.append_turn(user_id, "user", query)
 
-        discovered = self.plugins.discover()
+            discovered = self.plugins.discover()
 
-        # Issue 1 skeleton:
-        # run all discovered plugins for now.
-        # Retrieval/ranking belongs in later work.
-        plugin_outputs = {}
-        for name, plugin in discovered.items():
+            plugin_outputs = {}
+            for name, plugin in discovered.items():
+                try:
+                    plugin_outputs[name] = plugin.run()
+                except Exception as exc:
+                    plugin_outputs[name] = f"Plugin error: {exc}"
+
+            prompt = self._build_prompt(prior_history, plugin_outputs, query)
+
             try:
-                plugin_outputs[name] = plugin.run()
+                response = self.backend.generate(prompt)
             except Exception as exc:
-                plugin_outputs[name] = f"Plugin error: {exc}"
+                failure_text = f"Backend error: {exc}"
+                self.conversation.append_turn(user_id, "assistant", failure_text)
+                raise
 
-        prompt = self._build_prompt(history, plugin_outputs, query)
-        response = self.backend.generate(prompt)
-
-        self.conversation.append_exchange(user_id, query, response)
-        return response
+            self.conversation.append_turn(user_id, "assistant", response)
+            return response
 
     def _build_prompt(self, history, plugin_outputs, query: str) -> str:
         lines = []

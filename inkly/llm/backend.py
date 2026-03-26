@@ -35,7 +35,7 @@ class LLMBackend:
 
     def _generate_ollama(self, prompt: str) -> str:
         model = self.selected_model()
-        return f"[ollama placeholder: model={model}]\n{prompt[:500]}"
+        return f"[ollama placeholder: model={model}] Simulated response."
 
     def _generate_github(self, prompt: str) -> str:
-        return f"[github placeholder]\n{prompt[:500]}"
+        return "[github placeholder] Simulated response."

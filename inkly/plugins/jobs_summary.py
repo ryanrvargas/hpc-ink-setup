@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from inkly.intelligence.analytics import compute_cluster_intelligence
+from inkly.intelligence.analytics import load_cluster_intelligence_summary
 
 PLUGIN_META = {
     "name": "jobs_summary",
@@ -22,7 +22,7 @@ def run() -> str:
     if not db_path.exists():
         return "Job-history database not found."
 
-    summary = compute_cluster_intelligence(str(db_path))
+    summary = load_cluster_intelligence_summary(str(db_path))
     dataset_size = summary.get("dataset_size", 0)
 
     lines = [f"Dataset size: {dataset_size} jobs"]

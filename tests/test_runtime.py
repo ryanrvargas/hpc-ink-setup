@@ -29,9 +29,7 @@ class FakeConversationManager:
         self.appended.append((user_id, role, content))
 
     def build_context(self, user_id, current_query=None, max_prompt_length=None):
-        self.build_context_calls.append(
-            (user_id, current_query, max_prompt_length)
-        )
+        self.build_context_calls.append((user_id, current_query, max_prompt_length))
         return [
             "[SUMMARY OF OLDER CONTEXT]",
             "- user: asked about failures",

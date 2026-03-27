@@ -160,7 +160,9 @@ class ConversationManager:
 
         return summary_text.splitlines()
 
-    def _fit_lines_to_budget(self, lines: List[str], max_prompt_length: int) -> List[str]:
+    def _fit_lines_to_budget(
+        self, lines: List[str], max_prompt_length: int
+    ) -> List[str]:
         """
         Coarse character-budget enforcement.
         We trim oldest lines first because recent turns matter more.

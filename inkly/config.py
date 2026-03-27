@@ -284,10 +284,7 @@ class ConversationConfig:
                 "conversation.summary_trigger must be >= conversation.max_messages"
             )
 
-        if (
-            not isinstance(self.max_summary_chars, int)
-            or self.max_summary_chars <= 0
-        ):
+        if not isinstance(self.max_summary_chars, int) or self.max_summary_chars <= 0:
             raise ConfigError("conversation.max_summary_chars must be > 0")
 
         return self

@@ -21,31 +21,39 @@ class InklyRuntime:
             value=self.config.core.max_concurrent_requests
         )
 
-    def handle_query(self, user_id: str, query: str) -> str:
-        with self._request_gate:
-            prior_history = self.conversation.load(user_id)
-            self.conversation.append_turn(user_id, "user", query)
+def handle_query(self, user_id: str, query: str) -> str:
+    with self._request_gate:
+        self.conversation.append_turn(user_id, "user", query)
 
-            discovered = self.plugins.discover()
+        discovered = self.plugins.discover()
 
-            plugin_outputs = {}
-            for name, plugin in discovered.items():
-                try:
-                    plugin_outputs[name] = plugin.run()
-                except Exception as exc:
-                    plugin_outputs[name] = f"Plugin error: {exc}"
-
-            prompt = self._build_prompt(prior_history, plugin_outputs, query)
-
+        plugin_outputs = {}
+        for name, plugin in discovered.items():
             try:
-                response = self.backend.generate(prompt)
+                plugin_outputs[name] = plugin.run()
             except Exception as exc:
-                failure_text = f"Backend error: {exc}"
-                self.conversation.append_turn(user_id, "assistant", failure_text)
-                raise
+                plugin_outputs[name] = f"Plugin error: {exc}"
 
-            self.conversation.append_turn(user_id, "assistant", response)
-            return response
+        history_lines = self.conversation.build_context(
+            user_id,
+            current_query=query,
+            max_prompt_length=self.config.core.max_prompt_length // 2,
+        )
+
+        prompt = self._build_prompt(history_lines, plugin_outputs, query)
+
+        if len(prompt) > self.config.core.max_prompt_length:
+            prompt = prompt[-self.config.core.max_prompt_length :]
+
+        try:
+            response = self.backend.generate(prompt)
+        except Exception as exc:
+            failure_text = f"Backend error: {exc}"
+            self.conversation.append_turn(user_id, "assistant", failure_text)
+            raise
+
+        self.conversation.append_turn(user_id, "assistant", response)
+        return response
 
     def _build_prompt(self, history, plugin_outputs, query: str) -> str:
         lines = []

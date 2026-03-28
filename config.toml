@@ -258,6 +258,9 @@ auto_refresh = false
 [conversation]
 enabled = true
 max_messages = 20
+summarize = true
+summary_trigger = 30
+max_summary_chars = 1200
 
 [llm]
 backend = "github"

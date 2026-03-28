@@ -262,15 +262,30 @@ class IntelligenceConfig:
 class ConversationConfig:
     enabled: bool = True
     max_messages: int = 20
+    summarize: bool = True
+    summary_trigger: int = 30
+    max_summary_chars: int = 1200
 
     def validate(self) -> "ConversationConfig":
         if not isinstance(self.enabled, bool):
             raise ConfigError("conversation.enabled must be a boolean")
 
-        if not isinstance(self.max_messages, int):
-            raise ConfigError("conversation.max_messages must be an integer")
-        if self.max_messages <= 0:
+        if not isinstance(self.max_messages, int) or self.max_messages <= 0:
             raise ConfigError("conversation.max_messages must be > 0")
+
+        if not isinstance(self.summarize, bool):
+            raise ConfigError("conversation.summarize must be a boolean")
+
+        if not isinstance(self.summary_trigger, int) or self.summary_trigger <= 0:
+            raise ConfigError("conversation.summary_trigger must be > 0")
+
+        if self.summary_trigger < self.max_messages:
+            raise ConfigError(
+                "conversation.summary_trigger must be >= conversation.max_messages"
+            )
+
+        if not isinstance(self.max_summary_chars, int) or self.max_summary_chars <= 0:
+            raise ConfigError("conversation.max_summary_chars must be > 0")
 
         return self
 

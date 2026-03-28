@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from threading import BoundedSemaphore
 
 from inkly.core.conversation import ConversationManager
@@ -17,6 +18,7 @@ class InklyRuntime:
         self.conversation = ConversationManager(config)
         self.plugins = PluginManager()
         self.backend = LLMBackend(config)
+        self.retriever = None
         self._request_gate = BoundedSemaphore(
             value=self.config.core.max_concurrent_requests
         )
@@ -30,20 +32,34 @@ class InklyRuntime:
             plugin_outputs = {}
             selected_plugins = []
 
-            retrieval_enabled = getattr(self.config, "retrieval", None)
-            retrieval_enabled = bool(retrieval_enabled and self.config.retrieval.enabled)
+            retrieval_cfg = getattr(self.config, "retrieval", None)
+            retrieval_enabled = bool(retrieval_cfg and retrieval_cfg.enabled)
 
             if retrieval_enabled:
                 try:
-                    retriever = PluginRetriever(list(discovered.values()))
-                    results = retriever.search(
-                        query,
-                        top_k=self.config.retrieval.top_k,
-                        min_score=self.config.retrieval.min_score,
-                    )
-                    selected_plugins = [result.plugin for result in results]
+                    if self.retriever is not None:
+                        if hasattr(self.retriever, "select_plugins"):
+                            selected_plugins = list(
+                                self.retriever.select_plugins(query, discovered)
+                            )
+                        else:
+                            selected_plugins = []
+                    else:
+                        retriever = PluginRetriever(
+                            index_path=getattr(
+                                retrieval_cfg,
+                                "index_path",
+                                Path.home() / ".inkly" / "retrieval_index.json",
+                            ),
+                            top_k=retrieval_cfg.top_k,
+                            min_score=retrieval_cfg.min_score,
+                            fallback_to_all_plugins=retrieval_cfg.fallback_to_all_plugins,
+                        )
+                        selected_plugins = list(
+                            retriever.select_plugins(query, discovered)
+                        )
                 except Exception:
-                    if self.config.retrieval.fallback_to_all_plugins:
+                    if retrieval_cfg.fallback_to_all_plugins:
                         selected_plugins = list(discovered.values())
                     else:
                         selected_plugins = []
@@ -51,15 +67,20 @@ class InklyRuntime:
                 selected_plugins = list(discovered.values())
 
             if not selected_plugins and (
-                not retrieval_enabled or self.config.retrieval.fallback_to_all_plugins
+                not retrieval_enabled or retrieval_cfg.fallback_to_all_plugins
             ):
                 selected_plugins = list(discovered.values())
 
-            for plugin in selected_plugins:
+            for fallback_name, plugin in discovered.items():
+                if plugin not in selected_plugins:
+                    continue
+
+                plugin_name = getattr(plugin, "name", fallback_name)
+
                 try:
-                    plugin_outputs[plugin.name] = plugin.run()
+                    plugin_outputs[plugin_name] = plugin.run()
                 except Exception as exc:
-                    plugin_outputs[plugin.name] = f"Plugin error: {exc}"
+                    plugin_outputs[plugin_name] = f"Plugin error: {exc}"
 
             history_lines = self.conversation.build_context(
                 user_id,

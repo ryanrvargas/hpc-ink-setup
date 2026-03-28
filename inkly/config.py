@@ -444,6 +444,6 @@ class TomlParser:
             conversation=conversation_cfg,
             llm=llm_cfg,
             core=core_cfg,
-            retrieval=RetrievalConfig(**retrieval_data).validate()
+            retrieval=retrieval_cfg
         )
 

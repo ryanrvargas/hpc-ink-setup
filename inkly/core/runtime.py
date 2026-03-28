@@ -5,7 +5,7 @@ from threading import BoundedSemaphore
 from inkly.core.conversation import ConversationManager
 from inkly.llm.backend import LLMBackend
 from inkly.plugins.manager import PluginManager
-
+from inkly.retrieval.retriever import PluginRetriever
 
 class InklyRuntime:
     """
@@ -28,11 +28,38 @@ class InklyRuntime:
             discovered = self.plugins.discover()
 
             plugin_outputs = {}
-            for name, plugin in discovered.items():
+            selected_plugins = []
+
+            retrieval_enabled = getattr(self.config, "retrieval", None)
+            retrieval_enabled = bool(retrieval_enabled and self.config.retrieval.enabled)
+
+            if retrieval_enabled:
                 try:
-                    plugin_outputs[name] = plugin.run()
+                    retriever = PluginRetriever(list(discovered.values()))
+                    results = retriever.search(
+                        query,
+                        top_k=self.config.retrieval.top_k,
+                        min_score=self.config.retrieval.min_score,
+                    )
+                    selected_plugins = [result.plugin for result in results]
+                except Exception:
+                    if self.config.retrieval.fallback_to_all_plugins:
+                        selected_plugins = list(discovered.values())
+                    else:
+                        selected_plugins = []
+            else:
+                selected_plugins = list(discovered.values())
+
+            if not selected_plugins and (
+                not retrieval_enabled or self.config.retrieval.fallback_to_all_plugins
+            ):
+                selected_plugins = list(discovered.values())
+
+            for plugin in selected_plugins:
+                try:
+                    plugin_outputs[plugin.name] = plugin.run()
                 except Exception as exc:
-                    plugin_outputs[name] = f"Plugin error: {exc}"
+                    plugin_outputs[plugin.name] = f"Plugin error: {exc}"
 
             history_lines = self.conversation.build_context(
                 user_id,

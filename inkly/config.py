@@ -333,6 +333,7 @@ class RetrievalConfig:
     top_k: int = 3
     fallback_to_all_plugins: bool = True
     min_score: float = 0.0
+    index_path: str = "~/.inkly/retrieval_index.json"
 
     def validate(self) -> "RetrievalConfig":
         if not isinstance(self.enabled, bool):
@@ -346,6 +347,9 @@ class RetrievalConfig:
 
         if not isinstance(self.min_score, (int, float)):
             raise ConfigError("retrieval.min_score must be a number")
+        
+        if not isinstance(self.index_path, str) or not self.index_path.strip():
+            raise ConfigError("retrieval.index_path must be a non-empty string")
 
         return self
 

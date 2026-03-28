@@ -46,11 +46,7 @@ class InklyRuntime:
                             selected_plugins = []
                     else:
                         retriever = PluginRetriever(
-                            index_path=getattr(
-                                retrieval_cfg,
-                                "index_path",
-                                Path.home() / ".inkly" / "retrieval_index.json",
-                            ),
+                            index_path=Path(retrieval_cfg.index_path).expanduser(),
                             top_k=retrieval_cfg.top_k,
                             min_score=retrieval_cfg.min_score,
                             fallback_to_all_plugins=retrieval_cfg.fallback_to_all_plugins,

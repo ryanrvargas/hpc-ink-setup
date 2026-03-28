@@ -328,6 +328,33 @@ class CoreConfig:
         return self
 
 
+@dataclass
+class RetrievalConfig:
+    enabled: bool = True
+    top_k: int = 3
+    fallback_to_all_plugins: bool = True
+    min_score: float = 0.0
+    index_path: str = "~/.inkly/retrieval_index.json"
+
+    def validate(self) -> "RetrievalConfig":
+        if not isinstance(self.enabled, bool):
+            raise ConfigError("retrieval.enabled must be a boolean")
+
+        if not isinstance(self.top_k, int) or self.top_k <= 0:
+            raise ConfigError("retrieval.top_k must be > 0")
+
+        if not isinstance(self.fallback_to_all_plugins, bool):
+            raise ConfigError("retrieval.fallback_to_all_plugins must be a boolean")
+
+        if not isinstance(self.min_score, (int, float)):
+            raise ConfigError("retrieval.min_score must be a number")
+
+        if not isinstance(self.index_path, str) or not self.index_path.strip():
+            raise ConfigError("retrieval.index_path must be a non-empty string")
+
+        return self
+
+
 # NOTE:
 # Runtime code must consume resolved config objects only.
 # raw_config is not a supported runtime interface.
@@ -342,6 +369,7 @@ class InklyConfig:
     conversation: ConversationConfig
     llm: LLMConfig
     core: CoreConfig
+    retrieval: RetrievalConfig
 
 
 class TomlParser:
@@ -383,6 +411,7 @@ class TomlParser:
         conversation_cfg = ConversationConfig(**conversation_data).validate()
         llm_cfg = LLMConfig(**llm_data).validate()
         core_cfg = CoreConfig(**core_data).validate()
+        retrieval_data = raw.get("retrieval", {}) or {}
 
         # Apply environment overrides
         env_map = {
@@ -408,6 +437,7 @@ class TomlParser:
                     raise ConfigError(f"Invalid value for {env_var}")
 
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
+        retrieval_cfg = RetrievalConfig(**retrieval_data).validate()
 
         return InklyConfig(
             raw_config=raw,
@@ -419,4 +449,5 @@ class TomlParser:
             conversation=conversation_cfg,
             llm=llm_cfg,
             core=core_cfg,
+            retrieval=retrieval_cfg,
         )

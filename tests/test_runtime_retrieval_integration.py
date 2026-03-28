@@ -43,7 +43,13 @@ class FakePluginManager:
 
 
 def make_config(tmp_path):
-    conversation = SimpleNamespace(enabled=True, max_messages=4, summarize=True, summary_trigger=6, max_summary_chars=300)
+    conversation = SimpleNamespace(
+        enabled=True,
+        max_messages=4,
+        summarize=True,
+        summary_trigger=6,
+        max_summary_chars=300,
+    )
     core = SimpleNamespace(max_concurrent_requests=2, max_prompt_length=4000)
     llm = SimpleNamespace(backend="github", model="dummy")
     retrieval = SimpleNamespace(
@@ -53,7 +59,9 @@ def make_config(tmp_path):
         fallback_to_all_plugins=True,
         index_path=str(tmp_path / "retrieval.json"),
     )
-    return SimpleNamespace(conversation=conversation, core=core, llm=llm, retrieval=retrieval)
+    return SimpleNamespace(
+        conversation=conversation, core=core, llm=llm, retrieval=retrieval
+    )
 
 
 def test_runtime_executes_only_selected_plugins(tmp_path):
@@ -75,9 +83,23 @@ def test_runtime_executes_only_selected_plugins(tmp_path):
         return "docs output"
 
     plugins = {
-        "jobs_summary": Plugin("jobs_summary", "job stats", "job-history", ["why did jobs fail"], run_jobs),
-        "queue_status": Plugin("queue_status", "queue status", "queue-status", ["how busy is queue"], run_queue),
-        "docs_gaussian": Plugin("docs_gaussian", "gaussian docs", "documentation", ["gaussian help"], run_docs),
+        "jobs_summary": Plugin(
+            "jobs_summary", "job stats", "job-history", ["why did jobs fail"], run_jobs
+        ),
+        "queue_status": Plugin(
+            "queue_status",
+            "queue status",
+            "queue-status",
+            ["how busy is queue"],
+            run_queue,
+        ),
+        "docs_gaussian": Plugin(
+            "docs_gaussian",
+            "gaussian docs",
+            "documentation",
+            ["gaussian help"],
+            run_docs,
+        ),
     }
 
     runtime.conversation = FakeConversation()
@@ -85,7 +107,9 @@ def test_runtime_executes_only_selected_plugins(tmp_path):
     runtime.plugins = FakePluginManager(plugins)
     runtime.retriever = FakeRetriever(["queue_status", "docs_gaussian"])
 
-    response = runtime.handle_query("user1", "How busy is the queue and where are Gaussian docs?")
+    response = runtime.handle_query(
+        "user1", "How busy is the queue and where are Gaussian docs?"
+    )
 
     assert response == "ok"
     assert called == ["queue_status", "docs_gaussian"]

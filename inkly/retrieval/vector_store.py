@@ -67,8 +67,7 @@ class JsonVectorStore:
 
         payload = json.loads(self.path.read_text(encoding="utf-8"))
         self.items = {
-            row["item_id"]: IndexedItem(**row)
-            for row in payload.get("items", [])
+            row["item_id"]: IndexedItem(**row) for row in payload.get("items", [])
         }
         self.vectors = {
             key: {token: float(value) for token, value in vec.items()}

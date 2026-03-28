@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from pathlib import Path
-from types import SimpleNamespace
 
 from inkly.plugins.manager import Plugin
 from inkly.retrieval.retriever import PluginRetriever
@@ -77,7 +74,9 @@ def test_retriever_ranks_documentation_query(tmp_path):
     plugins = build_plugins()
     retriever = PluginRetriever(index_path=tmp_path / "retrieval.json", top_k=2)
 
-    results = retriever.search_plugins("How do I run Gaussian on this cluster?", plugins)
+    results = retriever.search_plugins(
+        "How do I run Gaussian on this cluster?", plugins
+    )
 
     assert results
     assert results[0].name == "docs_gaussian"

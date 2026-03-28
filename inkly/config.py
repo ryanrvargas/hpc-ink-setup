@@ -327,6 +327,7 @@ class CoreConfig:
 
         return self
 
+
 @dataclass
 class RetrievalConfig:
     enabled: bool = True
@@ -347,7 +348,7 @@ class RetrievalConfig:
 
         if not isinstance(self.min_score, (int, float)):
             raise ConfigError("retrieval.min_score must be a number")
-        
+
         if not isinstance(self.index_path, str) or not self.index_path.strip():
             raise ConfigError("retrieval.index_path must be a non-empty string")
 
@@ -368,7 +369,7 @@ class InklyConfig:
     conversation: ConversationConfig
     llm: LLMConfig
     core: CoreConfig
-    retrieval : RetrievalConfig
+    retrieval: RetrievalConfig
 
 
 class TomlParser:
@@ -448,6 +449,5 @@ class TomlParser:
             conversation=conversation_cfg,
             llm=llm_cfg,
             core=core_cfg,
-            retrieval=retrieval_cfg
+            retrieval=retrieval_cfg,
         )
-

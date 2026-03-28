@@ -8,6 +8,7 @@ from inkly.llm.backend import LLMBackend
 from inkly.plugins.manager import PluginManager
 from inkly.retrieval.retriever import PluginRetriever
 
+
 class InklyRuntime:
     """
     Lightweight modular runtime for Milestone 2.5 Issue 1.

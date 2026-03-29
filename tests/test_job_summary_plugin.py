@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from inkly.plugins import jobs_summary
 
 

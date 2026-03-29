@@ -33,9 +33,7 @@ def test_queue_status_script_runs(monkeypatch, capsys):
 def test_node_info_script_runs(monkeypatch, capsys):
     import inkly.plugins.node_info as plugin
 
-    monkeypatch.setattr(
-        plugin, "run", lambda: "Node / Partition Information\nok"
-    )
+    monkeypatch.setattr(plugin, "run", lambda: "Node / Partition Information\nok")
 
     script = Path("scripts/node_info.py")
     output = _run_script(script, monkeypatch, capsys)

@@ -61,7 +61,7 @@ def _get_node_info_lines(limit: int = 8) -> list[str]:
 
         # Clean up GRES (GPU info)
         if not gres or gres == "(null)":
-            gres = "none"
+            gres = "This partition has no GPUs."
 
         lines.append(
             f"- {partition}: {nodes} nodes, {cpus} CPUs/node, {memory} MB/node, GPUs: {gres}"

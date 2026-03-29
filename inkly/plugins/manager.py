@@ -4,7 +4,7 @@ import importlib
 import pkgutil
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
-
+from inkly.plugins.common import validate_plugin_meta
 
 @dataclass(frozen=True)
 class Plugin:
@@ -43,6 +43,7 @@ class PluginManager:
                 continue
 
             meta = module.PLUGIN_META
+            validate_plugin_meta(meta)
 
             plugin = Plugin(
                 name=meta["name"],

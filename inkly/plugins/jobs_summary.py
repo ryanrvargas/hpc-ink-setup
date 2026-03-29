@@ -67,19 +67,53 @@ def _format_memory_section(memory_stats: dict) -> list[str]:
     return lines
 
 
+def _normalize_failure_state(state: str) -> str:
+    """
+    Normalize raw Slurm failure states into cleaner display labels.
+
+    Examples:
+    - 'CANCELLED by 583311' -> 'CANCELLED'
+    - 'FAILED' -> 'FAILED'
+    - 'OUT_OF_MEMORY' -> 'OUT_OF_MEMORY'
+    """
+    cleaned = (state or "").strip()
+
+    if cleaned.startswith("CANCELLED"):
+        return "CANCELLED"
+
+    return cleaned
+
+
 def _format_failure_section(failure_stats: dict) -> list[str]:
     if not failure_stats:
-        return ["Failure distribution unavailable."]
+        return ["Failure-state distribution unavailable."]
 
-    lines = ["Most common failure types:"]
-    for state, stats in list(failure_stats.items())[:5]:
+    normalized_totals: dict[str, dict[str, float]] = {}
+
+    for raw_state, stats in failure_stats.items():
+        normalized_state = _normalize_failure_state(raw_state)
+
+        if normalized_state not in normalized_totals:
+            normalized_totals[normalized_state] = {
+                "count": 0,
+                "percentage": 0.0,
+            }
+
+        normalized_totals[normalized_state]["count"] += stats.get("count", 0)
+        normalized_totals[normalized_state]["percentage"] += stats.get(
+            "percentage", 0.0
+        )
+
+    sorted_states = sorted(
+        normalized_totals.items(),
+        key=lambda item: item[1]["count"],
+        reverse=True,
+    )
+
+    lines = ["Most common failure states:"]
+    for state, stats in sorted_states[:5]:
         count = stats.get("count", 0)
-        percentage = stats.get("percentage")
-
-        if percentage is None:
-            lines.append(f"- {state}: {count}")
-            continue
-
+        percentage = stats.get("percentage", 0.0)
         lines.append(f"- {state}: {count} ({percentage:.3f})")
 
     return lines

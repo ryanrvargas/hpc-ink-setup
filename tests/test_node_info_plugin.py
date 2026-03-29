@@ -22,7 +22,7 @@ def test_run_reports_partition_resources(monkeypatch):
 
     assert "Node / Partition Information" in output
     assert "Partitions and resources:" in output
-    assert "- general: 10 nodes, 32 CPUs/node, 128000 MB/node, GPUs: none" in output
+    assert "- general: 10 nodes, 32 CPUs/node, 128000 MB/node, GPUs: This partition has no GPUs." in output
     assert "- gpu: 4 nodes, 64 CPUs/node, 256000 MB/node, GPUs: gpu:4" in output
 
 

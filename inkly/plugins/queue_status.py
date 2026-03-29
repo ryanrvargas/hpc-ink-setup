@@ -69,9 +69,7 @@ def _get_partition_lines(limit: int = 5) -> list[str]:
             continue
 
         partition, nodes, cpu_summary = (part.strip() for part in parts)
-        lines.append(
-            f"- {partition}: {nodes} nodes, CPU summary {cpu_summary}"
-        )
+        lines.append(f"- {partition}: {nodes} nodes, CPU summary {cpu_summary}")
 
     if not lines:
         return ["Partition summary unavailable: could not parse sinfo output."]

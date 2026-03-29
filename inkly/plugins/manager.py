@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 from inkly.plugins.common import validate_plugin_meta
 
+
 @dataclass(frozen=True)
 class Plugin:
     name: str

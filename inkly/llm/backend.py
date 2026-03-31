@@ -3,56 +3,89 @@ from __future__ import annotations
 
 class LLMBackend:
     """
-    This class is my abstraction layer for talking to different LLM backends.
+    Thin abstraction layer for routing prompts to the configured LLM backend.
 
-    Right now this is intentionally minimal because this is still skeleton work.
-    The real implementations (actual API calls, CLI calls, etc.) will come later.
+    This is intentionally minimal in the current milestone.
+    Real backend integrations such as Ollama calls or GitHub CLI routing
+    are expected to be implemented later.
 
-    The goal here is just to:
-    - pick the correct backend
-    - enforce prompt limits
-    - route the request cleanly
+    Current responsibilities:
+    - read backend configuration
+    - enforce prompt-length limits
+    - route requests to the correct backend handler
     """
 
     def __init__(self, config):
-        # I store config so I can pull backend + model settings from it
+        # Shared config object used to determine backend, model, and prompt limits.
         self.config = config
 
     def selected_backend(self) -> str:
-        # Returns which backend I should use (ex: "github", "ollama")
+        """
+        Return the configured backend name.
+
+        Example values:
+        - "github"
+        - "ollama"
+        """
         return self.config.llm.backend
 
     def selected_model(self) -> str:
-        # Returns which model should be used for the selected backend
+        """
+        Return the configured model name for the selected backend.
+        """
         return self.config.llm.model
 
     def max_prompt_length(self) -> int:
-        # This is the hard limit for prompt size coming from config
+        """
+        Return the configured hard limit for prompt size.
+        """
         return self.config.core.max_prompt_length
 
     def generate(self, prompt: str) -> str:
-        # I always enforce prompt length here as a final safeguard
+        """
+        Generate a response using the configured backend.
+
+        Flow:
+        - trim the prompt to the configured maximum length
+        - check which backend is selected
+        - route the request to the matching backend method
+
+        Raises:
+            ValueError: If the configured backend is not supported.
+        """
+        # Apply a final hard limit before sending the prompt to any backend.
         prompt = prompt[: self.max_prompt_length()]
 
         backend = self.selected_backend()
 
-        # Route to the correct backend implementation
+        # Route to the Ollama backend handler.
         if backend == "ollama":
             return self._generate_ollama(prompt)
 
+        # Route to the GitHub backend handler.
         if backend == "github":
             return self._generate_github(prompt)
 
-        # If the backend is unknown, I fail fast instead of silently continuing
+        # Fail fast if the configured backend is unknown.
         raise ValueError(f"Unsupported backend: {backend}")
 
     def _generate_ollama(self, prompt: str) -> str:
-        # Placeholder for future Ollama integration
-        # This will eventually call the Ollama runtime or API
+        """
+        Placeholder Ollama backend implementation.
+
+        This currently returns a simulated response and does not yet
+        perform a real Ollama request.
+        """
+        # Model selection is included in the placeholder so the configured
+        # model still shows up in the response path.
         model = self.selected_model()
         return f"[ollama placeholder: model={model}] Simulated response."
 
     def _generate_github(self, prompt: str) -> str:
-        # Placeholder for GitHub Copilot CLI integration
-        # This will eventually call the copilot CLI or API
+        """
+        Placeholder GitHub backend implementation.
+
+        This currently returns a simulated response and does not yet
+        perform a real GitHub Copilot CLI or API request.
+        """
         return "[github placeholder] Simulated response."

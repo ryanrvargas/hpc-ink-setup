@@ -3,39 +3,55 @@ import time
 import sys
 from datetime import datetime
 
+# I keep a very small in-memory cache here so I do not recompute the same
+# intelligence metrics over and over if this gets called repeatedly.
 _CACHE = {}
 _CACHE_TTL_SECONDS = 30
 
 
 def load_cluster_intelligence_summary(db_path: str):
+    """
+    I use this to load precomputed intelligence summaries from SQLite.
+
+    This function does not recompute anything. It just reads from the
+    summary tables that were already built earlier and returns everything
+    in a structured dictionary that the rest of Inkly can use.
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
     try:
+        # Load partition-level success summaries
         partition_rows = conn.execute(
             "SELECT partition, total_jobs, successful_jobs, success_rate "
             "FROM intelligence_partition_stats"
         ).fetchall()
 
+        # Load CPU bucket summaries
         cpu_rows = conn.execute(
             "SELECT cpu_bucket, total_jobs, successful_jobs, failed_jobs, "
             "timeout_jobs, failure_rate, timeout_rate "
             "FROM intelligence_cpu_bucket_stats"
         ).fetchall()
 
+        # Load memory bucket summaries
         memory_rows = conn.execute(
             "SELECT mem_bucket, total_jobs, failure_rate "
             "FROM intelligence_memory_bucket_stats"
         ).fetchall()
 
+        # Load failure-state summaries
         failure_rows = conn.execute(
             "SELECT state, count, percentage FROM intelligence_failure_stats"
         ).fetchall()
 
+        # Load dataset size metadata
         dataset_row = conn.execute(
             "SELECT value FROM intelligence_metadata WHERE key = 'dataset_size'"
         ).fetchone()
 
+        # I return everything in a nested structure so plugin/runtime code
+        # can consume it without needing to know SQL details.
         return {
             "partition_success": {
                 r["partition"]: {
@@ -71,6 +87,8 @@ def load_cluster_intelligence_summary(db_path: str):
                 for r in failure_rows
             },
             "dataset_size": int(dataset_row["value"]) if dataset_row else 0,
+            # These timing fields are placeholders here because this function
+            # is only loading already-built summaries, not computing them.
             "timings": {
                 "cache_hit": None,
                 "total_intelligence_ms": 0.0,
@@ -82,10 +100,11 @@ def load_cluster_intelligence_summary(db_path: str):
 
 def rebuild_intelligence_summaries(db_path: str) -> None:
     """
-    Recompute and store cluster intelligence summaries into SQLite.
+    I use this to recompute all intelligence summary tables from the raw jobs table.
 
-    This moves expensive aggregation work out of prompt-time
-    and into refresh-time.
+    The main idea here is to move the heavier aggregation work out of prompt-time
+    and into refresh-time. That way prompt generation can read small summary tables
+    instead of re-running all of these SQL aggregations every time.
     """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -93,16 +112,15 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
     try:
         now = datetime.utcnow().isoformat()
 
-        # Clear old summaries
+        # I clear all old summary rows first so the rebuilt summaries reflect
+        # the current state of the jobs table exactly.
         conn.execute("DELETE FROM intelligence_partition_stats")
         conn.execute("DELETE FROM intelligence_cpu_bucket_stats")
         conn.execute("DELETE FROM intelligence_memory_bucket_stats")
         conn.execute("DELETE FROM intelligence_failure_stats")
         conn.execute("DELETE FROM intelligence_metadata")
 
-        # -------------------------
-        # Partition stats
-        # -------------------------
+        # I compute partition-level success data here.
         rows = conn.execute("""
             SELECT
                 partition,
@@ -128,9 +146,8 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
                 ),
             )
 
-        # -------------------------
-        # CPU bucket stats
-        # -------------------------
+        # I bucket jobs by CPU count here so I can see how success/failure
+        # changes across different CPU request ranges.
         rows = conn.execute("""
             SELECT
                 CASE
@@ -171,9 +188,8 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
                 ),
             )
 
-        # -------------------------
-        # Memory bucket stats
-        # -------------------------
+        # I bucket jobs by requested memory here for the same reason:
+        # to understand how failure patterns change by memory request size.
         rows = conn.execute("""
             SELECT
                 CASE
@@ -204,9 +220,8 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
                 ),
             )
 
-        # -------------------------
-        # Failure distribution
-        # -------------------------
+        # I compute failure distribution only across unsuccessful jobs.
+        # This lets me see which failure states show up the most.
         rows = conn.execute("""
             SELECT
                 state,
@@ -235,9 +250,8 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
                 ),
             )
 
-        # -------------------------
-        # Metadata (dataset size)
-        # -------------------------
+        # I store dataset size as metadata so other code can quickly check
+        # how much data is available without rerunning a lot of logic.
         row = conn.execute("SELECT COUNT(*) AS total FROM jobs").fetchone()
 
         conn.execute(
@@ -259,6 +273,12 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
 
 
 def _timed_query(label: str, fn):
+    """
+    I use this helper to time a query function and print the duration.
+
+    This is mainly for visibility while checking whether the analytics work
+    is staying fast enough.
+    """
     start = time.perf_counter()
     result = fn()
     duration_ms = (time.perf_counter() - start) * 1000
@@ -270,10 +290,11 @@ def _timed_query(label: str, fn):
 
 def get_dataset_size(db_path) -> int:
     """
-    Return the number of rows currently available in the jobs dataset.
+    I use this as the lightweight dataset guard query.
 
-    This is the lightweight guard query used before computing
-    full cluster intelligence metrics.
+    This only checks how many rows exist in the jobs table. It is much cheaper
+    than computing the full intelligence summary, so it is useful before doing
+    anything more expensive.
     """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -287,12 +308,19 @@ def get_dataset_size(db_path) -> int:
 
 def compute_cluster_intelligence(db_path):
     """
-    Compute deterministic cluster intelligence metrics from the jobs dataset.
-    """
+    I use this to compute the full intelligence dictionary directly from the jobs table.
 
+    This path is different from load_cluster_intelligence_summary():
+    - load_cluster_intelligence_summary() reads already-built summary tables
+    - compute_cluster_intelligence() computes everything live from the jobs table
+
+    I also use a small cache here so repeated calls do not keep re-running
+    the same queries within a short time window.
+    """
     now = time.time()
     cache_key = str(db_path)
 
+    # If I already computed this recently, return the cached copy instead.
     cached = _CACHE.get(cache_key)
     if cached is not None:
         cached_result, cached_at = cached
@@ -315,6 +343,8 @@ def compute_cluster_intelligence(db_path):
     try:
         total_start = time.perf_counter()
 
+        # I compute each summary section separately so the code stays modular
+        # and so I can time each section independently.
         partition_result, partition_ms = partition_success_rate(conn)
         cpu_result, cpu_ms = cpu_bucket_analysis(conn)
         memory_result, memory_ms = memory_bucket_analysis(conn)
@@ -340,6 +370,7 @@ def compute_cluster_intelligence(db_path):
             },
         }
 
+        # I cache the computed result so the next call can reuse it if it happens soon.
         _CACHE[cache_key] = (intelligence, now)
         return intelligence
     finally:
@@ -347,6 +378,9 @@ def compute_cluster_intelligence(db_path):
 
 
 def partition_success_rate(conn):
+    """
+    I use this to compute success rates grouped by partition.
+    """
     query = """
     SELECT
         partition,
@@ -374,6 +408,12 @@ def partition_success_rate(conn):
 
 
 def cpu_bucket_analysis(conn):
+    """
+    I use this to group jobs into CPU-count buckets and measure how each bucket performs.
+
+    This helps show whether certain CPU request sizes are associated with
+    more failures or more timeouts.
+    """
     query = """
     SELECT
         CASE
@@ -417,6 +457,9 @@ def cpu_bucket_analysis(conn):
 
 
 def memory_bucket_analysis(conn):
+    """
+    I use this to group jobs into memory buckets and compute failure rates for each bucket.
+    """
     query = """
     SELECT
         CASE
@@ -450,6 +493,9 @@ def memory_bucket_analysis(conn):
 
 
 def failure_distribution(conn):
+    """
+    I use this to measure how failure states are distributed across unsuccessful jobs.
+    """
     query = """
     SELECT
         state,
@@ -480,6 +526,11 @@ def failure_distribution(conn):
 
 
 def dataset_size(conn):
+    """
+    I use this internal helper when I already have an open database connection.
+
+    This is different from get_dataset_size() because that one opens its own connection.
+    """
     query = "SELECT COUNT(*) AS total FROM jobs"
     row = conn.execute(query).fetchone()
 

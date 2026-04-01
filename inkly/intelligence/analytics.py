@@ -1,7 +1,7 @@
 import sqlite3
 import time
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Small in-memory cache to avoid recomputing intelligence metrics repeatedly.
 # Key = db_path, Value = (result_dict, timestamp)

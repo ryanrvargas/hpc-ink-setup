@@ -71,7 +71,7 @@ def main() -> int:
     print(f"Window days: {summary.window_days}")
     print(f"Jobs scanned: {summary.jobs_scanned}")
     print(f"Jobs inserted: {summary.jobs_inserted}")
-    print(f"Jobs updated: {summary.jobs_updated}")
+    print(f"Jobs updated(changed): {summary.jobs_updated}")
     print(f"Jobs removed: {summary.jobs_removed}")
     print(f"Database: {db_path}")
 

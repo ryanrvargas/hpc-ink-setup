@@ -420,15 +420,37 @@ def ingest_jobs_to_db(
     Returns a structured summary for CLI or script reporting.
     """
     with JobsDatabase(db_path) as db:
-        existing_ids = {
-            row["job_id"]
-            for row in db._conn.execute("SELECT job_id FROM jobs").fetchall()
+        # Load existing rows so we can detect real changes, not just ID matches.
+        existing_rows = {
+            row["job_id"]: row
+            for row in db._conn.execute("SELECT * FROM jobs").fetchall()
         }
 
-        incoming_ids = {r.job_id for r in records}
+        jobs_inserted = 0
+        jobs_updated = 0
+        jobs_unchanged = 0  # optional, but useful for debugging
 
-        jobs_updated = sum(1 for job_id in incoming_ids if job_id in existing_ids)
-        jobs_inserted = sum(1 for job_id in incoming_ids if job_id not in existing_ids)
+        for r in records:
+            existing = existing_rows.get(r.job_id)
+
+            # New job → insert
+            if existing is None:
+                jobs_inserted += 1
+                continue
+
+            # Compare key fields to detect actual changes
+            changed = (
+                existing["state"] != r.state
+                or existing["exit_code"] != r.exit_code
+                or existing["derived_exit_code"] != r.derived_exit_code
+                or existing["elapsed_sec"] != r.elapsed_sec
+                or existing["req_mem_mb"] != r.req_mem_mb
+            )
+
+            if changed:
+                jobs_updated += 1
+            else:
+                jobs_unchanged += 1
 
         db.upsert_jobs(records)
 

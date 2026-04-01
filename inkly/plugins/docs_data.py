@@ -15,7 +15,6 @@ DOC_SNIPPETS = {
     "gaussian": [
         # Title line (used as the header in plugin output)
         "Gaussian Usage Notes",
-
         # Body lines (concise, LLM-friendly guidance)
         "Load the Gaussian module before submitting the job.",
         "Request memory and wall time carefully in the Slurm script.",
@@ -26,7 +25,6 @@ DOC_SNIPPETS = {
     "cuda": [
         # Title line
         "CUDA Usage Notes",
-
         # Body lines
         "Use a GPU-capable partition when submitting CUDA workloads.",
         "Request GPUs explicitly in the Slurm job script.",

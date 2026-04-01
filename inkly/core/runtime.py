@@ -65,7 +65,6 @@ class InklyRuntime:
         # Only allow a limited number of concurrent requests.
         # The context manager acquires the semaphore at entry and releases it on exit.
         with self._request_gate:
-
             # Store the user's query immediately so the runtime has a full history trail.
             self.conversation.append_turn(user_id, "user", query)
 

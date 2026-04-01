@@ -202,7 +202,7 @@ class ConversationManager:
         # older turns and keep the most recent turns verbatim.
         elif summarize and len(history) >= summary_trigger:
             older = history[:-max_messages]
-            recent = history[-max_messages:]
+            # recent = history[-max_messages:] NOTE: Not used
 
             lines = []
 

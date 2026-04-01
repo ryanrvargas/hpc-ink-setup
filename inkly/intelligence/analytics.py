@@ -96,7 +96,6 @@ def load_cluster_intelligence_summary(db_path: str):
             },
             # Dataset size is stored as text → convert to int safely
             "dataset_size": int(dataset_row["value"]) if dataset_row else 0,
-
             # No computation happens here, so timing values are placeholders
             "timings": {
                 "cache_hit": None,

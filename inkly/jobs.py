@@ -483,31 +483,44 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
     Convert Slurm ReqMem string into megabytes.
 
-    Examples:
-        64000M -> 64000
-        64G    -> 65536
-        4000K  -> 3 (approx)
+    Supported examples:
+        64000M  -> 64000
+        64G     -> 65536
+        1.50G   -> 1536
+        0.50G   -> 512
+        4000K   -> 3 (approx, floor division)
         64000Mc -> 64000
         64000Mn -> 64000
+
+    Notes:
+    - Slurm may append per-cpu / per-node suffixes like 'c' or 'n'
+    - Decimal values are supported for K, M, and G units
+    - Results are normalized to integer MB
     """
     if not mem:
         return None
 
     mem = mem.strip().upper()
+    if not mem:
+        return None
 
     try:
-        # Slurm may append per-cpu or per-node suffixes like Mc / Mn.
-        if mem.endswith("MC") or mem.endswith("MN"):
+        # Remove Slurm per-cpu / per-node suffixes like Mc / Mn / Gc / Gn.
+        if len(mem) >= 2 and mem[-1] in {"C", "N"} and mem[-2] in {"K", "M", "G"}:
             mem = mem[:-1]
 
         if mem.endswith("M"):
-            return int(mem[:-1])
+            value_mb = float(mem[:-1])
+            return int(value_mb)
 
         if mem.endswith("G"):
-            return int(mem[:-1]) * 1024
+            value_gb = float(mem[:-1])
+            return int(value_gb * 1024)
 
         if mem.endswith("K"):
-            return int(mem[:-1]) // 1024
+            value_kb = float(mem[:-1])
+            return int(value_kb // 1024)
+
     except ValueError:
         return None
 

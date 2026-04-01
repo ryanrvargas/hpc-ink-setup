@@ -251,13 +251,18 @@ def test_parse_slurm_timestamp_unknown_value():
 
 def test_parse_req_mem_mb_values():
     """
-    ReqMem parsing should normalize common Slurm units into MB.
+    ReqMem parsing should normalize common Slurm units into MB,
+    including decimal gigabyte values.
     """
     assert parse_req_mem_mb("64000M") == 64000
     assert parse_req_mem_mb("64G") == 65536
+    assert parse_req_mem_mb("1.50G") == 1536
+    assert parse_req_mem_mb("0.50G") == 512
     assert parse_req_mem_mb("4000K") == 3
     assert parse_req_mem_mb("64000Mc") == 64000
     assert parse_req_mem_mb("64000Mn") == 64000
+    assert parse_req_mem_mb("1.50Gc") == 1536
+    assert parse_req_mem_mb("1.50Gn") == 1536
 
 
 def test_parse_req_mem_mb_invalid_value():

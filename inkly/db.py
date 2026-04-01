@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Default location for the Inkly jobs database.
 # This database stores both raw job records and computed intelligence summaries.
@@ -263,29 +263,29 @@ class JobsDatabase:
 
     def cleanup_old_jobs(self, window_days: int = 90) -> None:
         """
-        Remove jobs outside the rolling time window.
+        Remove jobs outside the rolling window.
 
-        Uses actual job lifecycle timestamps instead of ingestion time.
+        IMPORTANT:
+        This uses a date-based boundary (YYYY-MM-DD) to match how sacct
+        fetches data using --starttime.
 
-        Priority order:
-        1. end_time
-        2. start_time
-        3. submit_time
-        4. ingested_at (fallback)
-
-        This ensures the dataset reflects real job history instead of
-        when the ingestion script happened to run.
+        This prevents boundary churn where jobs near the cutoff are repeatedly
+        inserted and removed across refresh runs.
         """
-        threshold = f"-{window_days} days"
+
+        # Compute the same boundary used by sacct (date-level precision)
+        cutoff_date = (datetime.utcnow() - timedelta(days=window_days)).strftime(
+            "%Y-%m-%d"
+        )
 
         query = """
         DELETE FROM jobs
-        WHERE datetime(COALESCE(end_time, start_time, submit_time, ingested_at))
-              < datetime('now', ?)
+        WHERE DATE(COALESCE(end_time, start_time, submit_time, ingested_at))
+            < DATE(?)
         """
 
-        cursor = self._conn.execute(query, (threshold,))
-        print(f"Removed {cursor.rowcount} old jobs")
+        cursor = self._conn.execute(query, (cutoff_date,))
+        print(f"Removed {cursor.rowcount} old jobs (cutoff: {cutoff_date})")
         self._conn.commit()
 
 

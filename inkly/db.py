@@ -4,9 +4,27 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
 
+# Default location for the Inkly jobs database.
+# This database stores both raw ingested job records and precomputed
+# intelligence summary tables.
 DEFAULT_DB_PATH = Path.home() / ".inkly" / "jobs.db"
 
 
+# Full SQLite schema used by Inkly job intelligence.
+#
+# Main table:
+# - jobs
+#   Stores one normalized record per top-level Slurm job
+#
+# Summary tables:
+# - intelligence_partition_stats
+# - intelligence_cpu_bucket_stats
+# - intelligence_memory_bucket_stats
+# - intelligence_failure_stats
+# - intelligence_metadata
+#
+# These summary tables are rebuilt from the raw jobs table and are meant
+# to support fast reads at runtime.
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS jobs (
     job_id TEXT UNIQUE NOT NULL,
@@ -67,6 +85,15 @@ CREATE TABLE IF NOT EXISTS intelligence_metadata (
 );
 """
 
+
+# Upsert statement for raw job ingestion.
+#
+# Behavior:
+# - inserts a new job if job_id does not exist yet
+# - updates the existing row if job_id already exists
+#
+# This keeps ingestion idempotent for repeated refreshes over overlapping
+# sacct time windows.
 UPSERT_JOB_SQL = """
 INSERT INTO jobs (
     job_id,
@@ -98,30 +125,69 @@ ON CONFLICT(job_id) DO UPDATE SET
 
 
 class JobsDatabase:
-    """SQLite database wrapper for Inkly structured Slurm job intelligence."""
+    """
+    SQLite wrapper for Inkly job-history storage.
+
+    This class handles:
+    - opening the SQLite database
+    - creating schema and indexes
+    - inserting or updating job records
+    - removing jobs outside the rolling window
+
+    The goal is to keep database access in one place instead of scattering
+    raw SQLite setup across the project.
+    """
 
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
+        # Resolve the database path and ensure the parent directory exists.
         self.db_path = Path(db_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Open the SQLite connection.
         self._conn = sqlite3.connect(self.db_path)
+
+        # Use Row objects so query results can be accessed by column name.
         self._conn.row_factory = sqlite3.Row
 
     def create_schema(self) -> None:
-        """Create the jobs table and indexes if they do not already exist."""
+        """
+        Create all required tables and indexes if they do not already exist.
+
+        This executes the full schema script, including raw job storage
+        and intelligence summary tables.
+        """
         self._conn.executescript(SCHEMA_SQL)
         self._conn.commit()
 
     def close(self) -> None:
-        """Close the SQLite connection."""
+        """
+        Close the SQLite connection.
+        """
         self._conn.close()
 
     def __enter__(self) -> "JobsDatabase":
+        """
+        Support use as a context manager.
+
+        Example:
+            with JobsDatabase() as db:
+                ...
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """
+        Ensure the database connection is closed when leaving the context.
+        """
         self.close()
 
     def upsert_job(self, record):
+        """
+        Insert or update a single job record.
+
+        The ingested_at timestamp is refreshed on every upsert so the row
+        reflects the latest ingestion pass.
+        """
         now = datetime.now(timezone.utc).isoformat()
 
         self._conn.execute(
@@ -142,10 +208,17 @@ class JobsDatabase:
         )
 
     def upsert_jobs(self, records):
+        """
+        Insert or update multiple job records in one batch.
+
+        This is the main ingestion path used during refresh because batching
+        is more efficient than executing one statement per row.
+        """
         from datetime import datetime, timezone
 
         now = datetime.now(timezone.utc).isoformat()
 
+        # Build the full parameter rows once, then execute in bulk.
         rows = [
             (
                 r.job_id,
@@ -168,9 +241,13 @@ class JobsDatabase:
 
     def cleanup_old_jobs(self, window_days: int = 90) -> None:
         """
-        Remove jobs older than the rolling window.
+        Remove jobs older than the configured rolling window.
+
+        This keeps the dataset bounded so the database does not grow forever
+        and analytics remain focused on recent cluster history.
         """
 
+        # SQLite datetime modifier for relative date filtering.
         threshold = f"-{window_days} days"
 
         query = """
@@ -178,13 +255,22 @@ class JobsDatabase:
         WHERE ingested_at < datetime('now', ?)
         """
         cursor = self._conn.execute(query, (threshold,))
+
+        # Row count is printed for visibility during refresh/debug runs.
         print(f"Removed {cursor.rowcount} old jobs")
         self._conn.commit()
 
 
 def initialize_jobs_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
-    """Initialize the Inkly jobs database and return its resolved path."""
+    """
+    Initialize the Inkly jobs database and return the resolved path.
+
+    This is the safe setup entry point used by installation or bootstrap code.
+    It ensures the database exists and that the full schema has been created.
+    """
     resolved_path = Path(db_path).expanduser()
+
     with JobsDatabase(resolved_path) as db:
         db.create_schema()
+
     return resolved_path

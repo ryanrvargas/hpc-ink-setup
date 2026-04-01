@@ -3,20 +3,17 @@
 Ink CLI Wrapper
 
 Purpose
--------
 This file is the executable entrypoint for Inkly.
 
 It is intentionally minimal and contains no runtime logic.
 All real functionality lives in `ink_core.py`.
 
 Responsibilities
-----------------
 1. Detect installed runtime layout under ~/.inkly
 2. Inject ~/.inkly/lib into sys.path (if it exists)
 3. Import and execute ink_core.main()
 
 Why This Exists
----------------
 We separate CLI execution from runtime logic so that:
 
 - ink_core.py is fully importable (for testing and reuse)
@@ -24,8 +21,7 @@ We separate CLI execution from runtime logic so that:
 - The installed CLI can resolve modules correctly
 - No runtime assumptions are enforced at import time
 
-Important Ordering Rule
------------------------
+Important Ordering Rul
 sys.path must be modified BEFORE importing ink_core.
 If we import first, Python will fail to locate ink_core.
 """

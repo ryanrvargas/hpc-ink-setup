@@ -8,27 +8,64 @@ from typing import Any, Dict, List, Optional
 
 class ConversationManager:
     """
-    Persistent per-user conversation history.
+    Handles persistent conversation history per user and builds prompt-ready context.
 
-    Storage and prompt-context generation are intentionally separate:
+    Full history storage and prompt-context generation are intentionally separate:
     - full history is stored on disk
-    - processed history is generated for prompt injection
+    - processed history is built only when needed for prompt injection
+
+    This preserves the complete conversation record while still allowing
+    truncation or summarization when prompt size is limited.
     """
 
     def __init__(self, config):
+        """
+        Initialize the conversation manager.
+
+        Expected config fields:
+        - conversation.enabled
+        - conversation.max_messages
+        - conversation.summary_trigger
+        - conversation.summarize
+        - conversation.max_summary_chars
+        """
         self.config = config
+
+        # Whether conversation history is enabled at all.
         self.enabled = self.config.conversation.enabled
+
+        # Directory where per-user conversation files are stored.
+        # File structure: ~/.inkly/conversations/<user_id>.json
         self.base_dir = Path.home() / ".inkly" / "conversations"
+
+        # Ensure the conversation directory exists before any reads or writes happen.
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _conversation_file(self, user_id: str) -> Path:
+        """
+        Build the file path for a user's conversation history.
+        """
         return self.base_dir / f"{user_id}.json"
 
     def _read_full_history(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Read full conversation history from disk.
+
+        This method is intentionally defensive:
+        - returns [] if conversation history is disabled
+        - returns [] if the file does not exist
+        - returns [] if the file is unreadable or invalid
+        - filters out malformed entries instead of trusting file contents blindly
+
+        Returns:
+            A list of validated conversation entries.
+        """
         if not self.enabled:
             return []
 
         path = self._conversation_file(user_id)
+
+        # No history exists yet for this user.
         if not path.exists():
             return []
 
@@ -36,11 +73,14 @@ class ConversationManager:
             with path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
+            # Fail safely if the file cannot be read or parsed.
             return []
 
+        # Stored history must be a list of turn objects.
         if not isinstance(data, list):
             return []
 
+        # Keep only entries with the minimum expected structure.
         valid: List[Dict[str, Any]] = []
         for item in data:
             if (
@@ -53,30 +93,57 @@ class ConversationManager:
         return valid
 
     def _write_full_history(self, user_id: str, history: List[Dict[str, Any]]) -> None:
+        """
+        Write full conversation history back to disk.
+
+        This replaces the stored JSON file with the updated history list.
+        """
         path = self._conversation_file(user_id)
+
         with path.open("w", encoding="utf-8") as f:
             json.dump(history, f, indent=2)
 
     def append_turn(self, user_id: str, role: str, content: str) -> None:
+        """
+        Append a single turn to the user's conversation history.
+
+        Args:
+            user_id: User identifier
+            role: Conversation role, typically "user" or "assistant"
+            content: Message content
+        """
         if not self.enabled:
             return
 
         history = self._read_full_history(user_id)
+
         history.append(
             {
+                # Store timestamps in UTC so ordering stays consistent across environments.
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "role": role,
                 "content": content,
             }
         )
+
         self._write_full_history(user_id, history)
 
     def append_exchange(self, user_id: str, question: str, answer: str) -> None:
+        """
+        Append a full user/assistant exchange as two consecutive turns.
+        """
         self.append_turn(user_id, "user", question)
         self.append_turn(user_id, "assistant", answer)
 
     def load_recent(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Load the most recent N messages from conversation history.
+
+        This is a simple truncation path with no summarization.
+        """
         history = self._read_full_history(user_id)
+
+        # Keep only the most recent configured number of messages.
         return history[-self.config.conversation.max_messages :]
 
     def build_context(
@@ -87,8 +154,16 @@ class ConversationManager:
         max_prompt_length: Optional[int] = None,
     ) -> List[str]:
         """
-        Return processed conversation lines for prompt injection.
-        Keeps recent turns verbatim and optionally summarizes older turns.
+        Build processed conversation context for prompt injection.
+
+        High-level flow:
+        - load full history
+        - optionally remove a duplicate current query
+        - either keep recent turns as-is or summarize older turns
+        - optionally trim the final lines to fit a prompt budget
+
+        Returns:
+            A list of prompt-ready text lines.
         """
         if not self.enabled:
             return []
@@ -97,15 +172,19 @@ class ConversationManager:
         if not history:
             return []
 
-        # Avoid duplicating the current query if caller already appended it.
+        # Prevent the current query from appearing twice in the prompt.
+        # This handles the case where the caller already appended the query
+        # to conversation history before asking for built context.
         if current_query:
             filtered = history.copy()
+
             if (
                 filtered
                 and filtered[-1].get("role") == "user"
                 and filtered[-1].get("content") == current_query
             ):
                 filtered = filtered[:-1]
+
             history = filtered
 
         if not history:
@@ -115,59 +194,21 @@ class ConversationManager:
         summary_trigger = self.config.conversation.summary_trigger
         summarize = self.config.conversation.summarize
 
+        # If history is already small enough, keep it verbatim.
         if len(history) <= max_messages:
             lines = self._format_recent(history)
+
+        # If summarization is enabled and history is large enough, summarize
+        # older turns and keep the most recent turns verbatim.
         elif summarize and len(history) >= summary_trigger:
             older = history[:-max_messages]
-            recent = history[-max_messages:]
+            # recent = history[-max_messages:] NOTE: Not used
+
             lines = []
+
             summary = self._summarize_turns(older)
+
             if summary:
                 lines.append("[SUMMARY OF OLDER CONTEXT]")
                 lines.extend(summary)
-                lines.append("")
-            lines.append("[RECENT HISTORY]")
-            lines.extend(self._format_recent(recent))
-        else:
-            lines = self._format_recent(history[-max_messages:])
-
-        if max_prompt_length is not None:
-            lines = self._fit_lines_to_budget(lines, max_prompt_length)
-
-        return lines
-
-    def _format_recent(self, turns: List[Dict[str, Any]]) -> List[str]:
-        return [f"{turn['role']}: {turn['content']}" for turn in turns]
-
-    def _summarize_turns(self, turns: List[Dict[str, Any]]) -> List[str]:
-        """
-        Deterministic placeholder summary.
-        This is intentionally simple and should stay non-LLM for Issue #82.
-        """
-        bullets: List[str] = []
-        max_chars = self.config.conversation.max_summary_chars
-
-        for turn in turns:
-            role = turn["role"]
-            content = " ".join(turn["content"].split())
-            if len(content) > 140:
-                content = content[:137] + "..."
-            bullets.append(f"- {role}: {content}")
-
-        summary_text = "\n".join(bullets)
-        if len(summary_text) > max_chars:
-            summary_text = summary_text[: max_chars - 3] + "..."
-
-        return summary_text.splitlines()
-
-    def _fit_lines_to_budget(
-        self, lines: List[str], max_prompt_length: int
-    ) -> List[str]:
-        """
-        Coarse character-budget enforcement.
-        We trim oldest lines first because recent turns matter more.
-        """
-        kept = list(lines)
-        while kept and len("\n".join(kept)) > max_prompt_length:
-            kept.pop(0)
-        return kept
+                lines.append

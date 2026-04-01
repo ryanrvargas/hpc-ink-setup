@@ -5,16 +5,20 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Default location for the Inkly jobs database.
-# This database stores both raw ingested job records and precomputed
-# intelligence summary tables.
+# This database stores both raw job records and computed intelligence summaries.
 DEFAULT_DB_PATH = Path.home() / ".inkly" / "jobs.db"
 
 
-# Full SQLite schema used by Inkly job intelligence.
+# Full SQLite schema for Issue 5 job-history system.
 #
 # Main table:
 # - jobs
-#   Stores one normalized record per top-level Slurm job
+#   Stores one normalized record per top-level Slurm job, including:
+#   - resource requests
+#   - lifecycle timestamps (submit/start/end)
+#   - raw and derived exit information
+#
+# Indexes are created on commonly queried fields to support fast analytics.
 #
 # Summary tables:
 # - intelligence_partition_stats
@@ -23,8 +27,8 @@ DEFAULT_DB_PATH = Path.home() / ".inkly" / "jobs.db"
 # - intelligence_failure_stats
 # - intelligence_metadata
 #
-# These summary tables are rebuilt from the raw jobs table and are meant
-# to support fast reads at runtime.
+# These are rebuilt from the jobs table and used by plug-ins to avoid
+# expensive queries during runtime.
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS jobs (
     job_id TEXT UNIQUE NOT NULL,
@@ -33,9 +37,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     partition TEXT,
     alloc_cpus INTEGER,
     req_mem_mb INTEGER,
+    submit_time TEXT,
+    start_time TEXT,
+    end_time TEXT,
     elapsed_sec INTEGER,
     state TEXT,
     exit_code TEXT,
+    derived_exit_code TEXT,
     success INTEGER,
     ingested_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -44,6 +52,11 @@ CREATE INDEX IF NOT EXISTS idx_jobs_partition ON jobs(partition);
 CREATE INDEX IF NOT EXISTS idx_jobs_success ON jobs(success);
 CREATE INDEX IF NOT EXISTS idx_jobs_alloc_cpus ON jobs(alloc_cpus);
 CREATE INDEX IF NOT EXISTS idx_jobs_req_mem_mb ON jobs(req_mem_mb);
+CREATE INDEX IF NOT EXISTS idx_jobs_submit_time ON jobs(submit_time);
+CREATE INDEX IF NOT EXISTS idx_jobs_start_time ON jobs(start_time);
+CREATE INDEX IF NOT EXISTS idx_jobs_end_time ON jobs(end_time);
+CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state);
+CREATE INDEX IF NOT EXISTS idx_jobs_derived_exit_code ON jobs(derived_exit_code);
 
 CREATE TABLE IF NOT EXISTS intelligence_partition_stats (
     partition TEXT PRIMARY KEY,
@@ -86,14 +99,13 @@ CREATE TABLE IF NOT EXISTS intelligence_metadata (
 """
 
 
-# Upsert statement for raw job ingestion.
+# Upsert statement for job ingestion.
 #
 # Behavior:
-# - inserts a new job if job_id does not exist yet
-# - updates the existing row if job_id already exists
+# - inserts new rows when job_id is unseen
+# - updates existing rows when job_id already exists
 #
-# This keeps ingestion idempotent for repeated refreshes over overlapping
-# sacct time windows.
+# This makes ingestion idempotent when sacct windows overlap.
 UPSERT_JOB_SQL = """
 INSERT INTO jobs (
     job_id,
@@ -102,13 +114,17 @@ INSERT INTO jobs (
     partition,
     alloc_cpus,
     req_mem_mb,
+    submit_time,
+    start_time,
+    end_time,
     elapsed_sec,
     state,
     exit_code,
+    derived_exit_code,
     success,
     ingested_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 ON CONFLICT(job_id) DO UPDATE SET
     user=excluded.user,
@@ -116,9 +132,13 @@ ON CONFLICT(job_id) DO UPDATE SET
     partition=excluded.partition,
     alloc_cpus=excluded.alloc_cpus,
     req_mem_mb=excluded.req_mem_mb,
+    submit_time=excluded.submit_time,
+    start_time=excluded.start_time,
+    end_time=excluded.end_time,
     elapsed_sec=excluded.elapsed_sec,
     state=excluded.state,
     exit_code=excluded.exit_code,
+    derived_exit_code=excluded.derived_exit_code,
     success=excluded.success,
     ingested_at=excluded.ingested_at
 """
@@ -128,14 +148,13 @@ class JobsDatabase:
     """
     SQLite wrapper for Inkly job-history storage.
 
-    This class handles:
-    - opening the SQLite database
-    - creating schema and indexes
-    - inserting or updating job records
-    - removing jobs outside the rolling window
+    Handles:
+    - database connection lifecycle
+    - schema creation
+    - job ingestion (single + batch)
+    - rolling window cleanup
 
-    The goal is to keep database access in one place instead of scattering
-    raw SQLite setup across the project.
+    Centralizing this logic avoids duplicating SQLite handling across the codebase.
     """
 
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
@@ -143,18 +162,15 @@ class JobsDatabase:
         self.db_path = Path(db_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Open the SQLite connection.
+        # Open SQLite connection.
         self._conn = sqlite3.connect(self.db_path)
 
-        # Use Row objects so query results can be accessed by column name.
+        # Enable dict-like access to rows (column name indexing).
         self._conn.row_factory = sqlite3.Row
 
     def create_schema(self) -> None:
         """
         Create all required tables and indexes if they do not already exist.
-
-        This executes the full schema script, including raw job storage
-        and intelligence summary tables.
         """
         self._conn.executescript(SCHEMA_SQL)
         self._conn.commit()
@@ -167,7 +183,7 @@ class JobsDatabase:
 
     def __enter__(self) -> "JobsDatabase":
         """
-        Support use as a context manager.
+        Support context manager usage.
 
         Example:
             with JobsDatabase() as db:
@@ -177,16 +193,16 @@ class JobsDatabase:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         """
-        Ensure the database connection is closed when leaving the context.
+        Ensure the connection is closed when leaving the context.
         """
         self.close()
 
-    def upsert_job(self, record):
+    def upsert_job(self, record) -> None:
         """
         Insert or update a single job record.
 
-        The ingested_at timestamp is refreshed on every upsert so the row
-        reflects the latest ingestion pass.
+        ingested_at is refreshed on every write so it reflects
+        the most recent ingestion pass.
         """
         now = datetime.now(timezone.utc).isoformat()
 
@@ -199,26 +215,28 @@ class JobsDatabase:
                 record.partition,
                 record.alloc_cpus,
                 record.req_mem_mb,
+                record.submit_time,
+                record.start_time,
+                record.end_time,
                 record.elapsed_sec,
                 record.state,
                 record.exit_code,
+                record.derived_exit_code,
                 record.success,
                 now,
             ),
         )
+        self._conn.commit()
 
-    def upsert_jobs(self, records):
+    def upsert_jobs(self, records) -> None:
         """
-        Insert or update multiple job records in one batch.
+        Insert or update multiple job records in a batch.
 
-        This is the main ingestion path used during refresh because batching
-        is more efficient than executing one statement per row.
+        This is the primary ingestion path since executemany is more efficient
+        than issuing one insert per row.
         """
-        from datetime import datetime, timezone
-
         now = datetime.now(timezone.utc).isoformat()
 
-        # Build the full parameter rows once, then execute in bulk.
         rows = [
             (
                 r.job_id,
@@ -227,9 +245,13 @@ class JobsDatabase:
                 r.partition,
                 r.alloc_cpus,
                 r.req_mem_mb,
+                r.submit_time,
+                r.start_time,
+                r.end_time,
                 r.elapsed_sec,
                 r.state,
                 r.exit_code,
+                r.derived_exit_code,
                 r.success,
                 now,
             )
@@ -241,32 +263,41 @@ class JobsDatabase:
 
     def cleanup_old_jobs(self, window_days: int = 90) -> None:
         """
-        Remove jobs older than the configured rolling window.
+        Remove jobs outside the rolling time window.
 
-        This keeps the dataset bounded so the database does not grow forever
-        and analytics remain focused on recent cluster history.
+        Uses actual job lifecycle timestamps instead of ingestion time.
+
+        Priority order:
+        1. end_time
+        2. start_time
+        3. submit_time
+        4. ingested_at (fallback)
+
+        This ensures the dataset reflects real job history instead of
+        when the ingestion script happened to run.
         """
-
-        # SQLite datetime modifier for relative date filtering.
         threshold = f"-{window_days} days"
 
         query = """
         DELETE FROM jobs
-        WHERE ingested_at < datetime('now', ?)
+        WHERE datetime(COALESCE(end_time, start_time, submit_time, ingested_at))
+              < datetime('now', ?)
         """
-        cursor = self._conn.execute(query, (threshold,))
 
-        # Row count is printed for visibility during refresh/debug runs.
+        cursor = self._conn.execute(query, (threshold,))
         print(f"Removed {cursor.rowcount} old jobs")
         self._conn.commit()
 
 
 def initialize_jobs_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """
-    Initialize the Inkly jobs database and return the resolved path.
+    Initialize the jobs database and return the resolved path.
 
-    This is the safe setup entry point used by installation or bootstrap code.
-    It ensures the database exists and that the full schema has been created.
+    Ensures:
+    - database file exists
+    - schema is fully created
+
+    Used during installation and runtime bootstrap.
     """
     resolved_path = Path(db_path).expanduser()
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timezone, timedelta
 
 # Default location for the Inkly jobs database.
 # This database stores both raw job records and computed intelligence summaries.
@@ -273,8 +273,9 @@ class JobsDatabase:
         inserted and removed across refresh runs.
         """
 
-        # Compute the same boundary used by sacct (date-level precision)
-        cutoff_date = (datetime.utcnow() - timedelta(days=window_days)).strftime(
+        # Use timezone-aware UTC time so the cutoff stays explicit and avoids
+        # deprecated naive UTC datetime behavior.
+        cutoff_date = (datetime.now(UTC) - timedelta(days=window_days)).strftime(
             "%Y-%m-%d"
         )
 

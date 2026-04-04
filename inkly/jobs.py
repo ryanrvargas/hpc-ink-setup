@@ -330,16 +330,49 @@ def classify_job_success(
     return 0
 
 
+def _parse_exit_status(code: Optional[str]) -> Optional[int]:
+    """
+    Extract the numeric status value from a Slurm ExitCode / DerivedExitCode field.
+
+    Expected Slurm-style format:
+        "<status>:<signal>"
+
+    Examples:
+        "0:0"   -> 0
+        "1:0"   -> 1
+        "9:0"   -> 9
+        None    -> None
+
+    Returns:
+        Integer status code if parsing succeeds, otherwise None.
+    """
+    if not code:
+        return None
+
+    cleaned = code.strip()
+    if not cleaned or ":" not in cleaned:
+        return None
+
+    status_part, _signal_part = cleaned.split(":", 1)
+
+    try:
+        return int(status_part)
+    except ValueError:
+        return None
+
+
 def classify_failure_reason(
     state: str,
     exit_code: Optional[str],
     derived_exit_code: Optional[str],
 ) -> str:
     """
-    Normalize failure outcomes into simple app-level categories.
+    Normalize Slurm outcomes into stable app-level categories.
 
-    This does not replace the raw Slurm fields stored in the database.
-    It gives Inkly a stable interpretation layer for summaries/tests.
+    Interpretation priority:
+    1. obvious state-based outcomes
+    2. derived exit code when available
+    3. raw exit code fallback
 
     Possible outputs:
     - SUCCESS
@@ -349,12 +382,21 @@ def classify_failure_reason(
     - NODE_FAIL
     - FAILED
     - UNKNOWN
+
+    Notes:
+    - Raw scheduler values are still stored separately in the database
+    - This function only provides a normalized interpretation layer
     """
     normalized = normalize_slurm_state(state)
+    exit_status = _parse_exit_status(exit_code)
+    derived_status = _parse_exit_status(derived_exit_code)
 
-    if normalized == "COMPLETED" and exit_code and exit_code.startswith("0:"):
+    # Successful completion should stay explicit.
+    if normalized == "COMPLETED" and exit_status == 0:
         return "SUCCESS"
 
+    # Strong state-based outcomes come first because Slurm already tells us
+    # the scheduler-level reason directly.
     if normalized == "CANCELLED":
         return "CANCELLED"
 
@@ -367,12 +409,21 @@ def classify_failure_reason(
     if normalized == "NODE_FAIL":
         return "NODE_FAIL"
 
-    # Keep this branch broad for now. The raw state + raw exit codes are still stored,
-    # so more specific logic can be layered on later without losing data.
-    if normalized:
+    # Prefer DerivedExitCode over ExitCode when state is less specific.
+    #
+    # This does not try to over-interpret every possible Slurm status value.
+    # It mainly distinguishes "clean" success from failure-like outcomes.
+    if derived_status is not None:
+        if derived_status == 0 and normalized == "COMPLETED":
+            return "SUCCESS"
         return "FAILED"
 
-    if derived_exit_code or exit_code:
+    if exit_status is not None:
+        if exit_status == 0 and normalized == "COMPLETED":
+            return "SUCCESS"
+        return "FAILED"
+
+    if normalized:
         return "FAILED"
 
     return "UNKNOWN"

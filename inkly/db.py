@@ -275,9 +275,9 @@ class JobsDatabase:
 
         # Use timezone-aware UTC time so the cutoff stays explicit and avoids
         # deprecated naive UTC datetime behavior.
-        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=window_days)).strftime(
-            "%Y-%m-%d"
-        )
+        cutoff_date = (
+            datetime.now(timezone.utc) - timedelta(days=window_days)
+        ).strftime("%Y-%m-%d")
 
         query = """
         DELETE FROM jobs

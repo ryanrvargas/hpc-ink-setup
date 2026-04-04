@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from inkly.jobs import (
+    _parse_exit_status,
     classify_failure_reason,
     classify_job_success,
     parse_elapsed_sec,
@@ -175,6 +176,44 @@ def test_failed_job():
     Standard failed jobs are classified as unsuccessful.
     """
     assert classify_job_success("FAILED", "2:0", "2:0") == 0
+
+
+def test_parse_exit_status_zero():
+    """
+    Slurm-style exit strings should expose the numeric status component.
+    """
+    assert _parse_exit_status("0:0") == 0
+
+
+def test_parse_exit_status_nonzero():
+    """
+    Nonzero Slurm-style exit strings should parse correctly.
+    """
+    assert _parse_exit_status("9:0") == 9
+    assert _parse_exit_status("125:0") == 125
+
+
+def test_parse_exit_status_invalid():
+    """
+    Invalid or missing exit strings should safely return None.
+    """
+    assert _parse_exit_status(None) is None
+    assert _parse_exit_status("") is None
+    assert _parse_exit_status("bad-value") is None
+
+
+def test_classify_failure_reason_uses_derived_exit_code_when_present():
+    """
+    DerivedExitCode should participate in failure interpretation when present.
+    """
+    assert classify_failure_reason("FAILED", "0:0", "1:0") == "FAILED"
+
+
+def test_classify_failure_reason_completed_with_zero_derived_exit():
+    """
+    A completed job with clean raw/derived exit values should remain SUCCESS.
+    """
+    assert classify_failure_reason("COMPLETED", "0:0", "0:0") == "SUCCESS"
 
 
 def test_classify_failure_reason_success():

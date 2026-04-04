@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from inkly.db import JobsDatabase, initialize_jobs_db
 from inkly.jobs import SacctJobRecord, ingest_jobs_to_db
 

@@ -4,13 +4,17 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import subprocess
 from typing import List, Optional
-from inkly.db import JobsDatabase
-from inkly.intelligence.analytics import rebuild_intelligence_summaries
-from inkly.db import DEFAULT_DB_PATH
 
-# sacct fields requested from Slurm.
-# The order here matters because parse_sacct_line() expects output columns
-# to match this exact layout.
+from inkly.db import DEFAULT_DB_PATH, JobsDatabase
+from inkly.intelligence.analytics import rebuild_intelligence_summaries
+
+# Ordered list of sacct fields requested during refresh.
+#
+# This now includes lifecycle timestamps and Slurm's DerivedExitCode so
+# Issue 5 has enough raw data to:
+# - store actual job timing
+# - distinguish different failure types later
+# - support rolling-window pruning based on real job timestamps
 SACCT_FIELDS = [
     "JobID",
     "User",
@@ -18,28 +22,24 @@ SACCT_FIELDS = [
     "Partition",
     "AllocCPUS",
     "ReqMem",
+    "Submit",
+    "Start",
+    "End",
     "Elapsed",
     "State",
     "ExitCode",
+    "DerivedExitCode",
 ]
 
 
 @dataclass
 class SacctJobRecord:
     """
-    Structured representation of one parsed sacct job row.
+    Structured top-level Slurm job record parsed from sacct output.
 
-    This stores both raw values from sacct and normalized fields added later
-    during ingestion preparation.
-
-    Raw fields:
-    - req_mem_raw
-    - elapsed_raw
-
-    Derived fields:
-    - success
-    - req_mem_mb
-    - elapsed_sec
+    Raw scheduler fields are preserved where useful, while common fields
+    like memory and elapsed time are also normalized into database-ready
+    values.
     """
 
     job_id: str
@@ -48,9 +48,13 @@ class SacctJobRecord:
     partition: Optional[str]
     alloc_cpus: Optional[int]
     req_mem_raw: Optional[str]
+    submit_time: Optional[str]
+    start_time: Optional[str]
+    end_time: Optional[str]
     elapsed_raw: Optional[str]
     state: str
     exit_code: Optional[str]
+    derived_exit_code: Optional[str]
     success: Optional[int] = None
     req_mem_mb: Optional[int] = None
     elapsed_sec: Optional[int] = None
@@ -59,10 +63,7 @@ class SacctJobRecord:
 @dataclass
 class RefreshSummary:
     """
-    Summary of one refresh / ingestion pass.
-
-    This is used to report what happened after pulling job history
-    and syncing it into the database.
+    Summary returned after an ingestion refresh completes.
     """
 
     jobs_scanned: int
@@ -74,10 +75,7 @@ class RefreshSummary:
 
 def build_sacct_command(window_days: int = 90) -> List[str]:
     """
-    Build the sacct command used to retrieve historical jobs.
-
-    The start date is calculated from the rolling window so only recent
-    history is requested.
+    Build the sacct command for retrieving historical jobs.
 
     Args:
         window_days: Number of days of job history to query.
@@ -103,8 +101,6 @@ def run_sacct(window_days: int = 90) -> str:
     """
     Execute sacct and return raw stdout.
 
-    This is the low-level command execution step before parsing.
-
     Args:
         window_days: Number of days of history to query.
 
@@ -112,7 +108,7 @@ def run_sacct(window_days: int = 90) -> str:
         Raw stdout from sacct.
 
     Raises:
-        RuntimeError: If sacct is missing or the command fails.
+        RuntimeError: If sacct is missing or execution fails.
     """
     cmd = build_sacct_command(window_days)
 
@@ -135,9 +131,9 @@ def run_sacct(window_days: int = 90) -> str:
 
 def parse_int(value: str) -> Optional[int]:
     """
-    Parse an integer safely.
+    Parse an integer field safely.
 
-    Returns None if the value is empty or cannot be converted.
+    Returns None for blank or invalid values instead of raising.
     """
     value = value.strip()
     if not value:
@@ -149,17 +145,78 @@ def parse_int(value: str) -> Optional[int]:
         return None
 
 
+def normalize_slurm_state(state: Optional[str]) -> str:
+    """
+    Normalize Slurm state strings into stable labels.
+
+    Example:
+    - "CANCELLED by 12345" -> "CANCELLED"
+
+    This keeps downstream logic cleaner without losing the original
+    failure meaning.
+    """
+    if not state:
+        return ""
+
+    cleaned = state.strip().upper()
+
+    if cleaned.startswith("CANCELLED"):
+        return "CANCELLED"
+
+    return cleaned
+
+
+def parse_slurm_timestamp(value: Optional[str]) -> Optional[str]:
+    """
+    Parse a Slurm timestamp into ISO 8601 text for SQLite storage.
+
+    Returns None for blank or unknown scheduler values.
+
+    Common cases:
+    - 2026-03-31T14:22:01
+    - 2026-03-31 14:22:01
+    - Unknown / N/A / None
+    """
+    if not value:
+        return None
+
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+
+    normalized_upper = cleaned.upper()
+    if normalized_upper in {"UNKNOWN", "N/A", "NONE"}:
+        return None
+
+    # Try Python's flexible ISO parsing first.
+    try:
+        return datetime.fromisoformat(cleaned).isoformat()
+    except ValueError:
+        pass
+
+    # Fall back to a few common non-ISO-like layouts that still show up in tools.
+    fallback_formats = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S.%f",
+    ]
+
+    for fmt in fallback_formats:
+        try:
+            return datetime.strptime(cleaned, fmt).isoformat()
+        except ValueError:
+            continue
+
+    return None
+
+
 def parse_sacct_line(line: str) -> Optional[SacctJobRecord]:
     """
-    Parse one sacct --parsable2 output line into a SacctJobRecord.
-
-    Expected behavior:
-    - blank lines are ignored
-    - malformed rows are ignored
-    - valid rows are converted into structured records
+    Parse a single sacct --parsable2 line into a SacctJobRecord.
 
     Args:
-        line: One raw line from sacct output.
+        line: One line of sacct output.
 
     Returns:
         SacctJobRecord if parsing succeeds, otherwise None.
@@ -169,8 +226,6 @@ def parse_sacct_line(line: str) -> Optional[SacctJobRecord]:
         return None
 
     parts = stripped.split("|")
-
-    # The number of columns must match the requested sacct fields exactly.
     if len(parts) != len(SACCT_FIELDS):
         return None
 
@@ -181,9 +236,13 @@ def parse_sacct_line(line: str) -> Optional[SacctJobRecord]:
         partition,
         alloc_cpus,
         req_mem,
+        submit_time,
+        start_time,
+        end_time,
         elapsed,
         state,
         exit_code,
+        derived_exit_code,
     ) = parts
 
     return SacctJobRecord(
@@ -193,42 +252,48 @@ def parse_sacct_line(line: str) -> Optional[SacctJobRecord]:
         partition=partition.strip() or None,
         alloc_cpus=parse_int(alloc_cpus),
         req_mem_raw=req_mem.strip() or None,
+        submit_time=parse_slurm_timestamp(submit_time),
+        start_time=parse_slurm_timestamp(start_time),
+        end_time=parse_slurm_timestamp(end_time),
         elapsed_raw=elapsed.strip() or None,
-        state=state.strip(),
+        state=normalize_slurm_state(state),
         exit_code=exit_code.strip() or None,
+        derived_exit_code=derived_exit_code.strip() or None,
     )
 
 
 def is_top_level_job(job_id: str) -> bool:
     """
-    Return True if the Slurm JobID represents a top-level job.
+    Return True if the Slurm JobID is a top-level job.
 
-    Slurm step records such as .batch or .extern are excluded because
-    the ingestion logic is focused on one row per top-level job.
+    Step rows such as:
+    - .batch
+    - .extern
+
+    are filtered out because the database is intended to store one row
+    per top-level job, not all internal step rows.
     """
     return "." not in job_id
 
 
 def is_terminal_job_state(state: str) -> bool:
     """
-    Return True if the job is in a terminal state.
+    Return True if the job state is not active.
 
-    Active states such as RUNNING and PENDING are excluded because this
-    ingestion path is meant to capture completed lifecycle outcomes.
+    Active states are excluded so only completed lifecycle rows are ingested.
     """
-    normalized = state.strip().upper()
+    normalized = normalize_slurm_state(state)
     return normalized not in {"RUNNING", "PENDING"}
 
 
 def should_ingest(record: SacctJobRecord) -> bool:
     """
-    Apply ingestion rules for deciding whether a parsed record should be kept.
+    Apply job-ingestion rules.
 
     Rules:
-    - Ignore JobIDs containing '.' because those are usually batch/extern steps
-    - Ignore RUNNING jobs
-    - Ignore PENDING jobs
-    - Keep only top-level jobs in terminal states
+    - Ignore non-top-level step rows like .batch and .extern
+    - Ignore active jobs
+    - Only ingest completed lifecycle jobs
     """
     if not is_top_level_job(record.job_id):
         return False
@@ -239,26 +304,140 @@ def should_ingest(record: SacctJobRecord) -> bool:
     return True
 
 
+def classify_job_success(
+    state: str,
+    exit_code: Optional[str],
+    derived_exit_code: Optional[str] = None,
+) -> int:
+    """
+    Deterministically classify whether a Slurm job succeeded.
+
+    Current rule:
+    - success = 1 only if state == COMPLETED and exit_code starts with "0:"
+    - success = 0 otherwise
+
+    DerivedExitCode is accepted here so later logic can expand without
+    changing the call signature again.
+    """
+    _ = derived_exit_code
+
+    normalized = normalize_slurm_state(state)
+
+    if normalized == "COMPLETED":
+        if exit_code and exit_code.startswith("0:"):
+            return 1
+
+    return 0
+
+
+def _parse_exit_status(code: Optional[str]) -> Optional[int]:
+    """
+    Extract the numeric status value from a Slurm ExitCode / DerivedExitCode field.
+
+    Expected Slurm-style format:
+        "<status>:<signal>"
+
+    Examples:
+        "0:0"   -> 0
+        "1:0"   -> 1
+        "9:0"   -> 9
+        None    -> None
+
+    Returns:
+        Integer status code if parsing succeeds, otherwise None.
+    """
+    if not code:
+        return None
+
+    cleaned = code.strip()
+    if not cleaned or ":" not in cleaned:
+        return None
+
+    status_part, _signal_part = cleaned.split(":", 1)
+
+    try:
+        return int(status_part)
+    except ValueError:
+        return None
+
+
+def classify_failure_reason(
+    state: str,
+    exit_code: Optional[str],
+    derived_exit_code: Optional[str],
+) -> str:
+    """
+    Normalize Slurm outcomes into stable app-level categories.
+
+    Interpretation priority:
+    1. obvious state-based outcomes
+    2. derived exit code when available
+    3. raw exit code fallback
+
+    Possible outputs:
+    - SUCCESS
+    - CANCELLED
+    - TIMEOUT
+    - OUT_OF_MEMORY
+    - NODE_FAIL
+    - FAILED
+    - UNKNOWN
+
+    Notes:
+    - Raw scheduler values are still stored separately in the database
+    - This function only provides a normalized interpretation layer
+    """
+    normalized = normalize_slurm_state(state)
+    exit_status = _parse_exit_status(exit_code)
+    derived_status = _parse_exit_status(derived_exit_code)
+
+    # Successful completion should stay explicit.
+    if normalized == "COMPLETED" and exit_status == 0:
+        return "SUCCESS"
+
+    # Strong state-based outcomes come first because Slurm already tells us
+    # the scheduler-level reason directly.
+    if normalized == "CANCELLED":
+        return "CANCELLED"
+
+    if normalized == "TIMEOUT":
+        return "TIMEOUT"
+
+    if normalized == "OUT_OF_MEMORY":
+        return "OUT_OF_MEMORY"
+
+    if normalized == "NODE_FAIL":
+        return "NODE_FAIL"
+
+    # Prefer DerivedExitCode over ExitCode when state is less specific.
+    #
+    # This does not try to over-interpret every possible Slurm status value.
+    # It mainly distinguishes "clean" success from failure-like outcomes.
+    if derived_status is not None:
+        if derived_status == 0 and normalized == "COMPLETED":
+            return "SUCCESS"
+        return "FAILED"
+
+    if exit_status is not None:
+        if exit_status == 0 and normalized == "COMPLETED":
+            return "SUCCESS"
+        return "FAILED"
+
+    if normalized:
+        return "FAILED"
+
+    return "UNKNOWN"
+
+
 def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
     """
-    Fetch, parse, filter, and enrich sacct job records.
-
-    Flow:
-    - run sacct
-    - parse each output line
-    - filter out rows that should not be ingested
-    - derive normalized fields used by analytics and storage
-
-    Derived fields added here:
-    - success
-    - req_mem_mb
-    - elapsed_sec
+    Fetch and parse sacct job records for the given time window.
 
     Args:
         window_days: Number of days of history to query.
 
     Returns:
-        Filtered and enriched SacctJobRecord objects.
+        Filtered list of normalized SacctJobRecord objects.
     """
     raw_output = run_sacct(window_days)
     records: List[SacctJobRecord] = []
@@ -269,8 +448,11 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
             continue
 
         if should_ingest(record):
-            # Add normalized fields before the record is stored.
-            record.success = classify_job_success(record.state, record.exit_code)
+            record.success = classify_job_success(
+                record.state,
+                record.exit_code,
+                record.derived_exit_code,
+            )
             record.req_mem_mb = parse_req_mem_mb(record.req_mem_raw)
             record.elapsed_sec = parse_elapsed_sec(record.elapsed_raw)
             records.append(record)
@@ -278,68 +460,58 @@ def fetch_sacct_job_records(window_days: int = 90) -> List[SacctJobRecord]:
     return records
 
 
-def classify_job_success(state: str, exit_code: Optional[str]) -> int:
+def ingest_jobs_to_db(
+    records: List[SacctJobRecord],
+    window_days: int = 90,
+    db_path=DEFAULT_DB_PATH,
+) -> RefreshSummary:
     """
-    Classify whether a Slurm job should be treated as successful.
+    Ingest parsed job records into SQLite and enforce the rolling window.
 
-    Rules:
-    - success = 1 only if state == COMPLETED and exit_code starts with "0:"
-    - success = 0 otherwise
-
-    Important:
-    - TIMEOUT with exit code 0:0 is still treated as failure
+    Returns a structured summary for CLI or script reporting.
     """
-    if state is None:
-        return 0
-
-    normalized = state.strip().upper()
-
-    if normalized == "COMPLETED":
-        if exit_code and exit_code.startswith("0:"):
-            return 1
-
-    return 0
-
-
-def ingest_jobs_to_db(records, window_days: int = 90) -> RefreshSummary:
-    """
-    Ingest parsed job records into the jobs database and apply window cleanup.
-
-    Flow:
-    - read existing job IDs
-    - determine inserted vs updated counts
-    - upsert all incoming records
-    - remove rows outside the rolling window
-    - rebuild intelligence summary tables
-    - return a refresh summary
-
-    Returns:
-        RefreshSummary describing the ingestion results.
-    """
-    with JobsDatabase() as db:
-        # Load current job IDs so insert/update counts can be estimated.
-        existing_ids = {
-            row["job_id"]
-            for row in db._conn.execute("SELECT job_id FROM jobs").fetchall()
+    with JobsDatabase(db_path) as db:
+        # Load existing rows so we can detect real changes, not just ID matches.
+        existing_rows = {
+            row["job_id"]: row
+            for row in db._conn.execute("SELECT * FROM jobs").fetchall()
         }
 
-        incoming_ids = {r.job_id for r in records}
+        jobs_inserted = 0
+        jobs_updated = 0
+        jobs_unchanged = 0  # optional, but useful for debugging
 
-        jobs_updated = sum(1 for job_id in incoming_ids if job_id in existing_ids)
-        jobs_inserted = sum(1 for job_id in incoming_ids if job_id not in existing_ids)
+        for r in records:
+            existing = existing_rows.get(r.job_id)
 
-        # Upsert all incoming rows in bulk.
+            # New job → insert
+            if existing is None:
+                jobs_inserted += 1
+                continue
+
+            # Compare key fields to detect actual changes
+            changed = (
+                existing["state"] != r.state
+                or existing["exit_code"] != r.exit_code
+                or existing["derived_exit_code"] != r.derived_exit_code
+                or existing["elapsed_sec"] != r.elapsed_sec
+                or existing["req_mem_mb"] != r.req_mem_mb
+            )
+
+            if changed:
+                jobs_updated += 1
+            else:
+                jobs_unchanged += 1
+
         db.upsert_jobs(records)
 
-        # Measure cleanup impact using SQLite's total_changes counter.
         before_cleanup = db._conn.total_changes
         db.cleanup_old_jobs(window_days)
         after_cleanup = db._conn.total_changes
 
         jobs_removed = after_cleanup - before_cleanup
 
-    # Rebuild summary tables after raw job data changes.
-    rebuild_intelligence_summaries(DEFAULT_DB_PATH)
+    rebuild_intelligence_summaries(db_path)
 
     return RefreshSummary(
         jobs_scanned=len(records),
@@ -350,52 +522,55 @@ def ingest_jobs_to_db(records, window_days: int = 90) -> RefreshSummary:
     )
 
 
-def refresh_jobs(window_days: int = 90) -> RefreshSummary:
+def refresh_jobs(window_days: int = 90, db_path=DEFAULT_DB_PATH) -> RefreshSummary:
     """
-    Refresh the local jobs dataset from sacct.
-
-    This is the main high-level entry point for job-history ingestion.
+    Fetch historical jobs from sacct and ingest them into the SQLite dataset.
     """
     records = fetch_sacct_job_records(window_days=window_days)
-    return ingest_jobs_to_db(records, window_days=window_days)
+    return ingest_jobs_to_db(records, window_days=window_days, db_path=db_path)
 
 
 def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
     """
-    Convert Slurm ReqMem strings into megabytes.
+    Convert Slurm ReqMem string into megabytes.
 
     Supported examples:
         64000M  -> 64000
         64G     -> 65536
-        4000K   -> 3
+        1.50G   -> 1536
+        0.50G   -> 512
+        4000K   -> 3 (approx, floor division)
         64000Mc -> 64000
         64000Mn -> 64000
 
     Notes:
-    - Slurm may append per-CPU / per-node suffixes such as c or n
-    - Unsupported or malformed values return None
+    - Slurm may append per-cpu / per-node suffixes like 'c' or 'n'
+    - Decimal values are supported for K, M, and G units
+    - Results are normalized to integer MB
     """
     if not mem:
         return None
 
     mem = mem.strip().upper()
+    if not mem:
+        return None
 
     try:
-        # Remove Slurm per-cpu / per-node suffix.
-        # After uppercasing:
-        # - Mc -> MC
-        # - Mn -> MN
-        if mem.endswith("MC") or mem.endswith("MN"):
+        # Remove Slurm per-cpu / per-node suffixes like Mc / Mn / Gc / Gn.
+        if len(mem) >= 2 and mem[-1] in {"C", "N"} and mem[-2] in {"K", "M", "G"}:
             mem = mem[:-1]
 
         if mem.endswith("M"):
-            return int(mem[:-1])
+            value_mb = float(mem[:-1])
+            return int(value_mb)
 
         if mem.endswith("G"):
-            return int(mem[:-1]) * 1024
+            value_gb = float(mem[:-1])
+            return int(value_gb * 1024)
 
         if mem.endswith("K"):
-            return int(mem[:-1]) // 1024
+            value_kb = float(mem[:-1])
+            return int(value_kb // 1024)
 
     except ValueError:
         return None
@@ -405,15 +580,12 @@ def parse_req_mem_mb(mem: Optional[str]) -> Optional[int]:
 
 def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
     """
-    Convert Slurm elapsed-time strings into total seconds.
+    Convert Slurm elapsed time into total seconds.
 
-    Supported formats seen in sacct:
-        HH:MM:SS
-        MM:SS
-        D-HH:MM:SS
-
-    Returns:
-        Total elapsed seconds, or None if parsing fails.
+    Supported formats:
+    - HH:MM:SS
+    - MM:SS
+    - D-HH:MM:SS
     """
     if not elapsed:
         return None
@@ -421,7 +593,6 @@ def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
     elapsed = elapsed.strip()
 
     try:
-        # Handle optional day prefix.
         if "-" in elapsed:
             days_part, time_part = elapsed.split("-", 1)
             days = int(days_part)
@@ -434,25 +605,25 @@ def parse_elapsed_sec(elapsed: Optional[str]) -> Optional[int]:
         if len(parts) == 3:
             h, m, s = parts
             seconds = int(h) * 3600 + int(m) * 60 + int(s)
-
         elif len(parts) == 2:
             m, s = parts
             seconds = int(m) * 60 + int(s)
-
         else:
             return None
 
         return days * 86400 + seconds
-
     except ValueError:
         return None
 
 
 if __name__ == "__main__":
-    # Simple manual execution path for local testing/debugging.
+    # Basic direct-run path for local testing while the dedicated refresh
+    # script/CLI flow is still being refined.
     records = fetch_sacct_job_records(window_days=90)
     print(f"Fetched {len(records)} filtered jobs")
-    ingest_jobs_to_db(records, window_days=90)
+
+    summary = ingest_jobs_to_db(records, window_days=90)
+    print(summary)
 
     for record in records[:8]:
         print(record)

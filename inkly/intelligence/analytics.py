@@ -1,7 +1,7 @@
 import sqlite3
 import time
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Small in-memory cache to avoid recomputing intelligence metrics repeatedly.
 # Key = db_path, Value = (result_dict, timestamp)
@@ -121,7 +121,7 @@ def rebuild_intelligence_summaries(db_path: str) -> None:
     conn.row_factory = sqlite3.Row
 
     try:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Clear existing summary tables before rebuilding.
         # This ensures summaries reflect the current dataset exactly.

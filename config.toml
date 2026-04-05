@@ -263,8 +263,8 @@ summary_trigger = 30
 max_summary_chars = 1200
 
 [llm]
-backend = "github"
-model = "llama3"
+backend = "ollama"
+model = "llama3.1:8b"
 
 [core]
 max_concurrent_requests = 4

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+
 
 class LLMBackend:
     """
@@ -53,33 +55,50 @@ class LLMBackend:
         Raises:
             ValueError: If the configured backend is not supported.
         """
-        # Apply a final hard limit before sending the prompt to any backend.
         prompt = prompt[: self.max_prompt_length()]
-
         backend = self.selected_backend()
 
-        # Route to the Ollama backend handler.
         if backend == "ollama":
             return self._generate_ollama(prompt)
 
-        # Route to the GitHub backend handler.
         if backend == "github":
             return self._generate_github(prompt)
 
-        # Fail fast if the configured backend is unknown.
         raise ValueError(f"Unsupported backend: {backend}")
 
     def _generate_ollama(self, prompt: str) -> str:
         """
-        Placeholder Ollama backend implementation.
+        Call Ollama through the CLI and return the generated text.
 
-        This currently returns a simulated response and does not yet
-        perform a real Ollama request.
+        This first implementation keeps the call blocking and simple.
+        Streaming support can be added after the base path works.
         """
-        # Model selection is included in the placeholder so the configured
-        # model still shows up in the response path.
         model = self.selected_model()
-        return f"[ollama placeholder: model={model}] Simulated response."
+        cmd = ["ollama", "run", model]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=prompt,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("Ollama CLI not found on PATH.") from exc
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            if not stderr:
+                stderr = "unknown Ollama error"
+            raise RuntimeError(f"Ollama generation failed: {stderr}")
+
+        output = (result.stdout or "").strip()
+        if not output:
+            raise RuntimeError("Ollama returned an empty response.")
+
+        return output
 
     def _generate_github(self, prompt: str) -> str:
         """

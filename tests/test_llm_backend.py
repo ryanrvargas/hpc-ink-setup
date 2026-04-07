@@ -15,7 +15,7 @@ def make_config():
 def test_generate_ollama_success(monkeypatch):
     backend = LLMBackend(make_config())
 
-    def fake_run(cmd, input, stdout, stderr, text, check):
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
         assert cmd == ["ollama", "run", "llama3.1:8b"]
         assert input == "hello"
         return SimpleNamespace(returncode=0, stdout="Hi there\n", stderr="")

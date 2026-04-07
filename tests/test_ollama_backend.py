@@ -34,7 +34,7 @@ def test_generate_ollama_calls_tunnel_manager(monkeypatch):
 
     monkeypatch.setattr(backend, "_get_ollama_tunnel", lambda: fake_tunnel)
 
-    def fake_run(cmd, input, stdout, stderr, text, check):
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
         return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -43,3 +43,24 @@ def test_generate_ollama_calls_tunnel_manager(monkeypatch):
 
     assert result == "ok"
     assert called["ensure"] == 1
+
+def test_generate_ollama_uses_direct_host(monkeypatch):
+    cfg = make_config()
+    cfg.ollama.use_direct_host = True
+    cfg.ollama.direct_host = "gpu1"
+    cfg.ollama.direct_port = 11434
+
+    backend = LLMBackend(cfg)
+
+    captured = {}
+
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
+        captured["env"] = kwargs.get("env", {})
+        return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = backend.generate("hello")
+
+    assert result == "ok"
+    assert captured["env"]["OLLAMA_HOST"] == "http://gpu1:11434"

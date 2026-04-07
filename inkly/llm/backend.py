@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
 
 class LLMBackend:
@@ -20,6 +21,7 @@ class LLMBackend:
     def __init__(self, config):
         # Shared config object used to determine backend, model, and prompt limits.
         self.config = config
+        self.ollama_tunnel = OllamaTunnelManager(config)
 
     def selected_backend(self) -> str:
         """
@@ -70,9 +72,12 @@ class LLMBackend:
         """
         Call Ollama through the CLI and return the generated text.
 
-        This first implementation keeps the call blocking and simple.
-        Streaming support can be added after the base path works.
+        Before generating, ensure the local Ollama endpoint is reachable.
+        This may reuse an already-running local service or open an SSH tunnel
+        to an admin-managed remote Ollama instance.
         """
+        self.ollama_tunnel.ensure_ready()
+
         model = self.selected_model()
         cmd = ["ollama", "run", model]
 
@@ -99,7 +104,7 @@ class LLMBackend:
             raise RuntimeError("Ollama returned an empty response.")
 
         return output
-
+    
     def _generate_github(self, prompt: str) -> str:
         """
         Placeholder GitHub backend implementation.

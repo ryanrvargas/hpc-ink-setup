@@ -276,3 +276,13 @@ top_k = 3
 fallback_to_all_plugins = true
 min_score = 0.0
 index_path = "~/.inkly/retrieval_index.json"
+
+[ollama]
+tunnel_enabled = true
+ssh_target = ""
+remote_host = "127.0.0.1"
+remote_port = 11434
+local_host = "127.0.0.1"
+local_port = 11434
+startup_timeout_sec = 20
+manage_server = false

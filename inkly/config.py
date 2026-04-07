@@ -353,6 +353,62 @@ class RetrievalConfig:
             raise ConfigError("retrieval.index_path must be a non-empty string")
 
         return self
+    
+@dataclass
+class OllamaServiceConfig:
+    """
+    Configuration for reaching an admin-managed Ollama server.
+
+    Current scope:
+    - optional SSH tunnel from login node -> GPU node
+    - no automatic Slurm job submission
+
+    Future scope:
+    - optional auto-start / job submission, kept disabled for now
+    """
+
+    tunnel_enabled: bool = True
+    ssh_target: str = ""
+    remote_host: str = "127.0.0.1"
+    remote_port: int = 11434
+    local_host: str = "127.0.0.1"
+    local_port: int = 11434
+    startup_timeout_sec: int = 20
+
+    # Explicit future toggle. Kept disabled for now.
+    manage_server: bool = False
+
+    def validate(self) -> "OllamaServiceConfig":
+        if not isinstance(self.tunnel_enabled, bool):
+            raise ConfigError("ollama.tunnel_enabled must be a boolean")
+
+        if not isinstance(self.manage_server, bool):
+            raise ConfigError("ollama.manage_server must be a boolean")
+
+        if not isinstance(self.ssh_target, str):
+            raise ConfigError("ollama.ssh_target must be a string")
+
+        if not isinstance(self.remote_host, str) or not self.remote_host.strip():
+            raise ConfigError("ollama.remote_host must be a non-empty string")
+
+        if not isinstance(self.local_host, str) or not self.local_host.strip():
+            raise ConfigError("ollama.local_host must be a non-empty string")
+
+        if not isinstance(self.remote_port, int) or self.remote_port <= 0:
+            raise ConfigError("ollama.remote_port must be > 0")
+
+        if not isinstance(self.local_port, int) or self.local_port <= 0:
+            raise ConfigError("ollama.local_port must be > 0")
+
+        if not isinstance(self.startup_timeout_sec, int) or self.startup_timeout_sec <= 0:
+            raise ConfigError("ollama.startup_timeout_sec must be > 0")
+
+        if self.tunnel_enabled and not self.ssh_target.strip():
+            raise ConfigError(
+                "ollama.ssh_target must be set when ollama.tunnel_enabled = true"
+            )
+
+        return self
 
 
 # NOTE:
@@ -368,6 +424,7 @@ class InklyConfig:
     intelligence: IntelligenceConfig
     conversation: ConversationConfig
     llm: LLMConfig
+    ollama: OllamaServiceConfig
     core: CoreConfig
     retrieval: RetrievalConfig
 
@@ -439,6 +496,9 @@ class TomlParser:
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
         retrieval_cfg = RetrievalConfig(**retrieval_data).validate()
 
+        ollama_data = raw.get("ollama", {}) or {}
+        ollama_cfg = OllamaServiceConfig(**ollama_data).validate()
+
         return InklyConfig(
             raw_config=raw,
             node=node,
@@ -450,4 +510,5 @@ class TomlParser:
             llm=llm_cfg,
             core=core_cfg,
             retrieval=retrieval_cfg,
+            ollama=ollama_cfg,
         )

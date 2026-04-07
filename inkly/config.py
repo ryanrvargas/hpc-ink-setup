@@ -357,16 +357,22 @@ class RetrievalConfig:
 @dataclass
 class OllamaServiceConfig:
     """
-    Configuration for reaching an admin-managed Ollama server.
+    Configuration for reaching an Ollama model.
 
-    Current scope:
-    - optional SSH tunnel from login node -> GPU node
-    - no automatic Slurm job submission
-
-    Future scope:
-    - optional auto-start / job submission, kept disabled for now
+    Supported modes:
+    - "cli_run": use local `ollama run <model>`
+    - "direct_host": use OLLAMA_HOST against a remote/admin server
+    - "ssh_tunnel": use local SSH tunnel to remote Ollama
+    - "admin_command": send prompt to an admin-managed wrapper command
     """
 
+    mode: str = "cli_run"
+
+    # admin_command mode
+    command_path: str = ""
+    command_args: list[str] = field(default_factory=list)
+
+    # ssh_tunnel mode
     tunnel_enabled: bool = False
     ssh_target: str = ""
     remote_host: str = "127.0.0.1"
@@ -374,14 +380,30 @@ class OllamaServiceConfig:
     local_host: str = "127.0.0.1"
     local_port: int = 11434
     startup_timeout_sec: int = 20
-    manage_server: bool = False # Future feature, currently disabled
+    manage_server: bool = False
 
-    # New fields
+    # direct_host mode
     use_direct_host: bool = False
     direct_host: str = ""
     direct_port: int = 11434
 
     def validate(self) -> "OllamaServiceConfig":
+        allowed_modes = {"cli_run", "direct_host", "ssh_tunnel", "admin_command"}
+        if self.mode not in allowed_modes:
+            raise ConfigError(
+                f"ollama.mode must be one of {sorted(allowed_modes)}"
+            )
+
+        if not isinstance(self.command_path, str):
+            raise ConfigError("ollama.command_path must be a string")
+
+        if not isinstance(self.command_args, list):
+            raise ConfigError("ollama.command_args must be a list of strings")
+
+        for arg in self.command_args:
+            if not isinstance(arg, str):
+                raise ConfigError("ollama.command_args entries must be strings")
+
         if not isinstance(self.tunnel_enabled, bool):
             raise ConfigError("ollama.tunnel_enabled must be a boolean")
 
@@ -403,7 +425,10 @@ class OllamaServiceConfig:
         if not isinstance(self.local_port, int) or self.local_port <= 0:
             raise ConfigError("ollama.local_port must be > 0")
 
-        if not isinstance(self.startup_timeout_sec, int) or self.startup_timeout_sec <= 0:
+        if (
+            not isinstance(self.startup_timeout_sec, int)
+            or self.startup_timeout_sec <= 0
+        ):
             raise ConfigError("ollama.startup_timeout_sec must be > 0")
 
         if not isinstance(self.use_direct_host, bool):
@@ -415,14 +440,19 @@ class OllamaServiceConfig:
         if not isinstance(self.direct_port, int) or self.direct_port <= 0:
             raise ConfigError("ollama.direct_port must be > 0")
 
-        if self.tunnel_enabled and not self.ssh_target.strip():
+        if self.mode == "admin_command" and not self.command_path.strip():
             raise ConfigError(
-                "ollama.ssh_target must be set when ollama.tunnel_enabled = true"
+                "ollama.command_path must be set when ollama.mode = 'admin_command'"
             )
 
-        if self.use_direct_host and not self.direct_host.strip():
+        if self.mode == "ssh_tunnel" and not self.ssh_target.strip():
             raise ConfigError(
-                "ollama.direct_host must be set when ollama.use_direct_host = true"
+                "ollama.ssh_target must be set when ollama.mode = 'ssh_tunnel'"
+            )
+
+        if self.mode == "direct_host" and not self.direct_host.strip():
+            raise ConfigError(
+                "ollama.direct_host must be set when ollama.mode = 'direct_host'"
             )
 
         return self

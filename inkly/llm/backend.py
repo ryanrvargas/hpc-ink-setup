@@ -21,7 +21,10 @@ class LLMBackend:
     def __init__(self, config):
         # Shared config object used to determine backend, model, and prompt limits.
         self.config = config
-        self.ollama_tunnel = OllamaTunnelManager(config)
+        # Tunnel management is optional and should not be initialized eagerly.
+        # Several tests construct minimal config objects that do not include
+        # ollama/state sections because they are not exercising tunnel logic.
+        self.ollama_tunnel = None
 
     def selected_backend(self) -> str:
         """
@@ -44,6 +47,24 @@ class LLMBackend:
         Return the configured hard limit for prompt size.
         """
         return self.config.core.max_prompt_length
+
+    def _has_ollama_service_config(self) -> bool:
+        """
+        Return True only when the config includes the sections required by the
+        optional tunnel/service layer.
+
+        This keeps older tests and minimal config objects compatible.
+        """
+        return hasattr(self.config, "ollama") and hasattr(self.config, "state")
+
+    def _get_ollama_tunnel(self) -> OllamaTunnelManager:
+        """
+        Lazily construct the tunnel manager only when the Ollama path actually
+        needs it.
+        """
+        if self.ollama_tunnel is None:
+            self.ollama_tunnel = OllamaTunnelManager(self.config)
+        return self.ollama_tunnel
 
     def generate(self, prompt: str) -> str:
         """
@@ -72,11 +93,12 @@ class LLMBackend:
         """
         Call Ollama through the CLI and return the generated text.
 
-        Before generating, ensure the local Ollama endpoint is reachable.
-        This may reuse an already-running local service or open an SSH tunnel
-        to an admin-managed remote Ollama instance.
+        If optional tunnel/service config exists, ensure the local Ollama
+        endpoint is reachable first. Otherwise, fall back to the plain CLI
+        behavior so older tests and minimal config objects still work.
         """
-        self.ollama_tunnel.ensure_ready()
+        if self._has_ollama_service_config():
+            self._get_ollama_tunnel().ensure_ready()
 
         model = self.selected_model()
         cmd = ["ollama", "run", model]

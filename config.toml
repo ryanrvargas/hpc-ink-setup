@@ -278,7 +278,7 @@ min_score = 0.0
 index_path = "~/.inkly/retrieval_index.json"
 
 [ollama]
-tunnel_enabled = true
+tunnel_enabled = false
 ssh_target = ""
 remote_host = "127.0.0.1"
 remote_port = 11434

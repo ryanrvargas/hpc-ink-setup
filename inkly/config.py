@@ -367,7 +367,7 @@ class OllamaServiceConfig:
     - optional auto-start / job submission, kept disabled for now
     """
 
-    tunnel_enabled: bool = True
+    tunnel_enabled: bool = False
     ssh_target: str = ""
     remote_host: str = "127.0.0.1"
     remote_port: int = 11434

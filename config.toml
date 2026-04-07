@@ -284,5 +284,9 @@ remote_host = "127.0.0.1"
 remote_port = 11434
 local_host = "127.0.0.1"
 local_port = 11434
-startup_timeout_sec = 20
+startup_timeout_sec = 30
 manage_server = false
+
+use_direct_host = true
+direct_host = "gpu1"
+direct_port = 11434

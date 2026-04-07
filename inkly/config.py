@@ -374,9 +374,12 @@ class OllamaServiceConfig:
     local_host: str = "127.0.0.1"
     local_port: int = 11434
     startup_timeout_sec: int = 20
+    manage_server: bool = False # Future feature, currently disabled
 
-    # Explicit future toggle. Kept disabled for now.
-    manage_server: bool = False
+    # New fields
+    use_direct_host: bool = False
+    direct_host: str = ""
+    direct_port: int = 11434
 
     def validate(self) -> "OllamaServiceConfig":
         if not isinstance(self.tunnel_enabled, bool):
@@ -403,9 +406,23 @@ class OllamaServiceConfig:
         if not isinstance(self.startup_timeout_sec, int) or self.startup_timeout_sec <= 0:
             raise ConfigError("ollama.startup_timeout_sec must be > 0")
 
+        if not isinstance(self.use_direct_host, bool):
+            raise ConfigError("ollama.use_direct_host must be a boolean")
+
+        if not isinstance(self.direct_host, str):
+            raise ConfigError("ollama.direct_host must be a string")
+
+        if not isinstance(self.direct_port, int) or self.direct_port <= 0:
+            raise ConfigError("ollama.direct_port must be > 0")
+
         if self.tunnel_enabled and not self.ssh_target.strip():
             raise ConfigError(
                 "ollama.ssh_target must be set when ollama.tunnel_enabled = true"
+            )
+
+        if self.use_direct_host and not self.direct_host.strip():
+            raise ConfigError(
+                "ollama.direct_host must be set when ollama.use_direct_host = true"
             )
 
         return self

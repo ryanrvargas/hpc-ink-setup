@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import os
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
 
@@ -93,15 +94,22 @@ class LLMBackend:
         """
         Call Ollama through the CLI and return the generated text.
 
-        If optional tunnel/service config exists, ensure the local Ollama
-        endpoint is reachable first. Otherwise, fall back to the plain CLI
-        behavior so older tests and minimal config objects still work.
+        Transport priority:
+        1. Direct remote host, if configured
+        2. SSH tunnel, if configured
+        3. Plain localhost CLI behavior
         """
-        if self._has_ollama_service_config():
-            self._get_ollama_tunnel().ensure_ready()
-
         model = self.selected_model()
         cmd = ["ollama", "run", model]
+        env = os.environ.copy()
+
+        if self._has_ollama_service_config():
+            ollama_cfg = self.config.ollama
+
+            if getattr(ollama_cfg, "use_direct_host", False):
+                env["OLLAMA_HOST"] = f"http://{ollama_cfg.direct_host}:{ollama_cfg.direct_port}"
+            else:
+                self._get_ollama_tunnel().ensure_ready()
 
         try:
             result = subprocess.run(
@@ -111,6 +119,7 @@ class LLMBackend:
                 stderr=subprocess.PIPE,
                 text=True,
                 check=False,
+                env=env,
             )
         except FileNotFoundError as exc:
             raise RuntimeError("Ollama CLI not found on PATH.") from exc

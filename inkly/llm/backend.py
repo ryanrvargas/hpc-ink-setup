@@ -175,7 +175,7 @@ class LLMBackend:
                 stderr = "unknown Ollama error"
             raise RuntimeError(f"Ollama admin command failed: {stderr}")
 
-        output = (result.stdout or "").strip()
+        output = _clean_terminal_output(result.stdout or "")
         if not output:
             raise RuntimeError("Ollama admin command returned an empty response.")
 

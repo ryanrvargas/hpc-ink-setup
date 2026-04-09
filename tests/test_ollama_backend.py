@@ -11,6 +11,9 @@ def make_config():
     core = SimpleNamespace(max_prompt_length=4000)
     state = SimpleNamespace(inkly_home=".inkly")
     ollama = SimpleNamespace(
+        mode="cli_run",
+        command_path="",
+        command_args=[],
         tunnel_enabled=False,
         ssh_target="",
         remote_host="127.0.0.1",
@@ -19,12 +22,20 @@ def make_config():
         local_port=11434,
         startup_timeout_sec=2,
         manage_server=False,
+        use_direct_host=False,
+        direct_host="",
+        direct_port=11434,
     )
     return SimpleNamespace(llm=llm, core=core, state=state, ollama=ollama)
 
 
 def test_generate_ollama_calls_tunnel_manager(monkeypatch):
-    backend = LLMBackend(make_config())
+    cfg = make_config()
+    cfg.ollama.mode = "ssh_tunnel"
+    cfg.ollama.tunnel_enabled = True
+    cfg.ollama.ssh_target = "rrv9177@gpu1"
+
+    backend = LLMBackend(cfg)
 
     called = {"ensure": 0}
 
@@ -46,6 +57,7 @@ def test_generate_ollama_calls_tunnel_manager(monkeypatch):
 
 def test_generate_ollama_uses_direct_host(monkeypatch):
     cfg = make_config()
+    cfg.ollama.mode = "direct_host"
     cfg.ollama.use_direct_host = True
     cfg.ollama.direct_host = "gpu1"
     cfg.ollama.direct_port = 11434
@@ -64,3 +76,43 @@ def test_generate_ollama_uses_direct_host(monkeypatch):
 
     assert result == "ok"
     assert captured["env"]["OLLAMA_HOST"] == "http://gpu1:11434"
+
+def test_generate_ollama_admin_command_uses_stdin(monkeypatch):
+    cfg = make_config()
+    cfg.ollama.mode = "admin_command"
+    cfg.ollama.command_path = "/opt/ollama/bin/ollama"
+    cfg.ollama.command_args = []
+
+    backend = LLMBackend(cfg)
+    captured = {}
+
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
+        captured["cmd"] = cmd
+        captured["input"] = input
+        return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = backend.generate("hello")
+
+    assert result == "ok"
+    assert captured["cmd"] == ["/opt/ollama/bin/ollama"]
+    assert captured["input"] == "hello"
+
+def test_generate_ollama_admin_command_missing_binary(monkeypatch):
+    cfg = make_config()
+    cfg.ollama.mode = "admin_command"
+    cfg.ollama.command_path = "/opt/ollama/bin/ollama"
+
+    backend = LLMBackend(cfg)
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    try:
+        backend.generate("hello")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert "Admin Ollama command not found" in str(exc)

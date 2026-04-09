@@ -195,7 +195,8 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
     runtime, _, _, _ = make_runtime(monkeypatch)
 
     prompt = runtime._build_prompt([], {}, "Just answer this")
-
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "You are Inkly, an HPC assistant for a Slurm-based cluster." in prompt
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt

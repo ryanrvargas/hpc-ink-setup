@@ -240,6 +240,7 @@ class InklyRuntime:
 
         # Always include the current query last.
         # This keeps the active user request explicit and easy for the backend to identify.
+        lines.append("")
         lines.append("=== USER QUERY ===")
         lines.append(query)
 

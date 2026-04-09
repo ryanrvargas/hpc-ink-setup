@@ -116,3 +116,56 @@ def test_generate_ollama_admin_command_missing_binary(monkeypatch):
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "Admin Ollama command not found" in str(exc)
+        
+from types import SimpleNamespace
+import subprocess
+
+from inkly.llm.backend import LLMBackend
+
+
+def test_admin_command_strips_spinner_and_ansi(monkeypatch):
+    cfg = make_config()
+    cfg.ollama.mode = "admin_command"
+    cfg.ollama.command_path = "/opt/ollama/ollama"
+    cfg.ollama.command_args = []
+
+    backend = LLMBackend(cfg)
+
+    fake_stdout = "\x1b[?25l\n⠋\n⠙\nHello from model\n\x1b[?25h\n"
+
+    def fake_run(cmd, input, stdout, stderr, text, check):
+        return SimpleNamespace(
+            returncode=0,
+            stdout=fake_stdout,
+            stderr="",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = backend.generate("hello")
+    assert result == "Hello from model"
+
+def test_admin_command_raises_when_cleaned_output_is_empty(monkeypatch):
+    cfg = make_config()
+    cfg.ollama.mode = "admin_command"
+    cfg.ollama.command_path = "/opt/ollama/ollama"
+    cfg.ollama.command_args = []
+
+    backend = LLMBackend(cfg)
+
+    fake_stdout = "\x1b[?25l\n⠋\n⠙\n\x1b[?25h\n"
+
+    def fake_run(cmd, input, stdout, stderr, text, check):
+        return SimpleNamespace(
+            returncode=0,
+            stdout=fake_stdout,
+            stderr="",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    try:
+        backend.generate("hello")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert "empty response" in str(exc).lower()

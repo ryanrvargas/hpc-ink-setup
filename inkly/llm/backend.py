@@ -2,8 +2,42 @@ from __future__ import annotations
 
 import subprocess
 import os
+import re
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
+def _clean_terminal_output(text: str) -> str:
+    """
+    Remove terminal control noise from captured CLI output.
+
+    This handles:
+    - ANSI escape sequences such as cursor show/hide
+    - carriage-return style progress output
+    - one-character spinner frames emitted on separate lines
+    """
+    if not text:
+        return ""
+
+    # Convert carriage-return updates into normal line separators.
+    text = text.replace("\r", "\n")
+
+    # Remove ANSI escape codes like \x1b[?25l and \x1b[?25h.
+    text = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text)
+
+    spinner_frames = {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+
+        if not stripped:
+            continue
+
+        if stripped in spinner_frames:
+            continue
+
+        cleaned_lines.append(stripped)
+
+    return "\n".join(cleaned_lines).strip()
 
 class LLMBackend:
     """

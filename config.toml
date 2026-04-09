@@ -278,7 +278,7 @@ backend = "ollama"
 model = "llama3-cuttlefish:latest"
 
 [ollama]
-mode = "admin_command"
+mode = "admin_command" # This can be swapped with "direct_host" to connect directly to a model, or "ssh_tunnel" to tunnel to other nodes with a model
 command_path = "/opt/ollama/bin/ollama"
 command_args = []
 tunnel_enabled = false

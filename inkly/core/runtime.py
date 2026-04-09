@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from threading import BoundedSemaphore
 
+import textwrap
 from inkly.core.conversation import ConversationManager
 from inkly.llm.backend import LLMBackend
 from inkly.plugins.manager import PluginManager
@@ -45,6 +46,24 @@ class InklyRuntime:
         self._request_gate = BoundedSemaphore(
             value=self.config.core.max_concurrent_requests
         )
+
+    BASE_RESPONSE_CONTRACT = textwrap.dedent("""
+    You are Inkly, an HPC assistant for a Slurm-based cluster.
+
+    Rules:
+    - Plain text only.
+    - Use the provided plugin context and conversation history when relevant.
+    - Do not invent cluster state, commands, files, or paths.
+    - If something is uncertain, say so clearly.
+
+    When the user asks for code or a configuration change:
+    1. Provide one complete code block when appropriate.
+    2. Follow it with short numbered instructions.
+    3. Keep the explanation concise and practical.
+
+    When the user is not asking for code:
+    - Answer directly and do not force a code block.
+    """).strip()
 
     def handle_query(self, user_id: str, query: str) -> str:
         """
@@ -199,15 +218,21 @@ class InklyRuntime:
         # This is easier to manage than concatenating raw strings repeatedly.
         lines = []
 
+        # Include 
+        lines.append("=== INKLY RESPONSE CONTRACT ===")
+        lines.append(self.BASE_RESPONSE_CONTRACT)
+
         # Include processed conversation history first so the backend
         # sees recent context before plugin details and the current query.
         if history_lines:
+            lines.append("")
             lines.append("=== CONVERSATION HISTORY ===")
             lines.extend(history_lines)
 
         # Include plugin outputs next.
         # Each plugin gets its own labeled block.
         if plugin_outputs:
+            lines.append("")
             lines.append("=== PLUGIN CONTEXT ===")
             for name, output in plugin_outputs.items():
                 lines.append(f"[{name}]")

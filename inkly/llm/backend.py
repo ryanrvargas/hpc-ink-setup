@@ -92,24 +92,83 @@ class LLMBackend:
 
     def _generate_ollama(self, prompt: str) -> str:
         """
-        Call Ollama through the CLI and return the generated text.
+        Route Ollama generation based on the configured transport mode.
+        """
+        if not hasattr(self.config, "ollama"):
+            return self._generate_ollama_cli_run(prompt)
 
-        Transport priority:
-        1. Direct remote host, if configured
-        2. SSH tunnel, if configured
-        3. Plain localhost CLI behavior
+        ollama_cfg = self.config.ollama
+        mode = getattr(ollama_cfg, "mode", "cli_run")
+
+        if mode == "admin_command":
+            return self._generate_ollama_admin_command(prompt)
+
+        if mode == "direct_host":
+            return self._generate_ollama_cli_run(prompt, use_direct_host=True)
+
+        if mode == "ssh_tunnel":
+            return self._generate_ollama_cli_run(prompt, use_tunnel=True)
+
+        return self._generate_ollama_cli_run(prompt)
+    
+    
+    def _generate_ollama_admin_command(self, prompt: str) -> str:
+        """
+        Send the prompt to an admin-managed Ollama wrapper command.
+
+        Preferred transport is stdin so long prompts do not hit argv limits.
+        """
+        ollama_cfg = self.config.ollama
+        cmd = [ollama_cfg.command_path, *ollama_cfg.command_args]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=prompt,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                f"Admin Ollama command not found: {ollama_cfg.command_path}"
+            ) from exc
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            if not stderr:
+                stderr = "unknown Ollama error"
+            raise RuntimeError(f"Ollama admin command failed: {stderr}")
+
+        output = (result.stdout or "").strip()
+        if not output:
+            raise RuntimeError("Ollama admin command returned an empty response.")
+
+        return output
+
+
+    def _generate_ollama_cli_run(
+        self,
+        prompt: str,
+        *,
+        use_direct_host: bool = False,
+        use_tunnel: bool = False,
+    ) -> str:
+        """
+        Use normal `ollama run <model>` behavior, optionally with direct host or tunnel.
         """
         model = self.selected_model()
         cmd = ["ollama", "run", model]
         env = os.environ.copy()
 
-        if self._has_ollama_service_config():
+        if use_direct_host:
             ollama_cfg = self.config.ollama
-
-            if getattr(ollama_cfg, "use_direct_host", False):
-                env["OLLAMA_HOST"] = f"http://{ollama_cfg.direct_host}:{ollama_cfg.direct_port}"
-            else:
-                self._get_ollama_tunnel().ensure_ready()
+            env["OLLAMA_HOST"] = (
+                f"http://{ollama_cfg.direct_host}:{ollama_cfg.direct_port}"
+            )
+        elif use_tunnel:
+            self._get_ollama_tunnel().ensure_ready()
 
         try:
             result = subprocess.run(
@@ -135,6 +194,7 @@ class LLMBackend:
             raise RuntimeError("Ollama returned an empty response.")
 
         return output
+
     
     def _generate_github(self, prompt: str) -> str:
         """

@@ -82,6 +82,19 @@ def main() -> int:
         runtime = InklyRuntime(cfg)
         user_id = _build_user_id()
         response = runtime.handle_query(user_id, query)
+
+        # The Ollama admin-command path already streams directly to stdout.
+        # Avoid printing the full response a second time after generation finishes.
+        if not (
+            getattr(cfg.llm, "backend", "") == "ollama"
+            and hasattr(cfg, "ollama")
+            and getattr(cfg.ollama, "mode", "") == "admin_command"
+        ):
+            print(response)
+        elif response and not response.endswith("\n"):
+            print()
+
+        return 0
     except Exception as exc:
         # Catch runtime-level failures and report them cleanly.
         print(f"Inkly runtime error: {exc}", file=sys.stderr)

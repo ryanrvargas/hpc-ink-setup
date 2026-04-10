@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 import os
 import re
+import sys
+
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
 def _clean_terminal_output(text: str) -> str:
@@ -100,6 +102,57 @@ class LLMBackend:
         if self.ollama_tunnel is None:
             self.ollama_tunnel = OllamaTunnelManager(self.config)
         return self.ollama_tunnel
+    
+    def _stream_admin_command(self, cmd: list[str], prompt: str) -> str:
+        """
+        Stream stdout from the admin Ollama command in real time while also
+        collecting the full response for history/runtime use.
+        """
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                f"Admin Ollama command not found: {cmd[0]}"
+            ) from exc
+
+        if process.stdin is None or process.stdout is None or process.stderr is None:
+            raise RuntimeError("Failed to open subprocess pipes for Ollama admin command.")
+
+        process.stdin.write(prompt)
+        process.stdin.close()
+
+        chunks: list[str] = []
+
+        while True:
+            ch = process.stdout.read(1)
+            if ch == "":
+                break
+
+            chunks.append(ch)
+            sys.stdout.write(ch)
+            sys.stdout.flush()
+
+        stderr_text = process.stderr.read()
+        return_code = process.wait()
+
+        if return_code != 0:
+            stderr_text = (stderr_text or "").strip()
+            if not stderr_text:
+                stderr_text = "unknown Ollama error"
+            raise RuntimeError(f"Ollama admin command failed: {stderr_text}")
+
+        output = "".join(chunks).strip()
+        if not output:
+            raise RuntimeError("Ollama admin command returned an empty response.")
+
+        return output
 
     def generate(self, prompt: str) -> str:
         """
@@ -154,32 +207,7 @@ class LLMBackend:
         """
         ollama_cfg = self.config.ollama
         cmd = [ollama_cfg.command_path, *ollama_cfg.command_args]
-
-        try:
-            result = subprocess.run(
-                cmd,
-                input=prompt,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
-        except FileNotFoundError as exc:
-            raise RuntimeError(
-                f"Admin Ollama command not found: {ollama_cfg.command_path}"
-            ) from exc
-
-        if result.returncode != 0:
-            stderr = (result.stderr or "").strip()
-            if not stderr:
-                stderr = "unknown Ollama error"
-            raise RuntimeError(f"Ollama admin command failed: {stderr}")
-
-        output = _clean_terminal_output(result.stdout or "")
-        if not output:
-            raise RuntimeError("Ollama admin command returned an empty response.")
-
-        return output
+        return self._stream_admin_command(cmd, prompt)
 
 
     def _generate_ollama_cli_run(

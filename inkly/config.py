@@ -353,7 +353,8 @@ class RetrievalConfig:
             raise ConfigError("retrieval.index_path must be a non-empty string")
 
         return self
-    
+
+
 @dataclass
 class OllamaServiceConfig:
     """
@@ -390,9 +391,7 @@ class OllamaServiceConfig:
     def validate(self) -> "OllamaServiceConfig":
         allowed_modes = {"cli_run", "direct_host", "ssh_tunnel", "admin_command"}
         if self.mode not in allowed_modes:
-            raise ConfigError(
-                f"ollama.mode must be one of {sorted(allowed_modes)}"
-            )
+            raise ConfigError(f"ollama.mode must be one of {sorted(allowed_modes)}")
 
         if not isinstance(self.command_path, str):
             raise ConfigError("ollama.command_path must be a string")

@@ -31,6 +31,7 @@ class LLMBackend:
         # Several tests construct minimal config objects that do not include
         # ollama/state sections because they are not exercising tunnel logic.
         self.ollama_tunnel = None
+        self._stdout_lock = threading.Lock()
 
     def selected_backend(self) -> str:
         """
@@ -78,21 +79,23 @@ class LLMBackend:
         started_output_event: threading.Event,
     ) -> None:
         """
-        Show a simple terminal spinner until model output starts or generation ends.
+        Show a spinner until model output starts or generation ends.
         """
         frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         idx = 0
         label = "Inkly is thinking"
 
         while not stop_event.is_set() and not started_output_event.is_set():
-            frame = frames[idx % len(frames)]
-            sys.stdout.write(f"\r{label} {frame}")
-            sys.stdout.flush()
+            with self._stdout_lock:
+                frame = frames[idx % len(frames)]
+                sys.stdout.write(f"\r{label} {frame}")
+                sys.stdout.flush()
             idx += 1
             time.sleep(0.1)
 
-        sys.stdout.write("\r" + " " * (len(label) + 4) + "\r")
-        sys.stdout.flush()
+        with self._stdout_lock:
+            sys.stdout.write("\r" + " " * (len(label) + 4) + "\r")
+            sys.stdout.flush()
 
     def _stream_admin_command(self, cmd: list[str], prompt: str) -> str:
         """
@@ -130,6 +133,8 @@ class LLMBackend:
         )
         spinner_thread.start()
 
+        spinner_joined = False
+
         try:
             while True:
                 ch = process.stdout.read(1)
@@ -138,13 +143,17 @@ class LLMBackend:
 
                 if not started_output.is_set():
                     started_output.set()
+                    spinner_thread.join(timeout=1.0)
+                    spinner_joined = True
 
                 chunks.append(ch)
-                sys.stdout.write(ch)
-                sys.stdout.flush()
+                with self._stdout_lock:
+                    sys.stdout.write(ch)
+                    sys.stdout.flush()
         finally:
             stop_spinner.set()
-            spinner_thread.join(timeout=1.0)
+            if not spinner_joined:
+                spinner_thread.join(timeout=1.0)
 
         stderr_text = process.stderr.read()
         return_code = process.wait()

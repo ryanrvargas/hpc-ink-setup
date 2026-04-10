@@ -4,42 +4,11 @@ import subprocess
 import os
 import re
 import sys
+import pty
+import select
 
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
-def _clean_terminal_output(text: str) -> str:
-    """
-    Remove terminal control noise from captured CLI output.
-
-    This handles:
-    - ANSI escape sequences such as cursor show/hide
-    - carriage-return style progress output
-    - one-character spinner frames emitted on separate lines
-    """
-    if not text:
-        return ""
-
-    # Convert carriage-return updates into normal line separators.
-    text = text.replace("\r", "\n")
-
-    # Remove ANSI escape codes like \x1b[?25l and \x1b[?25h.
-    text = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text)
-
-    spinner_frames = {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-    cleaned_lines = []
-    for line in text.splitlines():
-        stripped = line.strip()
-
-        if not stripped:
-            continue
-
-        if stripped in spinner_frames:
-            continue
-
-        cleaned_lines.append(stripped)
-
-    return "\n".join(cleaned_lines).strip()
 
 class LLMBackend:
     """
@@ -105,54 +74,99 @@ class LLMBackend:
     
     def _stream_admin_command(self, cmd: list[str], prompt: str) -> str:
         """
-        Stream stdout from the admin Ollama command in real time while also
-        collecting the full response for history/runtime use.
+        Run the admin Ollama command attached to a pseudo-terminal (PTY).
+
+        Why PTY instead of normal pipes:
+        - many CLI tools only show spinner / terminal UI when stdout is a TTY
+        - this gives Ollama a real terminal-like environment
+        - we still capture the full output for runtime/history use
         """
+        master_fd = None
+        slave_fd = None
+
         try:
+            master_fd, slave_fd = pty.openpty()
+
             process = subprocess.Popen(
                 cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                text=False,
+                close_fds=True,
             )
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                f"Admin Ollama command not found: {cmd[0]}"
-            ) from exc
+            if master_fd is not None:
+                os.close(master_fd)
+            if slave_fd is not None:
+                os.close(slave_fd)
+            raise RuntimeError(f"Admin Ollama command not found: {cmd[0]}") from exc
 
-        if process.stdin is None or process.stdout is None or process.stderr is None:
-            raise RuntimeError("Failed to open subprocess pipes for Ollama admin command.")
+        try:
+            os.write(master_fd, prompt.encode("utf-8"))
+            os.close(slave_fd)
+            slave_fd = None
 
-        process.stdin.write(prompt)
-        process.stdin.close()
+            chunks: list[bytes] = []
 
-        chunks: list[str] = []
+            while True:
+                ready, _, _ = select.select([master_fd], [], [], 0.1)
 
-        while True:
-            ch = process.stdout.read(1)
-            if ch == "":
-                break
+                if master_fd in ready:
+                    try:
+                        data = os.read(master_fd, 1024)
+                    except OSError:
+                        break
 
-            chunks.append(ch)
-            sys.stdout.write(ch)
-            sys.stdout.flush()
+                    if not data:
+                        break
 
-        stderr_text = process.stderr.read()
-        return_code = process.wait()
+                    chunks.append(data)
+                    sys.stdout.buffer.write(data)
+                    sys.stdout.buffer.flush()
 
-        if return_code != 0:
-            stderr_text = (stderr_text or "").strip()
-            if not stderr_text:
-                stderr_text = "unknown Ollama error"
-            raise RuntimeError(f"Ollama admin command failed: {stderr_text}")
+                if process.poll() is not None:
+                    # Drain any remaining PTY output after the child exits.
+                    while True:
+                        try:
+                            data = os.read(master_fd, 1024)
+                        except OSError:
+                            data = b""
 
-        output = "".join(chunks).strip()
-        if not output:
-            raise RuntimeError("Ollama admin command returned an empty response.")
+                        if not data:
+                            break
 
-        return output
+                        chunks.append(data)
+                        sys.stdout.buffer.write(data)
+                        sys.stdout.buffer.flush()
+
+                    break
+
+            return_code = process.wait()
+
+            raw_output = b"".join(chunks).decode("utf-8", errors="replace").strip()
+
+            if return_code != 0:
+                stderr = raw_output or "unknown Ollama error"
+                raise RuntimeError(f"Ollama admin command failed: {stderr}")
+
+            if not raw_output:
+                raise RuntimeError("Ollama admin command returned an empty response.")
+
+            return raw_output
+
+        finally:
+            if slave_fd is not None:
+                try:
+                    os.close(slave_fd)
+                except OSError:
+                    pass
+
+            if master_fd is not None:
+                try:
+                    os.close(master_fd)
+                except OSError:
+                    pass
 
     def generate(self, prompt: str) -> str:
         """

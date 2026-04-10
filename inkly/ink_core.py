@@ -100,10 +100,6 @@ def main() -> int:
         print(f"Inkly runtime error: {exc}", file=sys.stderr)
         return 1
 
-    # Print final response to stdout.
-    print(response)
-    return 0
-
 
 if __name__ == "__main__":
     # Run main() and exit with its return code.

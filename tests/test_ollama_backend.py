@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 import subprocess
-
+from types import SimpleNamespace
 from inkly.llm.backend import LLMBackend
 
 
@@ -119,12 +118,6 @@ def test_generate_ollama_admin_command_missing_binary(monkeypatch):
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "Admin Ollama command not found" in str(exc)
-
-
-from types import SimpleNamespace
-import subprocess
-
-from inkly.llm.backend import LLMBackend
 
 
 def test_admin_command_strips_spinner_and_ansi(monkeypatch):

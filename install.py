@@ -122,7 +122,9 @@ def verify():
         raise RuntimeError(f"Verification failed: ink launcher missing at {ink_path}")
 
     if not lib_path.exists():
-        raise RuntimeError(f"Verification failed: runtime package missing at {lib_path}")
+        raise RuntimeError(
+            f"Verification failed: runtime package missing at {lib_path}"
+        )
 
     if not db_path.exists():
         raise RuntimeError(f"Verification failed: jobs database missing at {db_path}")
@@ -150,6 +152,7 @@ def configure_shell_path():
 
     with shell_rc.open("a", encoding="utf-8") as f:
         f.write(path_line)
+
 
 # Installer Entry Point
 def main():

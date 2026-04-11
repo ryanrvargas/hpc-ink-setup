@@ -5,9 +5,6 @@
 #
 # Runtime code must treat this file as authoritative constraints.
 
-
-
-
 # Installation Policy
 #
 # Controls how Inkly is allowed to install and expose dependencies.
@@ -30,56 +27,8 @@ shell_rc = "~/.bashrc"
 # Disabling this requires users to manually manage PATH.
 allow_path_injection = true
 
-
-
-# Network Assumptions
-#
-# Declares whether Inkly is allowed to access the network and,
-# if so, which external domains are considered safe.
-#
 # This is policy only. Enforcement happens at runtime.
-[network]
 
-# If true, Inkly assumes outbound internet access is available.
-# If false, network-dependent features should fail fast.
-require_internet = true
-
-# Explicit allowlist of domains Inkly is permitted to contact.
-# This prevents accidental or unauthorized outbound traffic.
-allowed_domains = [
-  "github.com",
-  "raw.githubusercontent.com",
-  "registry.npmjs.org"
-]
-
-
-# Node / NVM Configuration
-#
-# Controls how Node.js is provisioned for Copilot CLI.
-# Alias-based versions (lts, latest) are intentionally unsupported.
-
-[node]
-# Attempt to install Node.js if it is not already present.
-install_if_missing = true
-
-# Version of nvm used to manage Node installations.
-nvm_version = "0.39.7"
-
-# Explicit Node.js version required for Inkly.
-# Must be a concrete version for reproducibility.
-node_version = "20.11.1"
-
-# Allow curl to be used during installation if available.
-allow_curl = true
-
-# Allow wget to be used during installation if available.
-allow_wget = true
-
-
-# Persistent State
-#
-# Defines where Inkly stores all persistent state.
-# All paths are resolved and validated at runtime.
 [state]
 
 # Root directory for all Inkly-managed files.
@@ -90,110 +39,6 @@ bin_dir = "~/.inkly/bin"
 
 # Root directory for all logs.
 log_dir = "~/.inkly/logs"
-
-
-# Copilot UI & Behavior
-#
-# Controls presentation and CLI behavior of Copilot.
-# These settings affect usability, not safety.
-[copilot.ui]
-
-# Disable ANSI color output for compatibility with logs and terminals.
-no_color = true
-
-# UI theme preference.
-theme = "plain"
-
-# Copilot internal logging verbosity.
-log_level = "none"
-
-# Disable Copilot's usage footer in responses.
-disable_usage_footer = true
-
-# Copilot Guardrails (Tool-Level)
-#
-# Restricts how Copilot is allowed to invoke tools.
-# These are hard safety limits.
-[copilot.guardrails]
-
-# Prevent Copilot from invoking multiple tools in parallel.
-disable_parallel_tools = true
-
-# Explicit denylist of shell commands that Copilot may never invoke.
-# Wildcards are prefix-based.
-deny_shell_commands = [
-  "rm:*",
-  "sudo:*",
-  "chmod:*",
-  "chown:*",
-  "rmdir:*",
-  "unlink:*",
-  "cp:*",
-  "mv:*"
-]
-
-# Prompt-Level Intent Filtering
-#
-# Filters user prompts before they reach Copilot.
-# This is a second layer of defense beyond tool guardrails.
-[prompt_filter]
-
-# Enable prompt filtering.
-enabled = true
-
-# Treat keyword matching as case-insensitive.
-case_insensitive = true
-
-# Keywords that immediately block a prompt if detected.
-blocked_keywords = [
-  "rm",
-  "mv",
-  "unlink",
-  "dd",
-  "chmod",
-  "chown",
-  "rmdir",
-  "sudo"
-]
-
-# Regular expressions for more precise blocking rules.
-blocked_regex = [
-  "cp\\s+-r"
-]
-
-# Output Sanitization
-#
-# Controls post-processing of Copilot output before display.
-# This prevents leaking vendor metadata or irrelevant noise.
-[output]
-
-# Enable output sanitization.
-sanitize = true
-
-# Remove Copilot usage or telemetry blocks from output.
-remove_usage_blocks = true
-
-# Regex patterns for vendor-specific lines to remove.
-remove_vendor_lines = [
-  "^\\s*claude-.*Premium request\\"
-]
-
-# Wrapper Behavior
-#
-# Controls Inkly's CLI wrapper behavior and failure modes.
-[wrapper]
-
-# If true, show the full injected debug prompt before execution.
-debug_prompt = true
-
-# Allow interactive commands to pass through unmodified.
-interactive_passthrough = true
-
-# Require the user to be logged in before invoking Copilot.
-require_login = false
-
-# Fail immediately if Copilot CLI is not available.
-fail_on_missing_copilot = true
 
 # Logging & Research Controls
 #
@@ -242,13 +87,6 @@ max_log_files = 5
 enabled = true
 max_prompts = 5
 
-# Profile Support (Future)
-#
-# Placeholder for named configuration profiles.
-[profile]
-name = "default"
-description = "Safe default Inkly configuration"
-
 [intelligence]
 enabled = true
 min_jobs_required = 500
@@ -274,7 +112,6 @@ min_score = 0.0
 index_path = "~/.inkly/retrieval_index.json"
 
 [llm]
-backend = "ollama"
 model = "llama3-cuttlefish:latest"
 
 [ollama]

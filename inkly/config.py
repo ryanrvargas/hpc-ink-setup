@@ -15,48 +15,6 @@ class ConfigError(Exception):
 
 
 @dataclass
-class NodeConfig:
-    """Configuration related to Node.js installation and management.
-
-    Attributes:
-        node_version (str): The specific version of Node.js to install (e.g. "18.16.0").
-            Alias versions like "lts", "stable", or "latest" are not supported on HPC.
-        install_if_missing (bool): Whether to attempt installation if Node.js is not found.
-        allow_curl (bool): Whether to allow using curl for installation.
-        allow_wget (bool): Whether to allow using wget for installation.
-        nvm_version (str): The version of nvm to use for managing Node.js versions.
-    """
-
-    node_version: str
-    install_if_missing: bool = True
-    allow_curl: bool = True
-    allow_wget: bool = True
-    nvm_version: str = "0.39.7"
-
-    def validate(self) -> "NodeConfig":
-        """Validates the NodeConfig variables
-
-        This method should be called after initialization to ensure the config is correct.
-
-        Parameters:
-            None
-
-        Returns:
-            NodeConfig: The validated NodeConfig object (self).
-
-        Raises:
-            ValueError: If any of the config variables are invalid.
-        """
-
-        if self.node_version in ("lts", "stable", "latest"):
-            raise ConfigError(
-                "Alias-based Node versions are not supported on HPC. "
-                "Use an explicit version."
-            )
-        return self
-
-
-@dataclass
 class InstallConfig:
     """Configuration related to installation behavior and safety.
 
@@ -98,13 +56,12 @@ class InstallConfig:
 
 @dataclass
 class StateConfig:
-    """Configuration related to where Inkly stores its state, logs, and binaries.
+    """Configuration related to where Inkly stores its state, logs, and executables.
 
     Attributes:
         inkly_home (Path): The root directory for all Inkly state and data.
-        bin_dir (Path): The directory where Inkly-managed binaries (like Node.js) are stored.
+        bin_dir (Path): The directory where Inkly-managed launchers or executables are stored.
         log_dir (Path): The directory where Inkly stores logs.
-
     """
 
     inkly_home: Path = Path("~/.inkly")
@@ -292,20 +249,11 @@ class ConversationConfig:
 
 @dataclass
 class LLMConfig:
-    backend: Literal["github", "ollama"] = "github"
     model: str = "llama3"
 
     def validate(self) -> "LLMConfig":
-        allowed_backends = {"github", "ollama"}
-        if self.backend not in allowed_backends:
-            raise ConfigError(
-                f"Invalid llm.backend: {self.backend}. "
-                f"Expected one of {sorted(allowed_backends)}"
-            )
-
         if not isinstance(self.model, str) or not self.model.strip():
             raise ConfigError("llm.model must be a non-empty string")
-
         return self
 
 
@@ -353,7 +301,8 @@ class RetrievalConfig:
             raise ConfigError("retrieval.index_path must be a non-empty string")
 
         return self
-    
+
+
 @dataclass
 class OllamaServiceConfig:
     """
@@ -390,9 +339,7 @@ class OllamaServiceConfig:
     def validate(self) -> "OllamaServiceConfig":
         allowed_modes = {"cli_run", "direct_host", "ssh_tunnel", "admin_command"}
         if self.mode not in allowed_modes:
-            raise ConfigError(
-                f"ollama.mode must be one of {sorted(allowed_modes)}"
-            )
+            raise ConfigError(f"ollama.mode must be one of {sorted(allowed_modes)}")
 
         if not isinstance(self.command_path, str):
             raise ConfigError("ollama.command_path must be a string")
@@ -464,7 +411,6 @@ class OllamaServiceConfig:
 @dataclass
 class InklyConfig:
     raw_config: dict
-    node: NodeConfig
     install: InstallConfig
     state: StateConfig
     logging: LoggingConfig
@@ -491,8 +437,6 @@ class TomlParser:
 
         with self.path.open("rb") as f:
             raw = tomllib.load(f)
-
-        node = NodeConfig(**self._require(raw, "node")).validate()
 
         install = InstallConfig(**raw.get("install", {})).validate()
 
@@ -548,7 +492,6 @@ class TomlParser:
 
         return InklyConfig(
             raw_config=raw,
-            node=node,
             install=install,
             state=state,
             logging=logging_cfg,

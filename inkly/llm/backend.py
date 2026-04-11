@@ -5,27 +5,63 @@ import os
 import sys
 import threading
 import time
+import re
 
 
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
+def _clean_terminal_output(text: str) -> str:
+    """
+    Remove terminal control noise from captured CLI output.
+
+    This handles:
+    - ANSI escape sequences such as cursor show/hide
+    - carriage-return style progress output
+    - one-character spinner frames emitted on separate lines
+    """
+    if not text:
+        return ""
+
+    # Convert carriage-return updates into normal line separators.
+    text = text.replace("\r", "\n")
+
+    # Remove ANSI escape codes like \x1b[?25l and \x1b[?25h.
+    text = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text)
+
+    spinner_frames = {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+
+        if not stripped:
+            continue
+
+        if stripped in spinner_frames:
+            continue
+
+        cleaned_lines.append(stripped)
+
+    return "\n".join(cleaned_lines).strip()
 
 class LLMBackend:
     """
-    Thin abstraction layer for routing prompts to the configured LLM backend.
+    Ollama-backed generation layer for Inkly.
 
-    This is intentionally minimal in the current milestone.
-    Real backend integrations such as Ollama calls or GitHub CLI routing
-    are expected to be implemented later.
+    Responsibilities:
+    - enforce the configured prompt-length limit
+    - route requests through the configured Ollama transport mode
+    - return the final model response text
 
-    Current responsibilities:
-    - read backend configuration
-    - enforce prompt-length limits
-    - route requests to the correct backend handler
+    Supported Ollama transport modes:
+    - cli_run
+    - direct_host
+    - ssh_tunnel
+    - admin_command
     """
 
     def __init__(self, config):
-        # Shared config object used to determine backend, model, and prompt limits.
+        # Shared config object used to determine Ollama settings, model, and prompt limits.
         self.config = config
         # Tunnel management is optional and should not be initialized eagerly.
         # Several tests construct minimal config objects that do not include
@@ -33,19 +69,9 @@ class LLMBackend:
         self.ollama_tunnel = None
         self._stdout_lock = threading.Lock()
 
-    def selected_backend(self) -> str:
-        """
-        Return the configured backend name.
-
-        Example values:
-        - "github"
-        - "ollama"
-        """
-        return self.config.llm.backend
-
     def selected_model(self) -> str:
         """
-        Return the configured model name for the selected backend.
+        Return the configured Ollama model name.
         """
         return self.config.llm.model
 
@@ -55,15 +81,6 @@ class LLMBackend:
         """
         return self.config.core.max_prompt_length
 
-    def _has_ollama_service_config(self) -> bool:
-        """
-        Return True only when the config includes the sections required by the
-        optional tunnel/service layer.
-
-        This keeps older tests and minimal config objects compatible.
-        """
-        return hasattr(self.config, "ollama") and hasattr(self.config, "state")
-
     def _get_ollama_tunnel(self) -> OllamaTunnelManager:
         """
         Lazily construct the tunnel manager only when the Ollama path actually
@@ -72,7 +89,7 @@ class LLMBackend:
         if self.ollama_tunnel is None:
             self.ollama_tunnel = OllamaTunnelManager(self.config)
         return self.ollama_tunnel
-    
+
     def _spinner_worker(
         self,
         stop_event: threading.Event,
@@ -97,10 +114,19 @@ class LLMBackend:
             sys.stdout.write("\r" + " " * (len(label) + 4) + "\r")
             sys.stdout.flush()
 
-    def _stream_admin_command(self, cmd: list[str], prompt: str) -> str:
+    def _stream_command(
+        self,
+        cmd: list[str],
+        prompt: str,
+        *,
+        env: dict[str, str] | None = None,
+        not_found_error: str,
+        failed_prefix: str,
+        empty_output_error: str,
+    ) -> str:
         """
-        Stream stdout from the admin Ollama command in real time while also
-        collecting the full response for history/runtime use.
+        Stream stdout from a command in real time while also collecting the full
+        response for runtime/history use.
         """
         try:
             process = subprocess.Popen(
@@ -110,14 +136,13 @@ class LLMBackend:
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
+                env=env,
             )
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                f"Admin Ollama command not found: {cmd[0]}"
-            ) from exc
+            raise RuntimeError(not_found_error) from exc
 
         if process.stdin is None or process.stdout is None or process.stderr is None:
-            raise RuntimeError("Failed to open subprocess pipes for Ollama admin command.")
+            raise RuntimeError("Failed to open subprocess pipes for Ollama command.")
 
         process.stdin.write(prompt)
         process.stdin.close()
@@ -162,36 +187,72 @@ class LLMBackend:
             stderr_text = (stderr_text or "").strip()
             if not stderr_text:
                 stderr_text = "unknown Ollama error"
-            raise RuntimeError(f"Ollama admin command failed: {stderr_text}")
+            raise RuntimeError(f"{failed_prefix}: {stderr_text}")
 
         output = "".join(chunks).strip()
         if not output:
-            raise RuntimeError("Ollama admin command returned an empty response.")
+            raise RuntimeError(empty_output_error)
+
+        return output
+
+    def _run_command_capture(
+        self,
+        cmd: list[str],
+        prompt: str,
+        *,
+        env: dict[str, str] | None = None,
+        not_found_error: str,
+        failed_prefix: str,
+        empty_output_error: str,
+        clean_output: bool = False,
+    ) -> str:
+        """
+        Run a command and capture its full response without streaming.
+        """
+        try:
+            result = subprocess.run(
+                cmd,
+                input=prompt,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                env=env,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(not_found_error) from exc
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            if not stderr:
+                stderr = "unknown Ollama error"
+            raise RuntimeError(f"{failed_prefix}: {stderr}")
+
+        output = result.stdout or ""
+
+        if clean_output:
+            output = _clean_terminal_output(output)
+        else:
+            output = output.strip()
+
+        if not output:
+            raise RuntimeError(empty_output_error)
 
         return output
 
     def generate(self, prompt: str) -> str:
         """
-        Generate a response using the configured backend.
+        Generate a response with Ollama.
 
         Flow:
         - trim the prompt to the configured maximum length
-        - check which backend is selected
-        - route the request to the matching backend method
+        - route the request through the configured Ollama mode
 
-        Raises:
-            ValueError: If the configured backend is not supported.
+        Returns:
+            The final text response from Ollama.
         """
         prompt = prompt[: self.max_prompt_length()]
-        backend = self.selected_backend()
-
-        if backend == "ollama":
-            return self._generate_ollama(prompt)
-
-        if backend == "github":
-            return self._generate_github(prompt)
-
-        raise ValueError(f"Unsupported backend: {backend}")
+        return self._generate_ollama(prompt)
 
     def _generate_ollama(self, prompt: str) -> str:
         """
@@ -213,8 +274,7 @@ class LLMBackend:
             return self._generate_ollama_cli_run(prompt, use_tunnel=True)
 
         return self._generate_ollama_cli_run(prompt)
-    
-    
+
     def _generate_ollama_admin_command(self, prompt: str) -> str:
         """
         Send the prompt to an admin-managed Ollama wrapper command.
@@ -223,8 +283,26 @@ class LLMBackend:
         """
         ollama_cfg = self.config.ollama
         cmd = [ollama_cfg.command_path, *ollama_cfg.command_args]
-        return self._stream_admin_command(cmd, prompt)
 
+        if sys.stdout.isatty():
+            return self._stream_command(
+                cmd,
+                prompt,
+                env=None,
+                not_found_error=f"Admin Ollama command not found: {ollama_cfg.command_path}",
+                failed_prefix="Ollama admin command failed",
+                empty_output_error="Ollama admin command returned an empty response.",
+            )
+
+        return self._run_command_capture(
+            cmd,
+            prompt,
+            env=None,
+            not_found_error=f"Admin Ollama command not found: {ollama_cfg.command_path}",
+            failed_prefix="Ollama admin command failed",
+            empty_output_error="Ollama admin command returned an empty response.",
+            clean_output=True,
+        )
 
     def _generate_ollama_cli_run(
         self,
@@ -248,37 +326,22 @@ class LLMBackend:
         elif use_tunnel:
             self._get_ollama_tunnel().ensure_ready()
 
-        try:
-            result = subprocess.run(
+        if sys.stdout.isatty():
+            return self._stream_command(
                 cmd,
-                input=prompt,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
+                prompt,
                 env=env,
+                not_found_error="Ollama CLI not found on PATH.",
+                failed_prefix="Ollama generation failed",
+                empty_output_error="Ollama returned an empty response.",
             )
-        except FileNotFoundError as exc:
-            raise RuntimeError("Ollama CLI not found on PATH.") from exc
 
-        if result.returncode != 0:
-            stderr = (result.stderr or "").strip()
-            if not stderr:
-                stderr = "unknown Ollama error"
-            raise RuntimeError(f"Ollama generation failed: {stderr}")
-
-        output = (result.stdout or "").strip()
-        if not output:
-            raise RuntimeError("Ollama returned an empty response.")
-
-        return output
-
-    
-    def _generate_github(self, prompt: str) -> str:
-        """
-        Placeholder GitHub backend implementation.
-
-        This currently returns a simulated response and does not yet
-        perform a real GitHub Copilot CLI or API request.
-        """
-        return "[github placeholder] Simulated response."
+        return self._run_command_capture(
+            cmd,
+            prompt,
+            env=env,
+            not_found_error="Ollama CLI not found on PATH.",
+            failed_prefix="Ollama generation failed",
+            empty_output_error="Ollama returned an empty response.",
+            clean_output=True,
+        )

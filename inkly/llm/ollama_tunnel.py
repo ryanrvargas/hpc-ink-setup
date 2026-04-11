@@ -63,9 +63,7 @@ class OllamaTunnelManager:
         self._wait_until_healthy()
 
     def _local_api_base(self) -> str:
-        return (
-            f"http://{self.ollama_cfg.local_host}:{self.ollama_cfg.local_port}/api"
-        )
+        return f"http://{self.ollama_cfg.local_host}:{self.ollama_cfg.local_port}/api"
 
     def _health_url(self) -> str:
         return f"{self._local_api_base()}/tags"

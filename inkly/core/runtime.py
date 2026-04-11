@@ -218,7 +218,7 @@ class InklyRuntime:
         # This is easier to manage than concatenating raw strings repeatedly.
         lines = []
 
-        # Include 
+        # Include
         lines.append("=== INKLY RESPONSE CONTRACT ===")
         lines.append(self.BASE_RESPONSE_CONTRACT)
 

@@ -196,9 +196,24 @@ def test_ingest_jobs_to_db_window_stabilizes_on_repeat(tmp_path):
     initialize_jobs_db(db_path)
 
     records = [
-        make_record(job_id="job-1"),
-        make_record(job_id="job-2"),
-        make_record(job_id="job-3"),
+        make_record(
+            job_id="job-1",
+            submit_time="2026-04-05T08:00:00",
+            start_time="2026-04-05T08:01:00",
+            end_time="2026-04-05T08:10:00",
+        ),
+        make_record(
+            job_id="job-2",
+            submit_time="2026-04-05T09:00:00",
+            start_time="2026-04-05T09:01:00",
+            end_time="2026-04-05T09:10:00",
+        ),
+        make_record(
+            job_id="job-3",
+            submit_time="2026-04-05T10:00:00",
+            start_time="2026-04-05T10:01:00",
+            end_time="2026-04-05T10:10:00",
+        ),
     ]
 
     ingest_jobs_to_db(records, window_days=20, db_path=db_path)

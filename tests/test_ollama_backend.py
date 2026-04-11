@@ -55,6 +55,7 @@ def test_generate_ollama_calls_tunnel_manager(monkeypatch):
     assert result == "ok"
     assert called["ensure"] == 1
 
+
 def test_generate_ollama_uses_direct_host(monkeypatch):
     cfg = make_config()
     cfg.ollama.mode = "direct_host"
@@ -76,6 +77,7 @@ def test_generate_ollama_uses_direct_host(monkeypatch):
 
     assert result == "ok"
     assert captured["env"]["OLLAMA_HOST"] == "http://gpu1:11434"
+
 
 def test_generate_ollama_admin_command_uses_stdin(monkeypatch):
     cfg = make_config()
@@ -99,6 +101,7 @@ def test_generate_ollama_admin_command_uses_stdin(monkeypatch):
     assert captured["cmd"] == ["/opt/ollama/bin/ollama"]
     assert captured["input"] == "hello"
 
+
 def test_generate_ollama_admin_command_missing_binary(monkeypatch):
     cfg = make_config()
     cfg.ollama.mode = "admin_command"
@@ -116,7 +119,8 @@ def test_generate_ollama_admin_command_missing_binary(monkeypatch):
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "Admin Ollama command not found" in str(exc)
-        
+
+
 from types import SimpleNamespace
 import subprocess
 
@@ -133,7 +137,7 @@ def test_admin_command_strips_spinner_and_ansi(monkeypatch):
 
     fake_stdout = "\x1b[?25l\n⠋\n⠙\nHello from model\n\x1b[?25h\n"
 
-    def fake_run(cmd, input, stdout, stderr, text, check):
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
         return SimpleNamespace(
             returncode=0,
             stdout=fake_stdout,
@@ -145,6 +149,7 @@ def test_admin_command_strips_spinner_and_ansi(monkeypatch):
     result = backend.generate("hello")
     assert result == "Hello from model"
 
+
 def test_admin_command_raises_when_cleaned_output_is_empty(monkeypatch):
     cfg = make_config()
     cfg.ollama.mode = "admin_command"
@@ -155,7 +160,7 @@ def test_admin_command_raises_when_cleaned_output_is_empty(monkeypatch):
 
     fake_stdout = "\x1b[?25l\n⠋\n⠙\n\x1b[?25h\n"
 
-    def fake_run(cmd, input, stdout, stderr, text, check):
+    def fake_run(cmd, input, stdout, stderr, text, check, **kwargs):
         return SimpleNamespace(
             returncode=0,
             stdout=fake_stdout,

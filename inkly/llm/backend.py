@@ -10,6 +10,7 @@ import re
 
 from inkly.llm.ollama_tunnel import OllamaTunnelManager
 
+
 def _clean_terminal_output(text: str) -> str:
     """
     Remove terminal control noise from captured CLI output.
@@ -43,6 +44,7 @@ def _clean_terminal_output(text: str) -> str:
         cleaned_lines.append(stripped)
 
     return "\n".join(cleaned_lines).strip()
+
 
 class LLMBackend:
     """

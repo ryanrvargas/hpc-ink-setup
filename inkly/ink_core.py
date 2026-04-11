@@ -83,13 +83,9 @@ def main() -> int:
         user_id = _build_user_id()
         response = runtime.handle_query(user_id, query)
 
-        # The Ollama admin-command path already streams directly to stdout.
-        # Avoid printing the full response a second time after generation finishes.
-        if not (
-            getattr(cfg.llm, "backend", "") == "ollama"
-            and hasattr(cfg, "ollama")
-            and getattr(cfg.ollama, "mode", "") == "admin_command"
-        ):
+        # In interactive terminals, the Ollama backend already streams the
+        # response directly to stdout. This avoids printing it out once its done.
+        if not sys.stdout.isatty():
             print(response)
         elif response and not response.endswith("\n"):
             print()

@@ -34,7 +34,7 @@ def _build_user_id() -> str:
     Uses the USER environment variable when available.
     Falls back to "default" if not set.
     """
-    return os.environ.get("USER", "default")
+    return os.environ.get("USER") or os.environ.get("LOGNAME") or "default"
 
 
 def _build_query(argv: list[str]) -> str:
@@ -56,7 +56,7 @@ def main() -> int:
     - load configuration
     - initialize runtime
     - execute the query
-    - print the response
+    - render or finalize the response for the terminal
 
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -84,7 +84,7 @@ def main() -> int:
         response = runtime.handle_query(user_id, query)
 
         # In interactive terminals, the Ollama backend already streams the
-        # response directly to stdout. This avoids printing it out once its done.
+        # response directly to stdout. Avoid printing it again after generation finishes.
         if not sys.stdout.isatty():
             print(response)
         elif response and not response.endswith("\n"):

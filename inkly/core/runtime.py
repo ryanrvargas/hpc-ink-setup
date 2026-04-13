@@ -10,29 +10,30 @@ from inkly.plugins.manager import PluginManager
 from inkly.retrieval.retriever import PluginRetriever
 
 
-
 class InklyRuntime:
     """
     The main runtime environment for the Inkly HPC assistant.
-    
+
     Responsible for managing conversation state, plugin execution, LLM backend interaction,
     and prompt assembly for each user query. Handles plugin retrieval, prompt construction,
     and concurrency control for incoming requests.
     """
+
     def __init__(self, config):
         """
         Initialize the InklyRuntime with the provided configuration.
         Sets up conversation management, plugin manager, LLM backend, and concurrency gate.
         """
         self.config = config
-        self.conversation = ConversationManager(config)  # Tracks conversation history per user
-        self.plugins = PluginManager()                   # Manages available plugins
-        self.backend = LLMBackend(config)                # Handles LLM prompt/response
-        self.retriever = None                            # Optional plugin retriever (lazy init)
+        self.conversation = ConversationManager(
+            config
+        )  # Tracks conversation history per user
+        self.plugins = PluginManager()  # Manages available plugins
+        self.backend = LLMBackend(config)  # Handles LLM prompt/response
+        self.retriever = None  # Optional plugin retriever (lazy init)
         self._request_gate = BoundedSemaphore(
             value=self.config.core.max_concurrent_requests
         )  # Limits concurrent requests for thread safety
-
 
     # The contract that governs all LLM responses for Inkly
     BASE_RESPONSE_CONTRACT = textwrap.dedent("""
@@ -55,7 +56,6 @@ class InklyRuntime:
     - Answer directly and do not force a code block.
     """).strip()
 
-
     def _build_contract_section(self) -> str:
         """
         Build the base instruction section that defines the assistant's behavior.
@@ -67,7 +67,6 @@ class InklyRuntime:
                 self.BASE_RESPONSE_CONTRACT,
             ]
         )
-
 
     def _build_history_section(self, history_lines: list[str]) -> str:
         """
@@ -84,7 +83,6 @@ class InklyRuntime:
                 *history_lines,
             ]
         )
-
 
     def _build_plugin_section(self, plugin_outputs: dict[str, str]) -> str:
         """
@@ -106,7 +104,6 @@ class InklyRuntime:
 
         return "\n".join(lines).rstrip()
 
-
     def _build_query_section(self, query: str) -> str:
         """
         Build the final user-query section for the prompt.
@@ -119,7 +116,6 @@ class InklyRuntime:
                 query.strip(),
             ]
         )
-
 
     def assemble_prompt(
         self,
@@ -154,7 +150,6 @@ class InklyRuntime:
             prompt = prompt[-self.config.core.max_prompt_length :]
 
         return prompt
-
 
     def handle_query(self, user_id: str, query: str) -> str:
         """

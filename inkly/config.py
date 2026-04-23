@@ -15,48 +15,6 @@ class ConfigError(Exception):
 
 
 @dataclass
-class NodeConfig:
-    """Configuration related to Node.js installation and management.
-
-    Attributes:
-        node_version (str): The specific version of Node.js to install (e.g. "18.16.0").
-            Alias versions like "lts", "stable", or "latest" are not supported on HPC.
-        install_if_missing (bool): Whether to attempt installation if Node.js is not found.
-        allow_curl (bool): Whether to allow using curl for installation.
-        allow_wget (bool): Whether to allow using wget for installation.
-        nvm_version (str): The version of nvm to use for managing Node.js versions.
-    """
-
-    node_version: str
-    install_if_missing: bool = True
-    allow_curl: bool = True
-    allow_wget: bool = True
-    nvm_version: str = "0.39.7"
-
-    def validate(self) -> "NodeConfig":
-        """Validates the NodeConfig variables
-
-        This method should be called after initialization to ensure the config is correct.
-
-        Parameters:
-            None
-
-        Returns:
-            NodeConfig: The validated NodeConfig object (self).
-
-        Raises:
-            ValueError: If any of the config variables are invalid.
-        """
-
-        if self.node_version in ("lts", "stable", "latest"):
-            raise ConfigError(
-                "Alias-based Node versions are not supported on HPC. "
-                "Use an explicit version."
-            )
-        return self
-
-
-@dataclass
 class InstallConfig:
     """Configuration related to installation behavior and safety.
 
@@ -98,13 +56,12 @@ class InstallConfig:
 
 @dataclass
 class StateConfig:
-    """Configuration related to where Inkly stores its state, logs, and binaries.
+    """Configuration related to where Inkly stores its state, logs, and executables.
 
     Attributes:
         inkly_home (Path): The root directory for all Inkly state and data.
-        bin_dir (Path): The directory where Inkly-managed binaries (like Node.js) are stored.
+        bin_dir (Path): The directory where Inkly-managed launchers or executables are stored.
         log_dir (Path): The directory where Inkly stores logs.
-
     """
 
     inkly_home: Path = Path("~/.inkly")
@@ -292,20 +249,11 @@ class ConversationConfig:
 
 @dataclass
 class LLMConfig:
-    backend: Literal["github", "ollama"] = "github"
     model: str = "llama3"
 
     def validate(self) -> "LLMConfig":
-        allowed_backends = {"github", "ollama"}
-        if self.backend not in allowed_backends:
-            raise ConfigError(
-                f"Invalid llm.backend: {self.backend}. "
-                f"Expected one of {sorted(allowed_backends)}"
-            )
-
         if not isinstance(self.model, str) or not self.model.strip():
             raise ConfigError("llm.model must be a non-empty string")
-
         return self
 
 
@@ -355,19 +303,121 @@ class RetrievalConfig:
         return self
 
 
+@dataclass
+class OllamaServiceConfig:
+    """
+    Configuration for reaching an Ollama model.
+
+    Supported modes:
+    - "cli_run": use local `ollama run <model>`
+    - "direct_host": use OLLAMA_HOST against a remote/admin server
+    - "ssh_tunnel": use local SSH tunnel to remote Ollama
+    - "admin_command": send prompt to an admin-managed wrapper command
+    """
+
+    mode: str = "cli_run"
+
+    # admin_command mode
+    command_path: str = ""
+    command_args: list[str] = field(default_factory=list)
+
+    # ssh_tunnel mode
+    tunnel_enabled: bool = False
+    ssh_target: str = ""
+    remote_host: str = "127.0.0.1"
+    remote_port: int = 11434
+    local_host: str = "127.0.0.1"
+    local_port: int = 11434
+    startup_timeout_sec: int = 20
+    manage_server: bool = False
+
+    # direct_host mode
+    use_direct_host: bool = False
+    direct_host: str = ""
+    direct_port: int = 11434
+
+    def validate(self) -> "OllamaServiceConfig":
+        allowed_modes = {"cli_run", "direct_host", "ssh_tunnel", "admin_command"}
+        if self.mode not in allowed_modes:
+            raise ConfigError(f"ollama.mode must be one of {sorted(allowed_modes)}")
+
+        if not isinstance(self.command_path, str):
+            raise ConfigError("ollama.command_path must be a string")
+
+        if not isinstance(self.command_args, list):
+            raise ConfigError("ollama.command_args must be a list of strings")
+
+        for arg in self.command_args:
+            if not isinstance(arg, str):
+                raise ConfigError("ollama.command_args entries must be strings")
+
+        if not isinstance(self.tunnel_enabled, bool):
+            raise ConfigError("ollama.tunnel_enabled must be a boolean")
+
+        if not isinstance(self.manage_server, bool):
+            raise ConfigError("ollama.manage_server must be a boolean")
+
+        if not isinstance(self.ssh_target, str):
+            raise ConfigError("ollama.ssh_target must be a string")
+
+        if not isinstance(self.remote_host, str) or not self.remote_host.strip():
+            raise ConfigError("ollama.remote_host must be a non-empty string")
+
+        if not isinstance(self.local_host, str) or not self.local_host.strip():
+            raise ConfigError("ollama.local_host must be a non-empty string")
+
+        if not isinstance(self.remote_port, int) or self.remote_port <= 0:
+            raise ConfigError("ollama.remote_port must be > 0")
+
+        if not isinstance(self.local_port, int) or self.local_port <= 0:
+            raise ConfigError("ollama.local_port must be > 0")
+
+        if (
+            not isinstance(self.startup_timeout_sec, int)
+            or self.startup_timeout_sec <= 0
+        ):
+            raise ConfigError("ollama.startup_timeout_sec must be > 0")
+
+        if not isinstance(self.use_direct_host, bool):
+            raise ConfigError("ollama.use_direct_host must be a boolean")
+
+        if not isinstance(self.direct_host, str):
+            raise ConfigError("ollama.direct_host must be a string")
+
+        if not isinstance(self.direct_port, int) or self.direct_port <= 0:
+            raise ConfigError("ollama.direct_port must be > 0")
+
+        if self.mode == "admin_command" and not self.command_path.strip():
+            raise ConfigError(
+                "ollama.command_path must be set when ollama.mode = 'admin_command'"
+            )
+
+        if self.mode == "ssh_tunnel" and not self.ssh_target.strip():
+            raise ConfigError(
+                "ollama.ssh_target must be set when ollama.mode = 'ssh_tunnel'"
+            )
+
+        if self.mode == "direct_host" and not self.direct_host.strip():
+            raise ConfigError(
+                "ollama.direct_host must be set when ollama.mode = 'direct_host'"
+            )
+
+        return self
+
+
 # NOTE:
 # Runtime code must consume resolved config objects only.
 # raw_config is not a supported runtime interface.
 @dataclass
 class InklyConfig:
     raw_config: dict
-    node: NodeConfig
     install: InstallConfig
     state: StateConfig
     logging: LoggingConfig
     intelligence: IntelligenceConfig
     conversation: ConversationConfig
     llm: LLMConfig
+    ollama: OllamaServiceConfig
     core: CoreConfig
     retrieval: RetrievalConfig
 
@@ -387,8 +437,6 @@ class TomlParser:
 
         with self.path.open("rb") as f:
             raw = tomllib.load(f)
-
-        node = NodeConfig(**self._require(raw, "node")).validate()
 
         install = InstallConfig(**raw.get("install", {})).validate()
 
@@ -439,9 +487,11 @@ class TomlParser:
         intelligence = IntelligenceConfig(**intelligence_raw).validate()
         retrieval_cfg = RetrievalConfig(**retrieval_data).validate()
 
+        ollama_data = raw.get("ollama", {}) or {}
+        ollama_cfg = OllamaServiceConfig(**ollama_data).validate()
+
         return InklyConfig(
             raw_config=raw,
-            node=node,
             install=install,
             state=state,
             logging=logging_cfg,
@@ -450,4 +500,5 @@ class TomlParser:
             llm=llm_cfg,
             core=core_cfg,
             retrieval=retrieval_cfg,
+            ollama=ollama_cfg,
         )

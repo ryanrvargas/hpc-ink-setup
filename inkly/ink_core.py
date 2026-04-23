@@ -34,7 +34,7 @@ def _build_user_id() -> str:
     Uses the USER environment variable when available.
     Falls back to "default" if not set.
     """
-    return os.environ.get("USER", "default")
+    return os.environ.get("USER") or os.environ.get("LOGNAME") or "default"
 
 
 def _build_query(argv: list[str]) -> str:
@@ -56,7 +56,7 @@ def main() -> int:
     - load configuration
     - initialize runtime
     - execute the query
-    - print the response
+    - render or finalize the response for the terminal
 
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -82,14 +82,19 @@ def main() -> int:
         runtime = InklyRuntime(cfg)
         user_id = _build_user_id()
         response = runtime.handle_query(user_id, query)
+
+        # In interactive terminals, the Ollama backend already streams the
+        # response directly to stdout. Avoid printing it again after generation finishes.
+        if not sys.stdout.isatty():
+            print(response)
+        elif response and not response.endswith("\n"):
+            print()
+
+        return 0
     except Exception as exc:
         # Catch runtime-level failures and report them cleanly.
         print(f"Inkly runtime error: {exc}", file=sys.stderr)
         return 1
-
-    # Print final response to stdout.
-    print(response)
-    return 0
 
 
 if __name__ == "__main__":

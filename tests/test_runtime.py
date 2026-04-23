@@ -194,9 +194,95 @@ def test_handle_query_records_backend_failure_in_history(monkeypatch):
 def test_build_prompt_omits_empty_sections(monkeypatch):
     runtime, _, _, _ = make_runtime(monkeypatch)
 
-    prompt = runtime._build_prompt([], {}, "Just answer this")
-
+    prompt = runtime.assemble_prompt(
+        query="Just answer this",
+        history_lines=[],
+        plugin_outputs={},
+    )
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "You are Inkly, an HPC assistant for a Slurm-based cluster." in prompt
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt
     assert "Just answer this" in prompt
+
+
+def test_build_contract_section_contains_header():
+    runtime = InklyRuntime(make_config())
+    section = runtime._build_contract_section()
+
+    assert "=== INKLY RESPONSE CONTRACT ===" in section
+    assert "You are Inkly" in section
+
+
+def test_build_history_section_empty():
+    runtime = InklyRuntime(make_config())
+    assert runtime._build_history_section([]) == ""
+
+
+def test_build_history_section_with_lines():
+    runtime = InklyRuntime(make_config())
+    section = runtime._build_history_section(["user: hello", "assistant: hi"])
+
+    assert "=== CONVERSATION HISTORY ===" in section
+    assert "user: hello" in section
+    assert "assistant: hi" in section
+
+
+def test_build_plugin_section_empty():
+    runtime = InklyRuntime(make_config())
+    assert runtime._build_plugin_section({}) == ""
+
+
+def test_build_plugin_section_with_outputs():
+    runtime = InklyRuntime(make_config())
+    section = runtime._build_plugin_section(
+        {
+            "queue_status": "Queue Status\n- running: 4",
+            "node_info": "Node Info\n- gpu nodes available",
+        }
+    )
+
+    assert "=== PLUGIN CONTEXT ===" in section
+    assert "[queue_status]" in section
+    assert "[node_info]" in section
+    assert "Queue Status" in section
+    assert "Node Info" in section
+
+
+def test_build_query_section():
+    runtime = InklyRuntime(make_config())
+    section = runtime._build_query_section("How do I use the gpu partition?")
+
+    assert "=== USER QUERY ===" in section
+    assert "How do I use the gpu partition?" in section
+
+
+def test_assemble_prompt_omits_empty_sections():
+    runtime = InklyRuntime(make_config())
+
+    prompt = runtime.assemble_prompt(
+        query="hello",
+        history_lines=[],
+        plugin_outputs={},
+    )
+
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "=== USER QUERY ===" in prompt
+    assert "=== CONVERSATION HISTORY ===" not in prompt
+    assert "=== PLUGIN CONTEXT ===" not in prompt
+
+
+def test_assemble_prompt_includes_all_sections():
+    runtime = InklyRuntime(make_config())
+
+    prompt = runtime.assemble_prompt(
+        query="hello",
+        history_lines=["user: previous", "assistant: response"],
+        plugin_outputs={"queue_status": "Queue Status\n- running: 3"},
+    )
+
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "=== CONVERSATION HISTORY ===" in prompt
+    assert "=== PLUGIN CONTEXT ===" in prompt
+    assert "=== USER QUERY ===" in prompt

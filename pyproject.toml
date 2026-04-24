@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repochat"
+version = "0.1.0"
+description = "Windows-first repository assistant CLI"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+repochat = "repo_assistant.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["repo_assistant*"]

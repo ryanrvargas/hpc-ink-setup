@@ -1,0 +1,2 @@
+[console_scripts]
+repochat = repo_assistant.cli:main

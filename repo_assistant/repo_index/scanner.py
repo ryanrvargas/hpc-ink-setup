@@ -36,15 +36,15 @@ MAX_FILE_SIZE_BYTES = 1_000_000
 NORMALIZED_IGNORED_DIR_NAMES = {name.casefold() for name in IGNORED_DIR_NAMES}
 
 
-@dataclass(frozen=True) # Once a RepoFile object is created, it cannot be changed.
+@dataclass(frozen=True)  # Once a RepoFile object is created, it cannot be changed.
 class RepoFile:
     """
-    Represents one file that passed scanner filtering.
-`
-    This is the normalized file record that later steps can use for:
-    - indexing
-    - freshness checks
-    - stats output
+        Represents one file that passed scanner filtering.
+    `
+        This is the normalized file record that later steps can use for:
+        - indexing
+        - freshness checks
+        - stats output
     """
 
     # Path relative to the detected repo root.
@@ -109,7 +109,6 @@ def should_ignore_dir(path: Path) -> bool:
     # Compare only the directory name, not the full path.
     # This keeps the rule simple and works during recursive walking.
     return path.name.casefold() in NORMALIZED_IGNORED_DIR_NAMES
-
 
 
 def should_include_file(path: Path) -> bool:
@@ -178,7 +177,7 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
     # Detect the repo root if one was not provided directly.
     root = find_repo_root(repo_root)
 
-    scanned_files: list[RepoFile] = []
+    scanned_files: list[RepoFile] = []  # Store every RepoFile object we collect
 
     # topdown=True lets us remove ignored directories before os.walk
     # descends into them.
@@ -186,10 +185,8 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
         current_path = Path(current_dir)
 
         # Prune ignored directories in place so they are never walked.
-        dir_names[:] = [
-            name
-            for name in dir_names
-            if not should_ignore_dir(current_path / name)
+        dir_names[:] = [  # Modify the list in place using [:] along with os.walk
+            name for name in dir_names if not should_ignore_dir(current_path / name)
         ]
 
         for file_name in file_names:

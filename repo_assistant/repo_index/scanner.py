@@ -98,14 +98,29 @@ def should_include_file(path: Path) -> bool:
 
 def detect_file_type(path: Path) -> str:
     """
-    Convert a file path into a normalized file type label.
+    Convert a file path into a stable file type label.
 
-    Example idea:
-    - .py -> python
-    - .md -> markdown
-    - .toml -> toml
+    This keeps scanner metadata predictable so later steps like indexing,
+    stats, and tests are not guessing based on raw extensions everywhere.
     """
-    raise NotImplementedError
+    suffix = path.suffix.lower()
+
+    # Keep the labels simple and stable.
+    # We only need enough detail to describe the kind of file.
+    if suffix == ".py":
+        return "python"
+    if suffix == ".md":
+        return "markdown"
+    if suffix == ".toml":
+        return "toml"
+    if suffix in {".yml", ".yaml"}:
+        return "yaml"
+    if suffix == ".json":
+        return "json"
+
+    # This should not usually happen if include rules are working,
+    # but returning a safe fallback keeps the function predictable.
+    return "unknown"
 
 
 def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:

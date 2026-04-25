@@ -196,14 +196,17 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
                 continue
 
             try:
-                stat_result = file_path.stat()
+                stat_result = file_path.stat()  # This doesn't read the file. We only get things like size and modified time.
             except OSError:
                 # Skip files that cannot be read from the filesystem.
                 continue
 
+            # Creating out RepoFile object and storing it inot `scanned_files`
             scanned_files.append(
                 RepoFile(
-                    relative_path=file_path.relative_to(root).as_posix(),
+                    relative_path=file_path.relative_to(
+                        root
+                    ).as_posix(),  # Use .as_posix() to change backslash to forward slash
                     absolute_path=file_path.resolve(),
                     size_bytes=stat_result.st_size,
                     modified_time=stat_result.st_mtime,

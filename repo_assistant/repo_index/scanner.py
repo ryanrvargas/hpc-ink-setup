@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-
+import os
 
 # File types we want the scanner to consider for indexing.
 # These are the repo files that are most likely to help with codebase Q&A.
@@ -170,8 +170,51 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
     """
     Scan the repository and return normalized file records.
 
-    This will be the main entry point for repository scanning.
-    It should walk the repo, apply ignore/include rules, collect metadata,
-    and return stable RepoFile objects.
+    This is the main entry point for repository scanning.
+    It walks the repo, applies ignore/include rules, collects metadata,
+    and returns stable RepoFile objects.
     """
-    raise NotImplementedError
+
+    # Detect the repo root if one was not provided directly.
+    root = find_repo_root(repo_root)
+
+    scanned_files: list[RepoFile] = []
+
+    # topdown=True lets us remove ignored directories before os.walk
+    # descends into them.
+    for current_dir, dir_names, file_names in os.walk(root, topdown=True):
+        current_path = Path(current_dir)
+
+        # Prune ignored directories in place so they are never walked.
+        dir_names[:] = [
+            name
+            for name in dir_names
+            if not should_ignore_dir(current_path / name)
+        ]
+
+        for file_name in file_names:
+            file_path = current_path / file_name
+
+            if not should_include_file(file_path):
+                continue
+
+            try:
+                stat_result = file_path.stat()
+            except OSError:
+                # Skip files that cannot be read from the filesystem.
+                continue
+
+            scanned_files.append(
+                RepoFile(
+                    relative_path=file_path.relative_to(root).as_posix(),
+                    absolute_path=file_path.resolve(),
+                    size_bytes=stat_result.st_size,
+                    modified_time=stat_result.st_mtime,
+                    file_type=detect_file_type(file_path),
+                )
+            )
+
+    # Sort results so repeated scans are stable and predictable.
+    scanned_files.sort(key=lambda file: file.relative_path)
+
+    return scanned_files

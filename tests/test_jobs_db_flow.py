@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from inkly.db import JobsDatabase, initialize_jobs_db
 from inkly.jobs import SacctJobRecord, ingest_jobs_to_db
-
 
 # These tests focus on the database-facing ingestion flow.
 #
@@ -64,17 +65,22 @@ def test_cleanup_old_jobs_removes_rows_before_cutoff(tmp_path):
     db_path = tmp_path / "jobs.db"
     initialize_jobs_db(db_path)
 
+    now = datetime.now(timezone.utc)
+
+    old_date = (now - timedelta(days=45)).strftime("%Y-%m-%dT08:00:00")
+    recent_date = (now - timedelta(days=10)).strftime("%Y-%m-%dT08:00:00")
+
     old_record = make_record(
         job_id="old-job",
-        submit_time="2025-12-20T08:00:00",
-        start_time="2025-12-20T08:01:00",
-        end_time="2025-12-20T08:10:00",
+        submit_time=old_date,
+        start_time=old_date,
+        end_time=old_date,
     )
     recent_record = make_record(
         job_id="recent-job",
-        submit_time="2026-03-20T08:00:00",
-        start_time="2026-03-20T08:01:00",
-        end_time="2026-03-20T08:10:00",
+        submit_time=recent_date,
+        start_time=recent_date,
+        end_time=recent_date,
     )
 
     with JobsDatabase(db_path) as db:

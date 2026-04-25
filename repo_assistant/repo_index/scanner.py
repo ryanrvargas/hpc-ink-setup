@@ -20,6 +20,7 @@ INCLUDED_EXTENSIONS = {
 # that should not be part of the repo assistant index.
 IGNORED_DIR_NAMES = {
     ".git",
+    ".repochat",
     "__pycache__",
     ".pytest_cache",
     ".ruff_cache",

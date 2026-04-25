@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from repo_assistant.repo_index.chunker import RepoChunk, chunk_repo_files
-from repo_assistant.repo_index.scanner import RepoFile, find_repo_root, scan_repository
+from repo_assistant.repo_index.scanner import find_repo_root, scan_repository
 
 
 # Bump this if the JSON index structure changes in a way that older files
@@ -101,7 +101,6 @@ class JsonRepoIndexStore:
             "index_version": repo_index.index_version,
             "build_timestamp": repo_index.build_timestamp,
             "repo_root": repo_index.repo_root,
-
             # asdict(...) converts each dataclass object into a plain dictionary.
             # That is helpful because json.dumps(...) does not know how to directly
             # serialize custom dataclass objects.
@@ -139,7 +138,6 @@ class JsonRepoIndexStore:
                 size_bytes=int(row["size_bytes"]),
                 modified_time=float(row["modified_time"]),
                 file_type=row["file_type"],
-
                 # row.get("chunk_ids", []) safely returns an empty list if the key
                 # does not exist. list(...) makes sure the result is a real list.
                 chunk_ids=list(row.get("chunk_ids", [])),
@@ -211,7 +209,6 @@ def build_repo_index(repo_root: Path | None = None) -> RepoIndex:
             size_bytes=repo_file.size_bytes,
             modified_time=repo_file.modified_time,
             file_type=repo_file.file_type,
-
             # Use the chunk IDs for this file if they exist.
             # If no chunks were created, fall back to an empty list.
             chunk_ids=chunks_by_path.get(repo_file.relative_path, []),
@@ -221,11 +218,9 @@ def build_repo_index(repo_root: Path | None = None) -> RepoIndex:
 
     return RepoIndex(
         index_version=INDEX_VERSION,
-
         # timezone.utc makes the timestamp explicitly UTC instead of local time.
         # isoformat() turns it into a standard string form for JSON storage.
         build_timestamp=datetime.now(timezone.utc).isoformat(),
-
         repo_root=str(root),
         files=indexed_files,
         chunks=chunks,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
-import os
 
 # File types we want the scanner to consider for indexing.
 # These are the repo files that are most likely to help with codebase Q&A.
@@ -39,12 +39,12 @@ NORMALIZED_IGNORED_DIR_NAMES = {name.casefold() for name in IGNORED_DIR_NAMES}
 @dataclass(frozen=True)  # Once a RepoFile object is created, it cannot be changed.
 class RepoFile:
     """
-        Represents one file that passed scanner filtering.
-    `
-        This is the normalized file record that later steps can use for:
-        - indexing
-        - freshness checks
-        - stats output
+    Represents one file that passed scanner filtering.
+
+    This is the normalized file record that later steps can use for:
+    - indexing
+    - freshness checks
+    - stats output
     """
 
     # Path relative to the detected repo root.
@@ -177,15 +177,16 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
     # Detect the repo root if one was not provided directly.
     root = find_repo_root(repo_root)
 
-    scanned_files: list[RepoFile] = []  # Store every RepoFile object we collect
+    # Store every RepoFile object we collect.
+    scanned_files: list[RepoFile] = []
 
-    # topdown=True lets us remove ignored directories before os.walk
+    # topdown=True lets us remove ignored directories before os.walk()
     # descends into them.
     for current_dir, dir_names, file_names in os.walk(root, topdown=True):
         current_path = Path(current_dir)
 
-        # Prune ignored directories in place so they are never walked.
-        dir_names[:] = [  # Modify the list in place using [:] along with os.walk
+        # Modify dir_names in place using [:] so os.walk() skips ignored folders.
+        dir_names[:] = [
             name for name in dir_names if not should_ignore_dir(current_path / name)
         ]
 
@@ -196,17 +197,18 @@ def scan_repository(repo_root: Path | None = None) -> list[RepoFile]:
                 continue
 
             try:
-                stat_result = file_path.stat()  # This doesn't read the file. We only get things like size and modified time.
+                # This does not read the file contents.
+                # It only gets filesystem metadata such as size and modified time.
+                stat_result = file_path.stat()
             except OSError:
                 # Skip files that cannot be read from the filesystem.
                 continue
 
-            # Creating out RepoFile object and storing it inot `scanned_files`
+            # Create our RepoFile object and store it in scanned_files.
             scanned_files.append(
                 RepoFile(
-                    relative_path=file_path.relative_to(
-                        root
-                    ).as_posix(),  # Use .as_posix() to change backslash to forward slash
+                    # Use .as_posix() so Windows-style backslashes become forward slashes.
+                    relative_path=file_path.relative_to(root).as_posix(),
                     absolute_path=file_path.resolve(),
                     size_bytes=stat_result.st_size,
                     modified_time=stat_result.st_mtime,

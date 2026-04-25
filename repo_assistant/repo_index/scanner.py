@@ -33,12 +33,14 @@ IGNORED_DIR_NAMES = {
 # This helps avoid pulling in large generated files or other junk too early.
 MAX_FILE_SIZE_BYTES = 1_000_000
 
+NORMALIZED_IGNORED_DIR_NAMES = {name.casefold() for name in IGNORED_DIR_NAMES}
 
-@dataclass(frozen=True) #Once a RepoFile object is created, it can not be changed.
+
+@dataclass(frozen=True) # Once a RepoFile object is created, it cannot be changed.
 class RepoFile:
     """
     Represents one file that passed scanner filtering.
-
+`
     This is the normalized file record that later steps can use for:
     - indexing
     - freshness checks
@@ -68,10 +70,31 @@ def find_repo_root(start_path: Path | None = None) -> Path:
     """
     Find the repository root starting from the given path.
 
-    Later this should walk upward until it finds the repo boundary,
-    instead of assuming the current working directory is always correct.
+    This walks upward from the starting location until it finds a directory
+    that looks like the repo root. For the first scanner version, we treat
+    a folder as the repo root if it contains a .git directory or a
+    pyproject.toml file.
     """
-    raise NotImplementedError
+
+    # If no starting path is provided, begin from the current working directory.
+    current = start_path or Path.cwd()
+
+    # If the caller passes a file path, move up to the directory first.
+    if current.is_file():
+        current = current.parent
+
+    # Resolve the path so comparisons stay clean and predictable.
+    current = current.resolve()
+
+    # Check the current directory and then walk upward through all parents.
+    for candidate in (current, *current.parents):
+        if (candidate / ".git").is_dir():
+            return candidate
+
+        if (candidate / "pyproject.toml").is_file():
+            return candidate
+
+    raise ValueError(f"Could not find repository root from: {current}")
 
 
 def should_ignore_dir(path: Path) -> bool:
@@ -83,7 +106,10 @@ def should_ignore_dir(path: Path) -> bool:
     - __pycache__
     - virtual environments
     """
-    raise NotImplementedError
+    # Compare only the directory name, not the full path.
+    # This keeps the rule simple and works during recursive walking.
+    return path.name.casefold() in NORMALIZED_IGNORED_DIR_NAMES
+
 
 
 def should_include_file(path: Path) -> bool:
@@ -93,7 +119,24 @@ def should_include_file(path: Path) -> bool:
     This should handle extension filtering, file size filtering,
     and later any simple binary/generated file checks we add.
     """
-    raise NotImplementedError
+
+    # Skip anything that is not a normal file.
+    if not path.is_file():
+        return False
+
+    # Only include file types we care about for repo indexing.
+    if path.suffix.lower() not in INCLUDED_EXTENSIONS:
+        return False
+
+    # Skip files that are too large for the first scanner version.
+    try:
+        if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+            return False
+    except OSError:
+        # If the file cannot be read normally, fail closed.
+        return False
+
+    return True
 
 
 def detect_file_type(path: Path) -> str:

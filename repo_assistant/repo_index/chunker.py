@@ -6,6 +6,8 @@ from pathlib import Path
 from repo_assistant.repo_index.scanner import RepoFile
 
 
+# Default maximum number of lines allowed in one chunk.
+# Keeping this as a constant makes the default easy to change later.
 DEFAULT_MAX_CHUNK_LINES = 80
 
 
@@ -69,6 +71,10 @@ def split_text_into_chunks(
     - chunking is deterministic.
     - blank lines are used as preferred boundaries when possible.
     """
+
+    # The * means max_chunk_lines must be passed by keyword.
+    # Example:
+    # split_text_into_chunks(text, max_chunk_lines=50)
     if max_chunk_lines <= 0:
         raise ValueError("max_chunk_lines must be greater than 0")
 
@@ -78,10 +84,13 @@ def split_text_into_chunks(
     if not lines:
         return []
 
+    # Each chunk is stored as:
+    # (start_line, end_line, chunk_text)
     chunks: list[tuple[int, int, str]] = []
     start_index = 0
 
     while start_index < len(lines):
+        # hard_end_index is the farthest this chunk is allowed to go.
         hard_end_index = min(start_index + max_chunk_lines, len(lines))
 
         end_index = find_chunk_boundary(
@@ -91,18 +100,24 @@ def split_text_into_chunks(
             max_chunk_lines=max_chunk_lines,
         )
 
+        # Slicing uses [start:end], including start and stopping before end.
         chunk_lines = lines[start_index:end_index]
+
+        # Join the selected lines back into one block of text.
+        # strip() removes blank space/newlines at the start and end.
         chunk_text = "\n".join(chunk_lines).strip()
 
         if chunk_text:
             chunks.append(
                 (
+                    # Convert from 0-based list index to 1-based line number.
                     start_index + 1,
                     end_index,
                     chunk_text,
                 )
             )
 
+        # Move forward so the next loop starts where this chunk ended.
         start_index = end_index
 
     return chunks
@@ -125,8 +140,11 @@ def find_chunk_boundary(
     if hard_end_index >= len(lines):
         return len(lines)
 
+    # max_chunk_lines // 2 uses integer division.
+    # This gives a lower bound so we do not back up so far that the chunk becomes tiny.
     minimum_reasonable_end = start_index + max(1, max_chunk_lines // 2)
 
+    # Walk backward looking for a blank line near the end of the chunk.
     for index in range(hard_end_index - 1, minimum_reasonable_end - 1, -1):
         if not lines[index].strip():
             return index + 1
@@ -163,6 +181,8 @@ def chunk_repo_file(
     except OSError:
         return []
 
+    # First create raw chunk tuples shaped like:
+    # (start_line, end_line, chunk_text)
     raw_chunks = split_text_into_chunks(
         text,
         max_chunk_lines=max_chunk_lines,
@@ -170,9 +190,16 @@ def chunk_repo_file(
 
     chunks: list[RepoChunk] = []
 
+    # enumerate(...) gives both a counter and the current item.
+    # start=1 makes the counter begin at 1 instead of 0.
+    #
+    # The current raw chunk tuple is unpacked into:
+    # start_line, end_line, chunk_text
     for index, (start_line, end_line, chunk_text) in enumerate(raw_chunks, start=1):
         chunks.append(
             RepoChunk(
+                # :04d formats the number as 4 digits with leading zeros.
+                # Example: 1 -> 0001
                 chunk_id=f"{repo_file.relative_path}::chunk-{index:04d}",
                 relative_path=repo_file.relative_path,
                 file_type=repo_file.file_type,
@@ -197,6 +224,11 @@ def chunk_repo_files(
     chunks: list[RepoChunk] = []
 
     for repo_file in repo_files:
+        # chunk_repo_file(...) returns a list of RepoChunk objects for one file.
+        # extend(...) adds each item from that returned list into chunks.
+        #
+        # This keeps chunks as one flat list.
+        # Using append(...) here would add the whole returned list as one item.
         chunks.extend(
             chunk_repo_file(
                 repo_file,

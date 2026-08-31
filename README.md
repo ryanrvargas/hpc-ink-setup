@@ -172,3 +172,13 @@ Inkly is not intended for:
 - Autonomous job management
 - Scheduler replacement
 - Production automation without review
+
+## ⚖️ License
+
+Inkly is source-available for noncommercial use under the PolyForm
+Noncommercial License 1.0.0. Commercial use—including selling Inkly, offering
+it as part of a paid product or service, or otherwise using it for a commercial
+purpose—requires a separate written license from Ryan R Vargas and may require a
+royalty, revenue share, or license fee.
+
+See [LICENSE](LICENSE) for the complete terms and commercial licensing contact.

@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from inkly.db import JobsDatabase, initialize_jobs_db
 from inkly.jobs import SacctJobRecord, ingest_jobs_to_db
 
-
 # These tests focus on the database-facing ingestion flow.
 #
 # Main goals:

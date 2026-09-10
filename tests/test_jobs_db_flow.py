@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from inkly.db import JobsDatabase, initialize_jobs_db
 from inkly.jobs import SacctJobRecord, ingest_jobs_to_db
-
 
 # These tests focus on the database-facing ingestion flow.
 #
@@ -11,6 +12,19 @@ from inkly.jobs import SacctJobRecord, ingest_jobs_to_db
 # - verify unchanged rows are not counted as updates
 # - verify changed rows on the same job_id are counted as updates
 # - verify repeated ingests stabilize instead of churning
+
+
+def relative_timestamp(
+    days_ago: int,
+    *,
+    hour: int = 8,
+    minute: int = 0,
+) -> str:
+    """Return a stable test timestamp relative to the current UTC date."""
+    target_date = (datetime.now(timezone.utc) - timedelta(days=days_ago)).strftime(
+        "%Y-%m-%d"
+    )
+    return f"{target_date}T{hour:02d}:{minute:02d}:00"
 
 
 def make_record(
@@ -66,15 +80,15 @@ def test_cleanup_old_jobs_removes_rows_before_cutoff(tmp_path):
 
     old_record = make_record(
         job_id="old-job",
-        submit_time="2025-12-20T08:00:00",
-        start_time="2025-12-20T08:01:00",
-        end_time="2025-12-20T08:10:00",
+        submit_time=relative_timestamp(45, minute=0),
+        start_time=relative_timestamp(45, minute=1),
+        end_time=relative_timestamp(45, minute=10),
     )
     recent_record = make_record(
         job_id="recent-job",
-        submit_time="2026-03-20T08:00:00",
-        start_time="2026-03-20T08:01:00",
-        end_time="2026-03-20T08:10:00",
+        submit_time=relative_timestamp(10, minute=0),
+        start_time=relative_timestamp(10, minute=1),
+        end_time=relative_timestamp(10, minute=10),
     )
 
     with JobsDatabase(db_path) as db:
@@ -98,9 +112,23 @@ def test_ingest_jobs_to_db_counts_new_rows_as_inserted(tmp_path):
     db_path = tmp_path / "jobs.db"
     initialize_jobs_db(db_path)
 
+    submit_time = relative_timestamp(10, minute=0)
+    start_time = relative_timestamp(10, minute=1)
+    end_time = relative_timestamp(10, minute=10)
+
     records = [
-        make_record(job_id="job-1"),
-        make_record(job_id="job-2"),
+        make_record(
+            job_id="job-1",
+            submit_time=submit_time,
+            start_time=start_time,
+            end_time=end_time,
+        ),
+        make_record(
+            job_id="job-2",
+            submit_time=submit_time,
+            start_time=start_time,
+            end_time=end_time,
+        ),
     ]
 
     summary = ingest_jobs_to_db(records, window_days=90, db_path=db_path)
@@ -119,9 +147,23 @@ def test_ingest_jobs_to_db_does_not_count_unchanged_rows_as_updated(tmp_path):
     db_path = tmp_path / "jobs.db"
     initialize_jobs_db(db_path)
 
+    submit_time = relative_timestamp(10, minute=0)
+    start_time = relative_timestamp(10, minute=1)
+    end_time = relative_timestamp(10, minute=10)
+
     records = [
-        make_record(job_id="job-1"),
-        make_record(job_id="job-2"),
+        make_record(
+            job_id="job-1",
+            submit_time=submit_time,
+            start_time=start_time,
+            end_time=end_time,
+        ),
+        make_record(
+            job_id="job-2",
+            submit_time=submit_time,
+            start_time=start_time,
+            end_time=end_time,
+        ),
     ]
 
     first_summary = ingest_jobs_to_db(records, window_days=90, db_path=db_path)
@@ -143,6 +185,10 @@ def test_ingest_jobs_to_db_counts_changed_rows_as_updated(tmp_path):
     db_path = tmp_path / "jobs.db"
     initialize_jobs_db(db_path)
 
+    submit_time = relative_timestamp(10, minute=0)
+    start_time = relative_timestamp(10, minute=1)
+    end_time = relative_timestamp(10, minute=10)
+
     original = make_record(
         job_id="job-1",
         state="FAILED",
@@ -150,6 +196,9 @@ def test_ingest_jobs_to_db_counts_changed_rows_as_updated(tmp_path):
         derived_exit_code="1:0",
         success=0,
         elapsed_sec=120,
+        submit_time=submit_time,
+        start_time=start_time,
+        end_time=end_time,
     )
     changed = make_record(
         job_id="job-1",
@@ -158,6 +207,9 @@ def test_ingest_jobs_to_db_counts_changed_rows_as_updated(tmp_path):
         derived_exit_code="0:0",
         success=1,
         elapsed_sec=180,
+        submit_time=submit_time,
+        start_time=start_time,
+        end_time=end_time,
     )
 
     first_summary = ingest_jobs_to_db([original], window_days=90, db_path=db_path)
@@ -198,21 +250,21 @@ def test_ingest_jobs_to_db_window_stabilizes_on_repeat(tmp_path):
     records = [
         make_record(
             job_id="job-1",
-            submit_time="2026-04-05T08:00:00",
-            start_time="2026-04-05T08:01:00",
-            end_time="2026-04-05T08:10:00",
+            submit_time=relative_timestamp(5, hour=8, minute=0),
+            start_time=relative_timestamp(5, hour=8, minute=1),
+            end_time=relative_timestamp(5, hour=8, minute=10),
         ),
         make_record(
             job_id="job-2",
-            submit_time="2026-04-05T09:00:00",
-            start_time="2026-04-05T09:01:00",
-            end_time="2026-04-05T09:10:00",
+            submit_time=relative_timestamp(5, hour=9, minute=0),
+            start_time=relative_timestamp(5, hour=9, minute=1),
+            end_time=relative_timestamp(5, hour=9, minute=10),
         ),
         make_record(
             job_id="job-3",
-            submit_time="2026-04-05T10:00:00",
-            start_time="2026-04-05T10:01:00",
-            end_time="2026-04-05T10:10:00",
+            submit_time=relative_timestamp(5, hour=10, minute=0),
+            start_time=relative_timestamp(5, hour=10, minute=1),
+            end_time=relative_timestamp(5, hour=10, minute=10),
         ),
     ]
 

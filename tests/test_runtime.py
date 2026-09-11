@@ -200,7 +200,11 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
         plugin_outputs={},
     )
     assert "=== INKLY RESPONSE CONTRACT ===" in prompt
-    assert "You are Inkly, an HPC assistant for a Slurm-based cluster." in prompt
+    assert (
+        "You are Inkly, an assistant for users working on HPC and Slurm systems."
+        in prompt
+    )
+    assert "Follow the user's current request exactly." in prompt
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt

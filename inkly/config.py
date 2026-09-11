@@ -280,8 +280,8 @@ class CoreConfig:
 class RetrievalConfig:
     enabled: bool = True
     top_k: int = 3
-    fallback_to_all_plugins: bool = True
-    min_score: float = 0.0
+    fallback_to_all_plugins: bool = False
+    min_score: float = 0.01
     index_path: str = "~/.inkly/retrieval_index.json"
 
     def validate(self) -> "RetrievalConfig":

@@ -58,8 +58,8 @@ class PluginRetriever:
         *,
         index_path: str | Path,
         top_k: int = 3,
-        min_score: float = 0.0,
-        fallback_to_all_plugins: bool = True,
+        min_score: float = 0.01,
+        fallback_to_all_plugins: bool = False,
     ) -> None:
         # Path where the JSON vector index will be stored on disk.
         self.index_path = Path(index_path).expanduser()

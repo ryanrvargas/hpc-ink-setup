@@ -92,11 +92,10 @@ def test_classifier_filters_to_relevant_categories(tmp_path):
     assert "queue-status" in categories
 
 
-def test_retriever_falls_back_when_no_scores(tmp_path):
+def test_retriever_returns_no_plugins_for_unrelated_query(tmp_path):
     plugins = build_plugins()
     retriever = PluginRetriever(index_path=tmp_path / "retrieval.json", top_k=2)
 
     results = retriever.search_plugins("zxqv unrelated tokens", plugins)
 
-    assert results
-    assert len(results) <= 2
+    assert results == []

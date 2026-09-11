@@ -230,3 +230,21 @@ Real HPC queue test:
 Conclusion:
 
 The terminal-newline fix now passes both literal exact-output behavior and real HPC plugin-context behavior through the actual branch runtime.
+
+## 2026-09-11 — Final installed runtime validation
+
+After merging PR #116, the installed Inkly runtime was synchronized with `dev`.
+
+Final real `ink` tests:
+
+- Exact-output query returned exactly `FINAL_OK`.
+- Exact-output runtime: about 30.6 seconds.
+- Queue query returned a grounded response reporting 14 running jobs at test time.
+- Queue-query runtime: about 7.9 seconds.
+
+Conclusion:
+
+- Prompt correctness is functionally validated.
+- Retrieval/plugin behavior is working.
+- `28b4077b76d6c6ade7059425d17ea73585ec2add` is the functionally known-good baseline.
+- End-to-end latency variance remains an open performance issue.

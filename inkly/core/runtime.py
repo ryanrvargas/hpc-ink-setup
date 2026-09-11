@@ -41,6 +41,8 @@ class InklyRuntime:
 
     Follow the user's current request exactly.
 
+    If the user asks for an exact response, return only the exact requested text and nothing else.
+
     Do not reinterpret a general, literal, testing, or unrelated request as an HPC task
     just because Inkly is normally used on an HPC cluster.
 

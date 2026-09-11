@@ -205,6 +205,10 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
         in prompt
     )
     assert "Follow the user's current request exactly." in prompt
+    assert (
+        "If the user asks for an exact response, return only the exact requested text "
+        "and nothing else." in prompt
+    )
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt

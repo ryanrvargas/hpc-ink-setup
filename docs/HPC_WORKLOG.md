@@ -132,3 +132,101 @@ Once personal `dev` is known-good:
 3. Verify the organization fork matches.
 4. Return to `gaussian-docs-scraper`.
 5. Integrate scraper-backed Gaussian documentation on a dedicated integration branch rather than directly on `dev`.
+
+## 2026-09-11 — Terminal-newline isolation
+
+Further testing overturned the earlier conclusion that the response contract itself needed to be simplified.
+
+### Branch-runtime failure
+
+A source-runtime smoke test using the simplified contract still returned:
+
+`FINAL_OK Hello`
+
+and one run took about 41.6 seconds.
+
+This showed that contract simplification alone did not explain the production behavior.
+
+### Transport isolation
+
+The admin Ollama wrapper was then launched using the same subprocess shape as Inkly, with stdin, stdout, and stderr all piped.
+
+Result:
+
+- Return code: 0
+- Output: exactly `FINAL_OK`
+- Runtime: about 6.5 seconds
+
+This ruled out the fully piped subprocess transport as the cause.
+
+### Exact prompt comparison
+
+The real branch-generated prompt was captured and compared with the successful manual prompt.
+
+The meaningful differences were:
+
+- one response-contract sentence was wrapped across two lines in the generated prompt
+- the generated prompt did not end with a newline
+
+Changing only the wrapped sentence to one line did not fix the issue; the result was still `FINAL_OK Hello`.
+
+This ruled out line wrapping as the cause.
+
+### Terminal-newline tests
+
+The minimal production prompt, which ends with a newline, was executed five times.
+
+Results:
+
+- exact output succeeded 5/5
+- runtimes were roughly 3.1 to 5.0 seconds
+
+Next, exactly one terminal newline was added to the captured branch-generated prompt without otherwise changing the prompt.
+
+Results:
+
+- exact output succeeded 5/5
+- runtimes were roughly 3.1 to 5.0 seconds
+
+Finally, exactly one terminal newline was added to the original verbose production prompt from the real `handle_query()` path.
+
+Results:
+
+- exact output succeeded 5/5
+- runtimes were roughly 3.3 to 5.3 seconds
+
+### Revised conclusion
+
+The evidence strongly indicates that the admin Ollama wrapper/model path is sensitive to whether the prompt is terminated by a newline.
+
+The earlier response-contract simplification hypothesis is therefore superseded. The existing production contract should remain intact.
+
+The next fix is intentionally small:
+
+1. make `assemble_prompt()` return a prompt ending in exactly one newline
+2. add regression coverage for the terminal newline
+3. validate exact-output and real HPC behavior before merging
+4. continue treating large latency variance as a separate performance issue
+
+### Branch-runtime validation after terminal-newline fix
+
+The actual source runtime was tested with the newline fix in place.
+
+Exact-output test:
+
+- Query: `Reply with exactly: FINAL_OK`
+- Streamed output: exactly `FINAL_OK`
+- Returned response: exactly `FINAL_OK`
+- Runtime: about 4.0 seconds
+
+Real HPC queue test:
+
+- Query: `What jobs are running in the queue right now?`
+- Response used real queue/plugin context
+- Reported 14 running jobs at test time
+- Response remained concise and did not invent commands or unrelated advice
+- Runtime: about 7.4 seconds
+
+Conclusion:
+
+The terminal-newline fix now passes both literal exact-output behavior and real HPC plugin-context behavior through the actual branch runtime.

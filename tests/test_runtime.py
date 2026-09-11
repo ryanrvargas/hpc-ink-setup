@@ -213,6 +213,8 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt
     assert "Just answer this" in prompt
+    assert prompt.endswith("\n")
+    assert not prompt.endswith("\n\n")
 
 
 def test_build_contract_section_contains_header():

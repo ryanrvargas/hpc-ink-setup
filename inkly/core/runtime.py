@@ -143,7 +143,7 @@ class InklyRuntime:
 
         # Only include non-empty sections
         non_empty_sections = [section for section in sections if section.strip()]
-        prompt = "\n\n".join(non_empty_sections)
+        prompt = "\n\n".join(non_empty_sections).rstrip("\n") + "\n"
 
         # Truncate prompt if it exceeds max length
         if len(prompt) > self.config.core.max_prompt_length:

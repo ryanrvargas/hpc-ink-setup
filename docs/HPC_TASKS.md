@@ -6,7 +6,7 @@ This file tracks the current public project state and next work. Detailed machin
 
 - [x] Personal canonical repository remains `ryanrvargas/hpc-ink-setup`.
 - [x] `dev` is the active integration branch.
-- [x] Current `dev` baseline: `22d9d5531586c10db07afcf863d8bb9d01d4e1b7` (PR #114 merged).
+- [x] Current `dev` baseline: `c1a28c6dd568fc8e45a7e0bf189a3deb36c0596d` (PR #115 merged).
 - [x] Test suite passes: 95 tests.
 - [x] Ruff lint and format checks pass.
 - [x] CI quality workflow covers Python 3.9 and 3.11 plus Ruff checks.
@@ -21,22 +21,28 @@ This file tracks the current public project state and next work. Detailed machin
 - [x] Add explicit exact-output instruction to the response contract (PR #114).
 - [x] Confirm plugin discovery/retrieval overhead is small relative to model generation.
 - [x] Confirm safe retrieval settings preserve relevant HPC plugin selection.
-- [x] Confirm a simplified response contract can answer a real queue question using plugin context.
+- [x] Test a simplified response contract as a diagnostic; later isolation showed simplification is not required.
 
 ## Current response-contract validation
 
 - [x] Raw Ollama exact-output test returns the requested token exactly.
-- [x] Current production prompt was captured from the real `handle_query()` path.
-- [x] Current production prompt still produces extra text (`FINAL_OK Hello`) for an exact-output request.
-- [x] Simplified production-style contract returns exact output correctly.
-- [x] Simplified contract still answers a real queue question using cluster/plugin context.
-- [ ] Replace the current verbose response contract with the validated simplified version on a dedicated branch.
-- [ ] Add/adjust regression tests for the simplified contract.
-- [ ] Run full pytest/Ruff/diff validation.
-- [ ] Merge the simplified-contract change only after CI is green.
-- [ ] Sync the merged runtime into the installed Inkly copy used for smoke testing.
-- [ ] Re-run isolated literal smoke test through the real `ink` command.
-- [ ] Re-run real HPC queue smoke test through the real `ink` command.
+- [x] Capture the exact production prompt from the real `handle_query()` path.
+- [x] Confirm the production prompt without a terminal newline can produce extra text (`FINAL_OK Hello`).
+- [x] Rule out plugin selection, conversation history, CLI argument handling, and stdout piping as the primary cause.
+- [x] Rule out fully piped stdin/stdout/stderr subprocess handling; the wrapper still returned exact output.
+- [x] Rule out the wrapped response-contract sentence as the cause.
+- [x] Repeat the minimal newline-terminated prompt 5 times; exact output succeeded 5/5.
+- [x] Add a terminal newline to the captured branch prompt; exact output succeeded 5/5.
+- [x] Add a terminal newline to the original verbose production prompt; exact output succeeded 5/5.
+- [x] Supersede the contract-simplification hypothesis; retain the existing production contract.
+- [x] Implement exactly one terminal newline in prompt assembly on `fix/prompt-terminal-newline`.
+- [x] Add regression coverage requiring one terminal newline.
+- [x] Run full pytest/Ruff/diff validation for the terminal-newline fix.
+- [x] Run exact-output smoke test through the branch runtime.
+- [x] Run real HPC queue smoke test through the branch runtime.
+- [ ] Commit, push, and merge the terminal-newline fix only after validation passes.
+- [ ] Sync the merged runtime into the installed Inkly copy.
+- [ ] Re-run final literal and HPC smoke tests through the real `ink` command.
 
 ## Runtime performance
 

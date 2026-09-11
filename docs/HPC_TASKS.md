@@ -6,7 +6,7 @@ This file tracks the current public project state and next work. Detailed machin
 
 - [x] Personal canonical repository remains `ryanrvargas/hpc-ink-setup`.
 - [x] `dev` is the active integration branch.
-- [x] Current `dev` baseline: `c1a28c6dd568fc8e45a7e0bf189a3deb36c0596d` (PR #115 merged).
+- [x] Current `dev` baseline: `28b4077b76d6c6ade7059425d17ea73585ec2add` (PR #116 merged).
 - [x] Test suite passes: 95 tests.
 - [x] Ruff lint and format checks pass.
 - [x] CI quality workflow covers Python 3.9 and 3.11 plus Ruff checks.
@@ -40,9 +40,9 @@ This file tracks the current public project state and next work. Detailed machin
 - [x] Run full pytest/Ruff/diff validation for the terminal-newline fix.
 - [x] Run exact-output smoke test through the branch runtime.
 - [x] Run real HPC queue smoke test through the branch runtime.
-- [ ] Commit, push, and merge the terminal-newline fix only after validation passes.
-- [ ] Sync the merged runtime into the installed Inkly copy.
-- [ ] Re-run final literal and HPC smoke tests through the real `ink` command.
+- [x] Commit, push, and merge the terminal-newline fix after validation passes (PR #116).
+- [x] Sync the merged runtime into the installed Inkly copy.
+- [x] Re-run final literal and HPC smoke tests through the real `ink` command.
 
 ## Runtime performance
 
@@ -54,9 +54,9 @@ This file tracks the current public project state and next work. Detailed machin
 
 ## Establish known-good personal `dev`
 
-- [ ] Finish response-contract and latency validation.
-- [ ] Record the final known-good `dev` SHA.
-- [ ] Confirm clean working tree and passing CI at that SHA.
+- [x] Finish response-contract correctness validation; keep latency optimization tracked separately.
+- [x] Record functionally known-good `dev` SHA: `28b4077b76d6c6ade7059425d17ea73585ec2add`.
+- [x] Confirm clean local `dev` at the functional baseline and green PR #116 CI before merge.
 
 ## Alice Lab sync
 

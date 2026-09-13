@@ -6,8 +6,8 @@ from pathlib import Path
 from repo_assistant.repo_index.store import (
     check_index_freshness,
     load_repo_index,
-    refresh_repo_index,
     rebuild_repo_index,
+    refresh_repo_index,
 )
 
 

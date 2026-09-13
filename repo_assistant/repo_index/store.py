@@ -5,7 +5,11 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from repo_assistant.repo_index.chunker import RepoChunk, chunk_repo_file, chunk_repo_files
+from repo_assistant.repo_index.chunker import (
+    RepoChunk,
+    chunk_repo_file,
+    chunk_repo_files,
+)
 from repo_assistant.repo_index.scanner import RepoFile, find_repo_root, scan_repository
 
 

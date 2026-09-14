@@ -328,3 +328,20 @@ Validation:
 - Phase 1 development/testing on Cuttlefish uses the same `inkly-test` virtual environment for Inkly and the scraper.
 
 Scraper commit: `884cdb7f6f064c2255334ddedeb32ac8a9dd3be7` (`Make scraper output paths portable`).
+
+## 2026-09-14 — Standardized documentation search interface
+
+Completed the next Phase 1 scraper milestone on `thealice-lab/gaussian-docs-scraper` branch `integration/inkly-phase1`.
+
+Changes:
+- Added `gaussian_scraper.search.search_docs(domain, query, top_k=5, ...)` as the stable internal documentation-search boundary.
+- Kept `PassageIndex`, TF-IDF ranking, and SQLite loading behind that interface so Inkly does not need to depend on scraper retrieval internals.
+- Updated the existing `search_docs.py` CLI to call the standardized interface.
+- Added focused tests covering a real SQLite-backed search and the missing-domain failure path.
+
+Validation:
+- Focused search/index tests: 12 tests passed.
+- Full scraper suite: 153 tests passed.
+- `git diff --check` and staged diff checks passed before commit.
+
+Scraper commit: `71a9c011cd91c5e1fdff005bf942608771940ee9` (`Add standardized documentation search interface`).

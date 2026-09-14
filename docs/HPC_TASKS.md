@@ -60,11 +60,11 @@ This file tracks the current public project state and next work. Detailed machin
 
 ## Alice Lab sync
 
-- [ ] Add/verify the Alice Lab fork remote locally.
-- [ ] Verify write permission to `thealice-lab/hpc-ink-setup`.
-- [ ] Push the exact known-good personal `dev` history to the Alice Lab fork.
-- [ ] Verify the organization fork matches the intended personal `dev` SHA.
-- [ ] Do not merge/reset `main` or bulk-copy stale branches.
+- [x] Add/verify the Alice Lab fork remote locally.
+- [x] Verify write permission to `thealice-lab/hpc-ink-setup`.
+- [x] Push the exact known-good personal `dev` history to the Alice Lab fork.
+- [x] Verify the organization fork matches personal `dev` at `ed0de023c7e27dbdbfadfec9589912f87cfaab81`.
+- [x] Preserve `main` and avoid bulk-copying stale branches during sync.
 
 ## Gaussian documentation integration
 

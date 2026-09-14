@@ -248,3 +248,18 @@ Conclusion:
 - Retrieval/plugin behavior is working.
 - `28b4077b76d6c6ade7059425d17ea73585ec2add` is the functionally known-good baseline.
 - End-to-end latency variance remains an open performance issue.
+
+## 2026-09-14 — Alice Lab dev synchronization
+
+The Alice Lab fork remote was verified and personal `dev` was pushed to the organization fork without modifying `main` or copying stale branches.
+
+Verification:
+
+- Personal remote: `origin/dev`
+- Alice Lab remote: `alice/dev`
+- Both resolved to `ed0de023c7e27dbdbfadfec9589912f87cfaab81`
+- The functionally validated Inkly code baseline remains `28b4077b76d6c6ade7059425d17ea73585ec2add`
+- The later `ed0de02...` history includes the runtime-validation tracking update
+- Alice Lab `main` was left untouched
+
+The Alice Lab synchronization prerequisite is now complete. The next tracked phase is Gaussian documentation integration.

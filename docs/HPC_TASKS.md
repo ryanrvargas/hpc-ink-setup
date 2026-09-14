@@ -86,7 +86,8 @@ Architecture:
 - [x] Choose scraper licensing model: AGPL-3.0-only for open/source-sharing use plus a separate commercial license.
 - [ ] Confirm contributor dual-licensing permission/ownership for Nathan's existing scraper contributions.
 - [ ] Add the finalized AGPL/commercial licensing files to the scraper repository.
-- [ ] Remove machine-specific scraper output paths and make database/output configuration portable across Windows and HPC/Linux.
+- [x] Remove machine-specific scraper output paths and make database/output configuration portable across Windows and HPC/Linux.
+- [x] Use the shared `inkly-test` virtual environment for Inkly/scraper Phase 1 integration testing on Cuttlefish.
 - [ ] Define a standardized internal documentation search interface, such as `search_docs(domain, query, top_k)`.
 - [ ] Pass the user's actual query into documentation retrieval instead of returning only static Gaussian snippets.
 - [ ] Connect Inkly's Gaussian documentation path to the scraper-produced SQLite database.

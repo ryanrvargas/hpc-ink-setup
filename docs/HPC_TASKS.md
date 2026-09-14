@@ -83,7 +83,9 @@ Architecture:
 
 - [x] Review the latest `gaussian-docs-scraper` implementation and data model.
 - [x] Record that Nathan's scraper work is being integrated as part of the shared HPC/Inkly project while preserving authorship and Git history.
-- [ ] Choose and add an explicit scraper license aligned with the project's commercial/source-sharing goals.
+- [x] Choose scraper licensing model: AGPL-3.0-only for open/source-sharing use plus a separate commercial license.
+- [ ] Confirm contributor dual-licensing permission/ownership for Nathan's existing scraper contributions.
+- [ ] Add the finalized AGPL/commercial licensing files to the scraper repository.
 - [ ] Remove machine-specific scraper output paths and make database/output configuration portable across Windows and HPC/Linux.
 - [ ] Define a standardized internal documentation search interface, such as `search_docs(domain, query, top_k)`.
 - [ ] Pass the user's actual query into documentation retrieval instead of returning only static Gaussian snippets.

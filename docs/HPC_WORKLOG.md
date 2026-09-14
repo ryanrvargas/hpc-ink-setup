@@ -297,3 +297,14 @@ Licensing:
 - The scraper currently lacks an explicit license.
 - Nathan's authorship and Git history should be preserved.
 - An explicit license should be selected before the projects are distributed as one product, with terms matching the desired commercial/source-sharing policy.
+
+## 2026-09-14 — Licensing direction
+
+Selected licensing direction for the combined Inkly/scraper system:
+
+- AGPL-3.0-only for open/source-sharing use.
+- A separate commercial license for organizations that want proprietary use without AGPL obligations.
+- Preserve Nathan's authorship and Git history.
+- Confirm contributor ownership/relicensing permission before representing that one person can issue proprietary licenses for all existing scraper contributions.
+
+Engineering integration can continue while that contributor-rights confirmation is documented.

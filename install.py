@@ -103,6 +103,13 @@ def install_ink():
 
     ink_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ink_src, ink_dst)
+
+    launcher_lines = ink_dst.read_text(encoding="utf-8").splitlines(keepends=True)
+    if not launcher_lines or not launcher_lines[0].startswith("#!"):
+        raise RuntimeError("ink launcher is missing a Python shebang")
+
+    launcher_lines[0] = f"#!{sys.executable}\n"
+    ink_dst.write_text("".join(launcher_lines), encoding="utf-8")
     ink_dst.chmod(0o755)
 
 

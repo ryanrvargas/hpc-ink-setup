@@ -8,7 +8,7 @@ This file tracks the current public project state and next work. Detailed machin
 - [x] `dev` is the active integration branch.
 - [x] Current authoritative `dev`: `0ee3af2c11448980792734547c99cb428fff8ce1` (PR #121 merged).
 - [x] Functionally validated runtime code baseline remains `28b4077b76d6c6ade7059425d17ea73585ec2add`.
-- [x] Test suite passes: 95 tests.
+- [x] Test suite passes: 96 tests.
 - [x] Ruff lint and format checks pass.
 - [x] CI quality workflow covers Python 3.9 and 3.11 plus Ruff checks.
 
@@ -92,8 +92,9 @@ Architecture:
 - [x] Make the normal Inkly installation path provision/verify the scraper dependency so users do not need to remember separate manual setup steps.
 - [ ] Before release, replace the setup script's scraper integration ref with a stable scraper tag/release.
 - [x] Define a standardized internal documentation search interface, `search_docs(domain, query, top_k)`, with optional tool/docs-dir parameters.
-- [ ] Pass the user's actual query into documentation retrieval instead of returning only static Gaussian snippets.
-- [ ] Connect Inkly's Gaussian documentation path to the scraper-produced SQLite database.
+- [ ] Standardize plugin execution as `run(query: str)` so the runtime passes the user's current query to selected plugins while non-documentation plugins preserve their existing behavior.
+- [ ] Pass the user's actual query into Gaussian documentation retrieval.
+- [ ] Connect `docs_gaussian` to the scraper's standardized `search_docs(...)` interface and scraper-produced SQLite database, replacing the static Gaussian snippets.
 - [x] Keep retrieval local in Phase 1; do not require GitHub Copilot or MCP.
 - [ ] Add provenance/source labels to retrieved passages.
 - [ ] Treat scraped content as untrusted reference material that cannot override Inkly instructions or the user's request.

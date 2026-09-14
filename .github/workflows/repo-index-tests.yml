@@ -1,0 +1,36 @@
+name: Repo Index Tests
+
+on:
+  push:
+    paths:
+      - "repo_assistant/**"
+      - "tests/test_repo_*.py"
+      - ".github/workflows/repo-index-tests.yml"
+  pull_request:
+    paths:
+      - "repo_assistant/**"
+      - "tests/test_repo_*.py"
+      - ".github/workflows/repo-index-tests.yml"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Run repository index tests
+        run: >-
+          python -m pytest -q
+          tests/test_repo_scanner.py
+          tests/test_repo_chunker.py
+          tests/test_repo_index_store.py
+          tests/test_repo_index_freshness.py

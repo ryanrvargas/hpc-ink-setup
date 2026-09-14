@@ -363,3 +363,27 @@ Validation:
 - Import verification succeeded both from the scraper repository and from the separate Inkly repository while using the shared `inkly-test` environment.
 
 Scraper commit: `8b8cb4b1402c1486bc944360e028847ec395a225` (`Add scraper package installation setup`).
+
+## 2026-09-14 — One-command Inkly setup
+
+Completed the normal-user bootstrap path on `integration/gaussian-docs` so Inkly and the Gaussian documentation scraper can be provisioned through one setup command.
+
+Changes:
+- Added executable `setup.sh` as the user-facing setup entry point.
+- Added `requirements.txt` with the Python 3.9/3.10 `tomli` compatibility dependency.
+- `setup.sh` creates and reuses a private `~/.inkly/venv`, installs Inkly requirements, clones the scraper integration branch, installs the scraper into the private environment, runs Inkly's existing Python installer, and verifies `gaussian_scraper.search.search_docs` is importable.
+- Updated `install.py` so the installed `ink` launcher uses the exact Python interpreter that ran the installer; normal users therefore do not need to activate Inkly's virtual environment before running `ink`.
+- Added focused regression coverage for the installed launcher's interpreter and executable bit.
+- Updated the README so normal users run `bash setup.sh`; `install.py` remains the internal installer.
+
+Validation:
+- Focused installer regression test: 1 passed.
+- Full Inkly test suite: 96 passed.
+- `bash -n setup.sh` passed.
+- `git diff --check` and staged diff checks passed.
+- A fresh end-to-end setup completed successfully under an isolated temporary home directory without touching the user's existing Inkly installation.
+- The temporary install contained the private Python environment, scraper checkout, Inkly runtime, launcher, jobs database, and config.
+- The installed launcher's shebang pointed to the temporary Inkly private Python interpreter.
+- Re-running `setup.sh` against the same temporary installation completed successfully and reused the existing environment and scraper checkout.
+
+Inkly commit: `db575774bd39eb3a8919e0041cdf23f2869f6b7a` (`Add one-command Inkly setup`).

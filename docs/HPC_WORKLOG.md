@@ -263,3 +263,37 @@ Verification:
 - Alice Lab `main` was left untouched
 
 The Alice Lab synchronization prerequisite is now complete. The next tracked phase is Gaussian documentation integration.
+
+## 2026-09-14 — Gaussian/Inkly integration architecture
+
+The project direction was clarified after reviewing HPC meeting notes.
+
+Phase 1 will use direct local retrieval rather than MCP:
+
+documentation sources -> scraper -> ~/.inkly/{domain}.db -> standardized retrieval interface -> bounded source-labeled context -> Inkly model -> answer
+
+Decisions:
+- Inkly and the scraper are two components of the same overall HPC assistant system.
+- GitHub Copilot is not part of the planned architecture.
+- The scraper-produced SQLite databases are the initial knowledge source.
+- Inkly should retrieve only passages relevant to the current user query.
+- A standardized internal documentation-search interface will separate Inkly from the underlying storage implementation.
+- Scraped content will be treated as untrusted reference material and will carry provenance.
+- Phase 1 must be benchmarked for retrieval and end-to-end latency before adding another server layer.
+
+Future Phase 2:
+- Evaluate a shared central knowledge database/service.
+- Allow multiple approved models or applications to use the same knowledge if practical.
+- Define a standardized network tool/API.
+- Evaluate MCP as an optional interoperability wrapper rather than a Phase 1 dependency.
+- Define authentication and permissions before supporting remote clients.
+
+User-study planning:
+- Tentative target is November-December 2026.
+- Study location may need to be outside UNCW.
+- The study should measure real HPC task completion, answer quality, latency, confusion, and failure recovery.
+
+Licensing:
+- The scraper currently lacks an explicit license.
+- Nathan's authorship and Git history should be preserved.
+- An explicit license should be selected before the projects are distributed as one product, with terms matching the desired commercial/source-sharing policy.

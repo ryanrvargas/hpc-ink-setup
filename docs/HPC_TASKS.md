@@ -88,6 +88,8 @@ Architecture:
 - [ ] Add the finalized AGPL/commercial licensing files to the scraper repository.
 - [x] Remove machine-specific scraper output paths and make database/output configuration portable across Windows and HPC/Linux.
 - [x] Use the shared `inkly-test` virtual environment for Inkly/scraper Phase 1 integration testing on Cuttlefish.
+- [x] Make the scraper installable with `python -m pip install -e .` and document the shared-environment setup for Inkly consumers.
+- [ ] Make the normal Inkly installation path provision/verify the scraper dependency so users do not need to remember separate manual setup steps.
 - [x] Define a standardized internal documentation search interface, `search_docs(domain, query, top_k)`, with optional tool/docs-dir parameters.
 - [ ] Pass the user's actual query into documentation retrieval instead of returning only static Gaussian snippets.
 - [ ] Connect Inkly's Gaussian documentation path to the scraper-produced SQLite database.

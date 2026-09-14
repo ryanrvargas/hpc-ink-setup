@@ -345,3 +345,21 @@ Validation:
 - `git diff --check` and staged diff checks passed before commit.
 
 Scraper commit: `71a9c011cd91c5e1fdff005bf942608771940ee9` (`Add standardized documentation search interface`).
+
+## 2026-09-14 — Scraper package installation setup
+
+Made the scraper consumable as a normal Python package for local Phase 1 Inkly integration.
+
+Changes:
+- Added `setup.py` with Python 3.9+ metadata and the scraper runtime dependencies.
+- Verified `python -m pip install -e .` installs the scraper into the active environment and makes `gaussian_scraper.search.search_docs` importable from the separate Inkly repository.
+- Expanded the scraper README with virtual-environment, editable-install, verification, and Inkly shared-environment instructions.
+- Recorded that the normal Inkly installation path should eventually provision/verify this dependency so end users do not have to remember separate manual setup commands.
+
+Validation:
+- Full scraper suite: 153 tests passed.
+- `python -m pip check` reported no broken requirements.
+- `git diff --check` and staged diff checks passed.
+- Import verification succeeded both from the scraper repository and from the separate Inkly repository while using the shared `inkly-test` environment.
+
+Scraper commit: `8b8cb4b1402c1486bc944360e028847ec395a225` (`Add scraper package installation setup`).

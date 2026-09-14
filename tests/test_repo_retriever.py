@@ -19,6 +19,10 @@ def _chunk(chunk_id: str, path: str, file_type: str, text: str) -> RepoChunk:
     )
 
 
+def _mark_repo_root(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'fixture'\n", encoding="utf-8")
+
+
 def _index(tmp_path: Path) -> RepoIndex:
     chunks = [
         _chunk(
@@ -96,6 +100,7 @@ def test_invalid_top_k_rejected(tmp_path: Path) -> None:
 
 
 def test_loader_reads_saved_index(tmp_path: Path) -> None:
+    _mark_repo_root(tmp_path)
     repo_index = _index(tmp_path)
     index_path = tmp_path / ".repochat" / "index.json"
     JsonRepoIndexStore(tmp_path, index_path=index_path).save(repo_index)
@@ -111,5 +116,6 @@ def test_loader_reads_saved_index(tmp_path: Path) -> None:
 
 
 def test_missing_index_has_actionable_error(tmp_path: Path) -> None:
+    _mark_repo_root(tmp_path)
     with pytest.raises(FileNotFoundError, match="repo-index rebuild"):
         retrieve_from_index("anything", tmp_path, index_path=tmp_path / "missing.json")

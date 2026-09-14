@@ -308,3 +308,23 @@ Selected licensing direction for the combined Inkly/scraper system:
 - Confirm contributor ownership/relicensing permission before representing that one person can issue proprietary licenses for all existing scraper contributions.
 
 Engineering integration can continue while that contributor-rights confirmation is documented.
+
+## 2026-09-14 — Scraper portability milestone
+
+Completed the first Phase 1 scraper engineering change on `thealice-lab/gaussian-docs-scraper` branch `integration/inkly-phase1`.
+
+Changes:
+- Removed the committed Nathan-specific Windows database output path from `configs/gaussian.toml`.
+- Kept the portable default at `~/.inkly/{domain}.db` through `Path.home()`.
+- Added `expanduser()` handling so explicit `~` paths resolve correctly.
+- Stopped serializing the default output path into generated TOML, avoiding machine-specific absolute paths; custom paths are still preserved.
+- Added regression tests for tilde expansion, default-path omission, and custom-path preservation.
+
+Validation:
+- Targeted config suite: 26 tests passed.
+- Full scraper suite: 151 tests passed.
+- `git diff --check` passed.
+- `python -m pip check` reported no broken requirements.
+- Phase 1 development/testing on Cuttlefish uses the same `inkly-test` virtual environment for Inkly and the scraper.
+
+Scraper commit: `884cdb7f6f064c2255334ddedeb32ac8a9dd3be7` (`Make scraper output paths portable`).

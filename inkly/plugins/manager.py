@@ -29,8 +29,8 @@ class Plugin:
     # Example queries used for retrieval indexing and similarity matching
     example_queries: List[str]
 
-    # Callable entry point for executing the plugin
-    run: Callable[[], str]
+    # Query-aware callable entry point for executing the plugin
+    run: Callable[[str], str]
 
 
 class PluginManager:

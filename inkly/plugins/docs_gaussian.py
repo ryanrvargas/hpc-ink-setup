@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 from inkly.plugins.common import format_plugin_output, validate_plugin_meta
-from inkly.plugins.docs_data import DOC_SNIPPETS
 
 
-# Metadata describing this plugin.
-# This is used by:
-# - plugin discovery
-# - retrieval ranking
-# - documentation / explainability
 PLUGIN_META = {
     "name": "docs_gaussian",
     "description": (
@@ -24,35 +18,31 @@ PLUGIN_META = {
     ],
 }
 
-# Validate metadata at import time so invalid plugins fail fast.
 validate_plugin_meta(PLUGIN_META)
 
 
-def run() -> str:
-    """
-    Entry point for the Gaussian documentation plugin.
+def run(query: str) -> str:
+    """Retrieve Gaussian documentation passages relevant to the user's query."""
+    try:
+        from gaussian_scraper.search import search_docs
 
-    This retrieves pre-defined documentation snippets and formats them
-    into a consistent output block for the runtime and LLM.
-
-    Behavior:
-    - If snippets exist → return formatted title + body
-    - If missing → return a fallback message
-    """
-
-    # Fetch Gaussian documentation snippets from shared data source.
-    lines = DOC_SNIPPETS.get("gaussian", [])
-
-    # If no documentation is available, return a safe fallback message.
-    if not lines:
+        matches = search_docs("gaussian", query, top_k=5)
+    except (ImportError, OSError, ValueError):
         return format_plugin_output(
-            "Gaussian Documentation Snippets",
-            ["Gaussian documentation snippets are unavailable."],
+            "Gaussian Documentation",
+            ["Gaussian documentation is unavailable."],
         )
 
-    # First line is treated as the title, remaining lines as the body.
-    title = lines[0]
-    body = lines[1:]
+    relevant = [match for match in matches if match.score > 0.0]
+    if not relevant:
+        return format_plugin_output(
+            "Gaussian Documentation",
+            ["No relevant Gaussian documentation was found for this query."],
+        )
 
-    # Format into a clean, LLM-friendly block.
-    return format_plugin_output(title, body)
+    lines: list[str] = []
+    for match in relevant:
+        lines.append(f"Source: {match.label} | relevance={match.score:.3f}")
+        lines.append(match.text)
+
+    return format_plugin_output("Gaussian Documentation", lines)

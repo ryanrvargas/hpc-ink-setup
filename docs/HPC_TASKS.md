@@ -49,7 +49,6 @@ This file tracks the current public project state and next work. Detailed machin
 
 - [x] Profile plugin execution overhead; plugin work is not the primary latency source.
 - [x] Time the runtime stages directly; one staged run completed in about 3.9 seconds total.
-- [x] Confirm raw Ollama generation can complete in roughly 4-6 seconds for small prompts.
 - [ ] Investigate large timing variance in full end-to-end runs (observed runs from roughly 5 seconds to over 30 seconds).
 - [ ] Establish a practical latency target and repeatable benchmark before declaring the runtime fully known-good.
 
@@ -93,13 +92,14 @@ Architecture:
 - [ ] Before release, replace the setup script's scraper integration ref with a stable scraper tag/release.
 - [x] Define a standardized internal documentation search interface, `search_docs(domain, query, top_k)`, with optional tool/docs-dir parameters.
 - [x] Standardize runtime plugin execution as `run(query: str)` while adapting legacy zero-argument cluster plugins without changing their behavior.
-- [x] Pass the user's actual query into selected plugin execution; Gaussian retrieval can now consume it in the next integration step.
-- [ ] Connect `docs_gaussian` to the scraper's standardized `search_docs(...)` interface and scraper-produced SQLite database, replacing the static Gaussian snippets.
+- [x] Pass the user's actual query into selected plugin execution.
+- [x] Connect `docs_gaussian` to the scraper's standardized `search_docs(...)` interface and scraper-produced SQLite database, replacing the static Gaussian snippets.
 - [x] Keep retrieval local in Phase 1; do not require GitHub Copilot or MCP.
-- [ ] Add provenance/source labels to retrieved passages.
-- [ ] Treat scraped content as untrusted reference material that cannot override Inkly instructions or the user's request.
-- [ ] Add score thresholds, `top_k` limits, context-size limits, and graceful missing/corrupt database handling.
-- [ ] Add tests for relevant match, no match, missing/corrupt DB, prompt injection, context limits, and Ollama/backend failures.
+- [x] Add provenance/source labels to retrieved passages.
+- [x] Treat scraped content as untrusted reference material that cannot override Inkly instructions or the user's request.
+- [x] Add score thresholds, `top_k` limits, context-size limits, and graceful missing/corrupt database handling.
+- [x] Add tests for relevant match, no match, missing/corrupt DB, prompt injection, context limits, and scraper/backend failures covered at the plugin boundary.
+- [x] Add a repeatable Phase 1 retrieval benchmark harness for the real `docs_gaussian.run()` path.
 - [ ] Validate end-to-end Gaussian documentation retrieval on the HPC environment.
 - [ ] Benchmark Phase 1 retrieval and total response latency before introducing a network service.
 

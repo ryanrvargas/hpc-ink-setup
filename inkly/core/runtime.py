@@ -156,7 +156,7 @@ class InklyRuntime:
         Handle a user query end-to-end:
         - Appends the user turn to the conversation
         - Discovers and selects plugins (optionally using retrieval)
-        - Runs selected plugins and collects their outputs
+        - Runs selected plugins with the current query and collects their outputs
         - Builds conversation history context
         - Assembles the full prompt for the LLM
         - Calls the LLM backend to generate a response
@@ -212,7 +212,9 @@ class InklyRuntime:
             ):
                 selected_plugins = list(discovered.values())
 
-            # Run each selected plugin and collect its output
+            # Run each selected plugin with the active query and collect its output.
+            # Query-aware documentation plugins can use it for retrieval, while
+            # cluster-state plugins may ignore it and preserve their existing behavior.
             for fallback_name, plugin in discovered.items():
                 if plugin not in selected_plugins:
                     continue
@@ -220,7 +222,7 @@ class InklyRuntime:
                 plugin_name = getattr(plugin, "name", fallback_name)
 
                 try:
-                    plugin_outputs[plugin_name] = plugin.run()
+                    plugin_outputs[plugin_name] = plugin.run(query)
                 except Exception as exc:
                     plugin_outputs[plugin_name] = f"Plugin error: {exc}"
 

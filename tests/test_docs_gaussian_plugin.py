@@ -33,7 +33,9 @@ def test_run_queries_scraper_and_includes_provenance(monkeypatch):
 
     output = docs_gaussian.run("How do I submit a Gaussian job?")
 
-    assert calls == [("gaussian", "How do I submit a Gaussian job?", docs_gaussian.TOP_K)]
+    assert calls == [
+        ("gaussian", "How do I submit a Gaussian job?", docs_gaussian.TOP_K)
+    ]
     assert "Source: Gaussian Slurm Guide | relevance=0.750" in output
     assert "Load the Gaussian module before submitting the job." in output
     assert "untrusted reference material" in output

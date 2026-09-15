@@ -84,16 +84,16 @@ Architecture:
 - [x] Review the latest `gaussian-docs-scraper` implementation and data model.
 - [x] Record that Nathan's scraper work is being integrated as part of the shared HPC/Inkly project while preserving authorship and Git history.
 - [x] Choose scraper licensing model: AGPL-3.0-only for open/source-sharing use plus a separate commercial license.
-- [ ] Confirm contributor dual-licensing permission/ownership for Nathan's existing scraper contributions.
-- [ ] Add the finalized AGPL/commercial licensing files to the scraper repository.
+- [ ] Confirm contributor dual-licensing permission/ownership for Nathan's existing scraper contributions. **Blocked on explicit contributor permission.**
+- [ ] Add the finalized AGPL/commercial licensing files to the scraper repository. **Blocked until contributor permission is confirmed.**
 - [x] Remove machine-specific scraper output paths and make database/output configuration portable across Windows and HPC/Linux.
 - [x] Use the shared `inkly-test` virtual environment for Inkly/scraper Phase 1 integration testing on Cuttlefish.
 - [x] Make the scraper installable with `python -m pip install -e .` and document the shared-environment setup for Inkly consumers.
 - [x] Make the normal Inkly installation path provision/verify the scraper dependency so users do not need to remember separate manual setup steps.
 - [ ] Before release, replace the setup script's scraper integration ref with a stable scraper tag/release.
 - [x] Define a standardized internal documentation search interface, `search_docs(domain, query, top_k)`, with optional tool/docs-dir parameters.
-- [ ] Standardize plugin execution as `run(query: str)` so the runtime passes the user's current query to selected plugins while non-documentation plugins preserve their existing behavior.
-- [ ] Pass the user's actual query into Gaussian documentation retrieval.
+- [x] Standardize runtime plugin execution as `run(query: str)` while adapting legacy zero-argument cluster plugins without changing their behavior.
+- [x] Pass the user's actual query into selected plugin execution; Gaussian retrieval can now consume it in the next integration step.
 - [ ] Connect `docs_gaussian` to the scraper's standardized `search_docs(...)` interface and scraper-produced SQLite database, replacing the static Gaussian snippets.
 - [x] Keep retrieval local in Phase 1; do not require GitHub Copilot or MCP.
 - [ ] Add provenance/source labels to retrieved passages.

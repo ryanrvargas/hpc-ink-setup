@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pkgutil
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
@@ -29,8 +30,15 @@ class Plugin:
     # Example queries used for retrieval indexing and similarity matching
     example_queries: List[str]
 
-    # Callable entry point for executing the plugin
-    run: Callable[[], str]
+    # Query-aware callable entry point for executing the plugin
+    run: Callable[[str], str]
+
+
+def _query_aware_run(run_func: Callable[..., str]) -> Callable[[str], str]:
+    """Normalize legacy zero-argument plugins to the query-aware runtime contract."""
+    if len(inspect.signature(run_func).parameters) == 0:
+        return lambda _query: run_func()
+    return run_func
 
 
 class PluginManager:
@@ -62,6 +70,7 @@ class PluginManager:
         - Skip internal modules (private or manager)
         - Validate required attributes (PLUGIN_META, run)
         - Validate metadata structure
+        - Normalize plugin execution to run(query)
         - Build Plugin objects
 
         Returns:
@@ -92,13 +101,14 @@ class PluginManager:
             # Ensure metadata is valid before constructing the plugin
             validate_plugin_meta(meta)
 
-            # Build a normalized Plugin object
+            # Build a normalized Plugin object. Legacy cluster-state plugins
+            # still expose run(), so adapt them without changing their behavior.
             plugin = Plugin(
                 name=meta["name"],
                 description=meta["description"],
                 category=meta["category"],
                 example_queries=list(meta.get("example_queries", [])),
-                run=module.run,
+                run=_query_aware_run(module.run),
             )
 
             # Store using plugin name as the key

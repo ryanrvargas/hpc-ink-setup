@@ -173,19 +173,24 @@ git clone <repo-url>
 cd hpc-ink-setup
 ```
 
-### 2. Run the installer
+### 2. Run the setup script
 
 ```bash
-python3 install.py
+bash setup.sh
 ```
 
-The installer will:
-- create `~/.inkly`
-- install the runtime package under `~/.inkly/lib`
+The setup script will:
+- create a private Python environment under `~/.inkly/venv`
+- install Inkly Python requirements
+- clone and install the Gaussian documentation scraper
+- install the Inkly runtime under `~/.inkly/lib`
 - initialize `~/.inkly/jobs.db`
 - install the `ink` launcher into `~/.inkly/bin/ink`
+- configure the installed launcher to use Inkly private Python environment
 - optionally add `~/.inkly/bin` to your shell `PATH`
-- verify the key installed pieces exist
+- verify the Gaussian documentation search package is importable
+
+`install.py` is used internally by `setup.sh`; normal users should run `setup.sh`.
 
 ### 3. Reload your shell if needed
 

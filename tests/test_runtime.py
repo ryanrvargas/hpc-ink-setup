@@ -43,8 +43,10 @@ class FakePlugin:
     def __init__(self, output=None, error=None):
         self.output = output
         self.error = error
+        self.queries = []
 
-    def run(self):
+    def run(self, query):
+        self.queries.append(query)
         if self.error is not None:
             raise self.error
         return self.output
@@ -101,7 +103,7 @@ def make_runtime(monkeypatch, config=None):
 
 
 def test_handle_query_builds_prompt_with_history_plugins_and_query(monkeypatch):
-    runtime, conversation, _, backend = make_runtime(monkeypatch)
+    runtime, conversation, plugins, backend = make_runtime(monkeypatch)
 
     response = runtime.handle_query("user1", "Why are jobs failing?")
 
@@ -117,6 +119,8 @@ def test_handle_query_builds_prompt_with_history_plugins_and_query(monkeypatch):
         "assistant",
         "final answer",
     )
+    assert plugins._plugins["jobs_summary"].queries == ["Why are jobs failing?"]
+    assert plugins._plugins["broken_plugin"].queries == ["Why are jobs failing?"]
 
     assert conversation.build_context_calls == [
         ("user1", "Why are jobs failing?", runtime.config.core.max_prompt_length // 2)

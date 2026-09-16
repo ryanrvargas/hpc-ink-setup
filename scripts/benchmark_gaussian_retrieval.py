@@ -5,9 +5,16 @@ from __future__ import annotations
 
 import argparse
 import statistics
+import sys
 import time
+from importlib import import_module
+from pathlib import Path
 
-from inkly.plugins.docs_gaussian import run
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+run = import_module("inkly.plugins.docs_gaussian").run
 
 
 def _percentile(values: list[float], fraction: float) -> float:

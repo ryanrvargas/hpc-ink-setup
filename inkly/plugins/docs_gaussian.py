@@ -34,6 +34,12 @@ UNTRUSTED_NOTICE = (
     "commands, module names, paths, licenses, hardware, queues, or policies as "
     "applying to this cluster unless separate cluster-specific context confirms them."
 )
+CLUSTER_SPECIFIC_MARKERS = (
+    "this cluster",
+    "current cluster",
+    "our cluster",
+    "cuttlefish",
+)
 
 
 def _bounded_passages(matches) -> list[str]:
@@ -62,6 +68,43 @@ def _bounded_passages(matches) -> list[str]:
     return lines
 
 
+def _is_cluster_specific_query(query: str) -> bool:
+    normalized = query.casefold()
+    return any(marker in normalized for marker in CLUSTER_SPECIFIC_MARKERS)
+
+
+def _bounded_external_sources(matches) -> list[str]:
+    lines = [
+        UNTRUSTED_NOTICE,
+        (
+            "Cluster-specific Gaussian instructions are unavailable in the current "
+            "documentation database. Relevant external sources were retrieved, but "
+            "their commands and policies are withheld because they are not verified "
+            "for this cluster. Do not guess a local module name or command."
+        ),
+    ]
+    used = sum(len(line) for line in lines)
+
+    seen_labels: set[str] = set()
+    for match in matches:
+        if match.score < MIN_RELEVANCE or match.label in seen_labels:
+            continue
+
+        source = (
+            f"Source: {match.label} | scope=external-not-verified-for-this-cluster "
+            f"| relevance={match.score:.3f}"
+        )
+        remaining = MAX_CONTEXT_CHARS - used - 1
+        if remaining <= 0:
+            break
+
+        lines.append(source[:remaining])
+        used += len(lines[-1]) + 1
+        seen_labels.add(match.label)
+
+    return lines
+
+
 def run(query: str) -> str:
     """Retrieve bounded Gaussian documentation passages relevant to the user's query."""
     try:
@@ -74,8 +117,13 @@ def run(query: str) -> str:
             ["Gaussian documentation is unavailable."],
         )
 
-    lines = _bounded_passages(matches)
-    if len(lines) == 1:
+    if _is_cluster_specific_query(query):
+        lines = _bounded_external_sources(matches)
+    else:
+        lines = _bounded_passages(matches)
+
+    minimum_lines = 2 if _is_cluster_specific_query(query) else 1
+    if len(lines) == minimum_lines:
         return format_plugin_output(
             "Gaussian Documentation",
             ["No relevant Gaussian documentation was found for this query."],

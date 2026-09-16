@@ -36,7 +36,10 @@ def test_run_queries_scraper_and_includes_provenance(monkeypatch):
     assert calls == [
         ("gaussian", "How do I submit a Gaussian job?", docs_gaussian.TOP_K)
     ]
-    assert "Source: Gaussian Slurm Guide | relevance=0.750" in output
+    assert (
+        "Source: Gaussian Slurm Guide | "
+        "scope=external-not-verified-for-this-cluster | relevance=0.750"
+    ) in output
     assert "Load the Gaussian module before submitting the job." in output
     assert "untrusted external reference material" in output
     assert "may describe other institutions or clusters" in output

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from inkly.core.runtime import InklyRuntime
 
 
-def make_config(max_prompt_length=1000, max_concurrent_requests=2):
+def make_config(max_prompt_length=4000, max_concurrent_requests=2):
     conversation = SimpleNamespace(
         enabled=True,
         max_messages=4,
@@ -157,6 +157,29 @@ def test_handle_query_trims_prompt_to_max_length(monkeypatch):
 
     prompt = backend.prompts[0]
     assert len(prompt) <= 120
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "=== USER QUERY ===" in prompt
+    assert "Why are jobs failing?" in prompt
+
+
+def test_assemble_prompt_trims_optional_context_before_required_sections():
+    runtime = InklyRuntime(make_config(max_prompt_length=1600))
+
+    prompt = runtime.assemble_prompt(
+        query="How do I run Gaussian on this cluster?",
+        history_lines=["assistant: " + ("h" * 2000)],
+        plugin_outputs={"docs_gaussian": "p" * 4000},
+    )
+
+    assert len(prompt) <= 1600
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert (
+        "Documentation from a named external institution or cluster is not evidence "
+        "about the current cluster." in prompt
+    )
+    assert "=== USER QUERY ===" in prompt
+    assert "How do I run Gaussian on this cluster?" in prompt
+    assert prompt.endswith("\n")
 
 
 def test_handle_query_records_backend_failure_in_history(monkeypatch):

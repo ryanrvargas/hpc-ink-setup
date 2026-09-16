@@ -140,22 +140,47 @@ class InklyRuntime:
         4. current user query
         Truncates the prompt if it exceeds the configured max length.
         """
-        sections = [
-            self._build_contract_section(),
+        contract_section = self._build_contract_section()
+        query_section = self._build_query_section(query)
+        max_length = self.config.core.max_prompt_length
+
+        # The response contract and current query are higher priority than optional
+        # history/plugin context. Never discard the contract merely because optional
+        # context made the assembled prompt too large.
+        required_prompt = (
+            "\n\n".join([contract_section, query_section]).rstrip("\n") + "\n"
+        )
+        if len(required_prompt) > max_length:
+            query_suffix = f"\n\n{query_section.strip()}\n"
+            contract_budget = max_length - len(query_suffix)
+            if contract_budget > 0:
+                return contract_section[:contract_budget].rstrip("\n") + query_suffix
+            return (query_section.strip() + "\n")[-max_length:]
+
+        optional_sections = [
             self._build_history_section(history_lines),
             self._build_plugin_section(plugin_outputs),
-            self._build_query_section(query),
         ]
+        optional_content = "\n\n".join(
+            section for section in optional_sections if section.strip()
+        )
+        if not optional_content:
+            return required_prompt
 
-        # Only include non-empty sections
-        non_empty_sections = [section for section in sections if section.strip()]
-        prompt = "\n\n".join(non_empty_sections).rstrip("\n") + "\n"
+        optional_budget = max_length - len(required_prompt) - 2
+        if optional_budget <= 0:
+            return required_prompt
 
-        # Truncate prompt if it exceeds max length
-        if len(prompt) > self.config.core.max_prompt_length:
-            prompt = prompt[-self.config.core.max_prompt_length :]
+        optional_content = optional_content[:optional_budget].rstrip()
+        if not optional_content:
+            return required_prompt
 
-        return prompt
+        return (
+            "\n\n".join([contract_section, optional_content, query_section]).rstrip(
+                "\n"
+            )
+            + "\n"
+        )
 
     def handle_query(self, user_id: str, query: str) -> str:
         """

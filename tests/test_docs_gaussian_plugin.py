@@ -38,7 +38,10 @@ def test_run_queries_scraper_and_includes_provenance(monkeypatch):
     ]
     assert "Source: Gaussian Slurm Guide | relevance=0.750" in output
     assert "Load the Gaussian module before submitting the job." in output
-    assert "untrusted reference material" in output
+    assert "untrusted external reference material" in output
+    assert "may describe other institutions or clusters" in output
+    assert "Attribute examples to the labeled source." in output
+    assert "unless separate cluster-specific context confirms them" in output
 
 
 def test_run_drops_matches_below_relevance_threshold(monkeypatch):

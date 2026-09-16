@@ -44,7 +44,7 @@ def _bounded_passages(matches) -> list[str]:
         if match.score < MIN_RELEVANCE:
             continue
 
-        source = f"Source: {match.label} | relevance={match.score:.3f}"
+        source = (\n            f"Source: {match.label} | scope=external-not-verified-for-this-cluster "\n            f"| relevance={match.score:.3f}"\n        )
         text = match.text[:MAX_PASSAGE_CHARS]
         remaining = MAX_CONTEXT_CHARS - used - len(source) - 2
         if remaining <= 0:

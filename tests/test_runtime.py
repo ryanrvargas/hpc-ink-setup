@@ -213,6 +213,14 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
         "If the user asks for an exact response, return only the exact requested text "
         "and nothing else." in prompt
     )
+    assert (
+        "Documentation from a named external institution or cluster is not evidence "
+        "about the current cluster." in prompt
+    )
+    assert (
+        "Present external material only as an explicitly attributed example that "
+        "requires local verification." in prompt
+    )
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt
     assert "=== USER QUERY ===" in prompt

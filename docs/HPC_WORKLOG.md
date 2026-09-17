@@ -263,3 +263,127 @@ Verification:
 - Alice Lab `main` was left untouched
 
 The Alice Lab synchronization prerequisite is now complete. The next tracked phase is Gaussian documentation integration.
+
+## 2026-09-14 — Gaussian/Inkly integration architecture
+
+The project direction was clarified after reviewing HPC meeting notes.
+
+Phase 1 will use direct local retrieval rather than MCP:
+
+documentation sources -> scraper -> ~/.inkly/{domain}.db -> standardized retrieval interface -> bounded source-labeled context -> Inkly model -> answer
+
+Decisions:
+- Inkly and the scraper are two components of the same overall HPC assistant system.
+- GitHub Copilot is not part of the planned architecture.
+- The scraper-produced SQLite databases are the initial knowledge source.
+- Inkly should retrieve only passages relevant to the current user query.
+- A standardized internal documentation-search interface will separate Inkly from the underlying storage implementation.
+- Scraped content will be treated as untrusted reference material and will carry provenance.
+- Phase 1 must be benchmarked for retrieval and end-to-end latency before adding another server layer.
+
+Future Phase 2:
+- Evaluate a shared central knowledge database/service.
+- Allow multiple approved models or applications to use the same knowledge if practical.
+- Define a standardized network tool/API.
+- Evaluate MCP as an optional interoperability wrapper rather than a Phase 1 dependency.
+- Define authentication and permissions before supporting remote clients.
+
+User-study planning:
+- Tentative target is November-December 2026.
+- Study location may need to be outside UNCW.
+- The study should measure real HPC task completion, answer quality, latency, confusion, and failure recovery.
+
+Licensing:
+- The scraper currently lacks an explicit license.
+- Nathan's authorship and Git history should be preserved.
+- An explicit license should be selected before the projects are distributed as one product, with terms matching the desired commercial/source-sharing policy.
+
+## 2026-09-14 — Licensing direction
+
+Selected licensing direction for the combined Inkly/scraper system:
+
+- AGPL-3.0-only for open/source-sharing use.
+- A separate commercial license for organizations that want proprietary use without AGPL obligations.
+- Preserve Nathan's authorship and Git history.
+- Confirm contributor ownership/relicensing permission before representing that one person can issue proprietary licenses for all existing scraper contributions.
+
+Engineering integration can continue while that contributor-rights confirmation is documented.
+
+## 2026-09-14 — Scraper portability milestone
+
+Completed the first Phase 1 scraper engineering change on `thealice-lab/gaussian-docs-scraper` branch `integration/inkly-phase1`.
+
+Changes:
+- Removed the committed Nathan-specific Windows database output path from `configs/gaussian.toml`.
+- Kept the portable default at `~/.inkly/{domain}.db` through `Path.home()`.
+- Added `expanduser()` handling so explicit `~` paths resolve correctly.
+- Stopped serializing the default output path into generated TOML, avoiding machine-specific absolute paths; custom paths are still preserved.
+- Added regression tests for tilde expansion, default-path omission, and custom-path preservation.
+
+Validation:
+- Targeted config suite: 26 tests passed.
+- Full scraper suite: 151 tests passed.
+- `git diff --check` passed.
+- `python -m pip check` reported no broken requirements.
+- Phase 1 development/testing on Cuttlefish uses the same `inkly-test` virtual environment for Inkly and the scraper.
+
+Scraper commit: `884cdb7f6f064c2255334ddedeb32ac8a9dd3be7` (`Make scraper output paths portable`).
+
+## 2026-09-14 — Standardized documentation search interface
+
+Completed the next Phase 1 scraper milestone on `thealice-lab/gaussian-docs-scraper` branch `integration/inkly-phase1`.
+
+Changes:
+- Added `gaussian_scraper.search.search_docs(domain, query, top_k=5, ...)` as the stable internal documentation-search boundary.
+- Kept `PassageIndex`, TF-IDF ranking, and SQLite loading behind that interface so Inkly does not need to depend on scraper retrieval internals.
+- Updated the existing `search_docs.py` CLI to call the standardized interface.
+- Added focused tests covering a real SQLite-backed search and the missing-domain failure path.
+
+Validation:
+- Focused search/index tests: 12 tests passed.
+- Full scraper suite: 153 tests passed.
+- `git diff --check` and staged diff checks passed before commit.
+
+Scraper commit: `71a9c011cd91c5e1fdff005bf942608771940ee9` (`Add standardized documentation search interface`).
+
+## 2026-09-14 — Scraper package installation setup
+
+Made the scraper consumable as a normal Python package for local Phase 1 Inkly integration.
+
+Changes:
+- Added `setup.py` with Python 3.9+ metadata and the scraper runtime dependencies.
+- Verified `python -m pip install -e .` installs the scraper into the active environment and makes `gaussian_scraper.search.search_docs` importable from the separate Inkly repository.
+- Expanded the scraper README with virtual-environment, editable-install, verification, and Inkly shared-environment instructions.
+- Recorded that the normal Inkly installation path should eventually provision/verify this dependency so end users do not have to remember separate manual setup commands.
+
+Validation:
+- Full scraper suite: 153 tests passed.
+- `python -m pip check` reported no broken requirements.
+- `git diff --check` and staged diff checks passed.
+- Import verification succeeded both from the scraper repository and from the separate Inkly repository while using the shared `inkly-test` environment.
+
+Scraper commit: `8b8cb4b1402c1486bc944360e028847ec395a225` (`Add scraper package installation setup`).
+
+## 2026-09-14 — One-command Inkly setup
+
+Completed the normal-user bootstrap path on `integration/gaussian-docs` so Inkly and the Gaussian documentation scraper can be provisioned through one setup command.
+
+Changes:
+- Added executable `setup.sh` as the user-facing setup entry point.
+- Added `requirements.txt` with the Python 3.9/3.10 `tomli` compatibility dependency.
+- `setup.sh` creates and reuses a private `~/.inkly/venv`, installs Inkly requirements, clones the scraper integration branch, installs the scraper into the private environment, runs Inkly's existing Python installer, and verifies `gaussian_scraper.search.search_docs` is importable.
+- Updated `install.py` so the installed `ink` launcher uses the exact Python interpreter that ran the installer; normal users therefore do not need to activate Inkly's virtual environment before running `ink`.
+- Added focused regression coverage for the installed launcher's interpreter and executable bit.
+- Updated the README so normal users run `bash setup.sh`; `install.py` remains the internal installer.
+
+Validation:
+- Focused installer regression test: 1 passed.
+- Full Inkly test suite: 96 passed.
+- `bash -n setup.sh` passed.
+- `git diff --check` and staged diff checks passed.
+- A fresh end-to-end setup completed successfully under an isolated temporary home directory without touching the user's existing Inkly installation.
+- The temporary install contained the private Python environment, scraper checkout, Inkly runtime, launcher, jobs database, and config.
+- The installed launcher's shebang pointed to the temporary Inkly private Python interpreter.
+- Re-running `setup.sh` against the same temporary installation completed successfully and reused the existing environment and scraper checkout.
+
+Inkly commit: `db575774bd39eb3a8919e0041cdf23f2869f6b7a` (`Add one-command Inkly setup`).

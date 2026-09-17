@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from inkly.core.runtime import InklyRuntime
 
 
-def make_config(max_prompt_length=1000, max_concurrent_requests=2):
+def make_config(max_prompt_length=4000, max_concurrent_requests=2):
     conversation = SimpleNamespace(
         enabled=True,
         max_messages=4,
@@ -43,8 +43,10 @@ class FakePlugin:
     def __init__(self, output=None, error=None):
         self.output = output
         self.error = error
+        self.queries = []
 
-    def run(self):
+    def run(self, query):
+        self.queries.append(query)
         if self.error is not None:
             raise self.error
         return self.output
@@ -101,7 +103,7 @@ def make_runtime(monkeypatch, config=None):
 
 
 def test_handle_query_builds_prompt_with_history_plugins_and_query(monkeypatch):
-    runtime, conversation, _, backend = make_runtime(monkeypatch)
+    runtime, conversation, plugins, backend = make_runtime(monkeypatch)
 
     response = runtime.handle_query("user1", "Why are jobs failing?")
 
@@ -117,6 +119,8 @@ def test_handle_query_builds_prompt_with_history_plugins_and_query(monkeypatch):
         "assistant",
         "final answer",
     )
+    assert plugins._plugins["jobs_summary"].queries == ["Why are jobs failing?"]
+    assert plugins._plugins["broken_plugin"].queries == ["Why are jobs failing?"]
 
     assert conversation.build_context_calls == [
         ("user1", "Why are jobs failing?", runtime.config.core.max_prompt_length // 2)
@@ -153,6 +157,29 @@ def test_handle_query_trims_prompt_to_max_length(monkeypatch):
 
     prompt = backend.prompts[0]
     assert len(prompt) <= 120
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert "=== USER QUERY ===" in prompt
+    assert "Why are jobs failing?" in prompt
+
+
+def test_assemble_prompt_trims_optional_context_before_required_sections():
+    runtime = InklyRuntime(make_config(max_prompt_length=1600))
+
+    prompt = runtime.assemble_prompt(
+        query="How do I run Gaussian on this cluster?",
+        history_lines=["assistant: " + ("h" * 2000)],
+        plugin_outputs={"docs_gaussian": "p" * 4000},
+    )
+
+    assert len(prompt) <= 1600
+    assert "=== INKLY RESPONSE CONTRACT ===" in prompt
+    assert (
+        "Documentation from a named external institution or cluster is not evidence "
+        "about the current cluster." in prompt
+    )
+    assert "=== USER QUERY ===" in prompt
+    assert "How do I run Gaussian on this cluster?" in prompt
+    assert prompt.endswith("\n")
 
 
 def test_handle_query_records_backend_failure_in_history(monkeypatch):
@@ -208,6 +235,14 @@ def test_build_prompt_omits_empty_sections(monkeypatch):
     assert (
         "If the user asks for an exact response, return only the exact requested text "
         "and nothing else." in prompt
+    )
+    assert (
+        "Documentation from a named external institution or cluster is not evidence "
+        "about the current cluster." in prompt
+    )
+    assert (
+        "Present external material only as an explicitly attributed example that "
+        "requires local verification." in prompt
     )
     assert "=== CONVERSATION HISTORY ===" not in prompt
     assert "=== PLUGIN CONTEXT ===" not in prompt

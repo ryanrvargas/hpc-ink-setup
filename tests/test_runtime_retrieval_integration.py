@@ -69,17 +69,21 @@ def test_runtime_executes_only_selected_plugins(tmp_path):
     runtime = InklyRuntime(cfg)
 
     called = []
+    queries = []
 
-    def run_jobs():
+    def run_jobs(query):
         called.append("jobs_summary")
+        queries.append(query)
         return "jobs output"
 
-    def run_queue():
+    def run_queue(query):
         called.append("queue_status")
+        queries.append(query)
         return "queue output"
 
-    def run_docs():
+    def run_docs(query):
         called.append("docs_gaussian")
+        queries.append(query)
         return "docs output"
 
     plugins = {
@@ -107,12 +111,12 @@ def test_runtime_executes_only_selected_plugins(tmp_path):
     runtime.plugins = FakePluginManager(plugins)
     runtime.retriever = FakeRetriever(["queue_status", "docs_gaussian"])
 
-    response = runtime.handle_query(
-        "user1", "How busy is the queue and where are Gaussian docs?"
-    )
+    query = "How busy is the queue and where are Gaussian docs?"
+    response = runtime.handle_query("user1", query)
 
     assert response == "ok"
     assert called == ["queue_status", "docs_gaussian"]
+    assert queries == [query, query]
     prompt = runtime.backend.prompts[0]
     assert "[queue_status]" in prompt
     assert "[docs_gaussian]" in prompt

@@ -72,6 +72,12 @@ class InklyRuntime:
         "commands and policies are not verified for this cluster, so I won't guess "
         "a local module, partition, path, or scheduler command."
     )
+    GAUSSIAN_CLUSTER_MARKERS = (
+        "this cluster",
+        "current cluster",
+        "our cluster",
+        "cuttlefish",
+    )
 
     def _build_contract_section(self) -> str:
         """
@@ -132,6 +138,13 @@ class InklyRuntime:
                 "=== USER QUERY ===",
                 query.strip(),
             ]
+        )
+
+    def _requires_gaussian_source_scoping(self, query: str) -> bool:
+        """Return whether a Gaussian query asks for facts about the local cluster."""
+        normalized = query.casefold()
+        return "gaussian" in normalized and any(
+            marker in normalized for marker in self.GAUSSIAN_CLUSTER_MARKERS
         )
 
     def _source_scoped_response(self, plugin_outputs: dict[str, str]) -> str | None:
@@ -205,6 +218,7 @@ class InklyRuntime:
         Handle a user query end-to-end:
         - Appends the user turn to the conversation
         - Discovers and selects plugins (optionally using retrieval)
+        - Forces Gaussian documentation selection for local-cluster Gaussian queries
         - Runs selected plugins with the current query and collects their outputs
         - Enforces deterministic source scoping when local Gaussian facts are unavailable
         - Builds conversation history context
@@ -261,6 +275,14 @@ class InklyRuntime:
                 not retrieval_enabled or retrieval_cfg.fallback_to_all_plugins
             ):
                 selected_plugins = list(discovered.values())
+
+            # Local-cluster Gaussian questions must pass through docs_gaussian even if
+            # approximate plugin retrieval misses it. This keeps source scoping a
+            # deterministic safety property rather than a retrieval-ranking outcome.
+            if self._requires_gaussian_source_scoping(query):
+                gaussian_plugin = discovered.get("docs_gaussian")
+                if gaussian_plugin is not None and gaussian_plugin not in selected_plugins:
+                    selected_plugins.append(gaussian_plugin)
 
             # Run each selected plugin with the active query and collect its output.
             # Query-aware documentation plugins can use it for retrieval, while

@@ -9,9 +9,10 @@ It is intentionally minimal and contains no runtime logic.
 All real functionality lives in `ink_core.py`.
 
 Responsibilities
-1. Detect installed runtime layout under ~/.inkly
-2. Inject ~/.inkly/lib into sys.path (if it exists)
-3. Import and execute ink_core.main()
+1. Prefer the repository runtime when this launcher is executed from a source checkout.
+2. Otherwise detect the installed runtime layout under ~/.inkly.
+3. Inject ~/.inkly/lib into sys.path for installed launchers.
+4. Import and execute ink_core.main().
 
 Why This Exists
 We separate CLI execution from runtime logic so that:
@@ -19,43 +20,29 @@ We separate CLI execution from runtime logic so that:
 - ink_core.py is fully importable (for testing and reuse)
 - Unit tests can import runtime logic without installation
 - The installed CLI can resolve modules correctly
-- No runtime assumptions are enforced at import time
+- A source checkout cannot silently execute a stale installed runtime
 
-Important Ordering Rul
-sys.path must be modified BEFORE importing ink_core.
-If we import first, Python will fail to locate ink_core.
+Important Ordering Rule
+sys.path must be configured BEFORE importing ink_core.
 """
 
 import sys
 from pathlib import Path
 
-# Bootstrap Installed Runtime Path
-# In installed mode, Inkly runtime files live in:
-#
-#     ~/.inkly/lib/
-#
-# That directory contains:
-#     - ink_core.py
-#     - config.py
-#
-# When this wrapper runs from ~/.npm-global/bin,
-# Python does NOT automatically know about ~/.inkly/lib.
-#
-# Therefore, we manually inject it into sys.path.
-
+SCRIPT_DIR = Path(__file__).resolve().parent
+SOURCE_PACKAGE_DIR = SCRIPT_DIR / "inkly"
 DEFAULT_INKLY_HOME = Path.home() / ".inkly"
 LIB_DIR = DEFAULT_INKLY_HOME / "lib"
 
-# Inject installed runtime directory BEFORE importing ink_core
-if LIB_DIR.exists():
+# The installer copies this launcher into Inkly's bin directory, where there is
+# no sibling `inkly` package. In that installed layout, prepend ~/.inkly/lib.
+# When the launcher is run directly from a repository checkout, the sibling
+# package is authoritative and must not be shadowed by an older installed copy.
+if not SOURCE_PACKAGE_DIR.is_dir() and LIB_DIR.exists():
     sys.path.insert(0, str(LIB_DIR))
 
-# Import Runtime Core (after path injection)
-# This must happen AFTER modifying sys.path.
-# Otherwise, Python will raise ModuleNotFoundError.
 from inkly.ink_core import main
 
 
-# All CLI behavior is handled inside ink_core.main().
 if __name__ == "__main__":
     sys.exit(main())

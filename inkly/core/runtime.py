@@ -62,6 +62,17 @@ class InklyRuntime:
     Keep answers concise unless the user requests more detail.
     """).strip()
 
+    CLUSTER_SCOPE_WITHHELD_MARKER = (
+        "Cluster-specific Gaussian instructions are unavailable in the current "
+        "documentation database."
+    )
+    CLUSTER_SCOPE_WITHHELD_RESPONSE = (
+        "Cluster-specific Gaussian instructions are unavailable in the current "
+        "documentation database. I found external Gaussian documentation, but its "
+        "commands and policies are not verified for this cluster, so I won't guess "
+        "a local module, partition, path, or scheduler command."
+    )
+
     def _build_contract_section(self) -> str:
         """
         Build the base instruction section that defines the assistant's behavior.
@@ -122,6 +133,13 @@ class InklyRuntime:
                 query.strip(),
             ]
         )
+
+    def _source_scoped_response(self, plugin_outputs: dict[str, str]) -> str | None:
+        """Return a deterministic answer when local Gaussian commands are unverified."""
+        gaussian_output = plugin_outputs.get("docs_gaussian", "")
+        if self.CLUSTER_SCOPE_WITHHELD_MARKER not in gaussian_output:
+            return None
+        return self.CLUSTER_SCOPE_WITHHELD_RESPONSE
 
     def assemble_prompt(
         self,
@@ -188,6 +206,7 @@ class InklyRuntime:
         - Appends the user turn to the conversation
         - Discovers and selects plugins (optionally using retrieval)
         - Runs selected plugins with the current query and collects their outputs
+        - Enforces deterministic source scoping when local Gaussian facts are unavailable
         - Builds conversation history context
         - Assembles the full prompt for the LLM
         - Calls the LLM backend to generate a response
@@ -256,6 +275,16 @@ class InklyRuntime:
                     plugin_outputs[plugin_name] = plugin.run(query)
                 except Exception as exc:
                     plugin_outputs[plugin_name] = f"Plugin error: {exc}"
+
+            # When the Gaussian documentation plugin explicitly says that local
+            # instructions are unavailable, do not ask a generative model to fill in
+            # the missing cluster facts. Return the bounded deterministic answer.
+            source_scoped_response = self._source_scoped_response(plugin_outputs)
+            if source_scoped_response is not None:
+                self.conversation.append_turn(
+                    user_id, "assistant", source_scoped_response
+                )
+                return source_scoped_response
 
             # Build conversation history context for the prompt
             history_lines = self.conversation.build_context(

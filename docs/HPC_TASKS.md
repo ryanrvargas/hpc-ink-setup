@@ -100,8 +100,8 @@ Architecture:
 - [x] Add score thresholds, `top_k` limits, context-size limits, and graceful missing/corrupt database handling.
 - [x] Add tests for relevant match, no match, missing/corrupt DB, prompt injection, context limits, and scraper/backend failures covered at the plugin boundary.
 - [x] Add a repeatable Phase 1 retrieval benchmark harness for the real `docs_gaussian.run()` path.
-- [ ] Validate end-to-end Gaussian documentation retrieval on the HPC environment.
-- [ ] Benchmark Phase 1 retrieval and total response latency before introducing a network service.
+- [x] Validate end-to-end Gaussian documentation retrieval on the HPC environment.
+- [x] Benchmark Phase 1 retrieval and total response latency before introducing a network service.
 
 ### Phase 2 — shared knowledge service / interoperability
 

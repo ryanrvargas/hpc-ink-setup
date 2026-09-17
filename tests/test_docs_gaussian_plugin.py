@@ -124,3 +124,67 @@ def test_run_handles_corrupt_database(monkeypatch):
     output = docs_gaussian.run("Gaussian")
 
     assert "Gaussian documentation is unavailable." in output
+
+
+def test_cluster_specific_query_withholds_unverified_external_commands(monkeypatch):
+    external_command = "module load gaussian/other-cluster"
+
+    def search_docs(domain, query, *, top_k):
+        return [
+            SimpleNamespace(
+                label="External Gaussian Guide",
+                text=external_command,
+                score=0.9,
+            )
+        ]
+
+    _install_search(monkeypatch, search_docs)
+
+    output = docs_gaussian.run("How do I run Gaussian on this cluster?")
+
+    assert external_command not in output
+    assert "commands and policies are withheld" in output
+    assert "Do not guess a local module name or command." in output
+    assert "scope=external-not-verified-for-this-cluster" in output
+    assert "Source: External Gaussian Guide" in output
+
+
+def test_named_cuttlefish_query_withholds_unverified_external_commands(monkeypatch):
+    external_command = "sbatch site-specific-gaussian.sh"
+
+    def search_docs(domain, query, *, top_k):
+        return [
+            SimpleNamespace(
+                label="Another Institution",
+                text=external_command,
+                score=0.8,
+            )
+        ]
+
+    _install_search(monkeypatch, search_docs)
+
+    output = docs_gaussian.run("How should I submit Gaussian on Cuttlefish?")
+
+    assert external_command not in output
+    assert "Cluster-specific Gaussian instructions are unavailable" in output
+    assert "Source: Another Institution" in output
+
+
+def test_general_gaussian_query_keeps_relevant_external_passage(monkeypatch):
+    external_text = "Gaussian input files commonly use route sections."
+
+    def search_docs(domain, query, *, top_k):
+        return [
+            SimpleNamespace(
+                label="Gaussian Reference",
+                text=external_text,
+                score=0.85,
+            )
+        ]
+
+    _install_search(monkeypatch, search_docs)
+
+    output = docs_gaussian.run("What is a Gaussian route section?")
+
+    assert external_text in output
+    assert "Source: Gaussian Reference" in output

@@ -17,7 +17,9 @@ class FakeConversationManager:
         self.appended.append((user_id, role, content))
 
     def build_context(self, *args, **kwargs):
-        raise AssertionError("history should not be built for a withheld cluster answer")
+        raise AssertionError(
+            "history should not be built for a withheld cluster answer"
+        )
 
 
 class FakePlugin:

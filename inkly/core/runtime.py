@@ -281,7 +281,10 @@ class InklyRuntime:
             # deterministic safety property rather than a retrieval-ranking outcome.
             if self._requires_gaussian_source_scoping(query):
                 gaussian_plugin = discovered.get("docs_gaussian")
-                if gaussian_plugin is not None and gaussian_plugin not in selected_plugins:
+                if (
+                    gaussian_plugin is not None
+                    and gaussian_plugin not in selected_plugins
+                ):
                     selected_plugins.append(gaussian_plugin)
 
             # Run each selected plugin with the active query and collect its output.

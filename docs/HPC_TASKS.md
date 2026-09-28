@@ -6,9 +6,9 @@ This file tracks the current public project state and next work. Detailed machin
 
 - [x] Personal canonical repository remains `ryanrvargas/hpc-ink-setup`.
 - [x] `dev` is the active integration branch.
-- [x] Current authoritative `dev`: `0ee3af2c11448980792734547c99cb428fff8ce1` (PR #121 merged).
-- [x] Functionally validated runtime code baseline remains `28b4077b76d6c6ade7059425d17ea73585ec2add`.
-- [x] Test suite passes: 96 tests.
+- [x] Current authoritative `dev`: `d78c58759aa27fda0913e6e185a50c2c496a68ef` (PR #2 merged).
+- [x] Current fully validated runtime baseline: `d78c58759aa27fda0913e6e185a50c2c496a68ef`.
+- [x] Test suite passes: 118 tests.
 - [x] Ruff lint and format checks pass.
 - [x] CI quality workflow covers Python 3.9 and 3.11 plus Ruff checks.
 
@@ -160,7 +160,7 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Verify `thealice-lab/hpc-ink-setup` contains `main`, `dev`, and `integration/gaussian-docs`.
 - [x] Synchronize `integration/gaussian-docs` between the local checkout, personal repository, and Alice Lab organization at `6bba0246`.
 - [x] Merge the validated `integration/gaussian-docs` work into Alice Lab `dev` through PR #1 (`8c8ffe36`).
-- [ ] Validate a fresh install from the updated `dev` branch and confirm users can run `ink` directly without needing `./ink`.
+- [x] Validate a fresh install from merged `dev`; users can run `ink` directly without needing `./ink`, and clean installs safely withhold unverified Cuttlefish Gaussian commands.
 
 ## 2026-09-28 — Fresh-install Gaussian source-scoping regression
 
@@ -173,5 +173,5 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Add regression tests for missing scraper/database, corrupt database, and no-relevant-match clean-install paths.
 - [x] Re-run validation: 118 tests passed, Ruff lint passed, Ruff formatting passed, and `git diff --check` passed.
 - [x] Repeat isolated fresh-install test with no `gaussian.db`; `ink` safely withheld Cuttlefish Gaussian commands.
-- [ ] Merge the hotfix into Alice Lab `dev`.
+- [x] Merge the fresh-install Gaussian source-scoping hotfix through Alice Lab PR #2 (`d78c58759aa27fda0913e6e185a50c2c496a68ef`).
 - [ ] Close personal PR #122 as superseded only after the hotfix is merged and validated.

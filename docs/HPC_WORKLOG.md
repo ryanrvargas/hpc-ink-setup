@@ -522,3 +522,29 @@ Phase 1B will:
 - create a repeatable Gaussian job-generation evaluation for future scraper/database changes
 
 This operational validation is now considered part of Phase 1 completion before moving to Phase 2/MCP infrastructure work.
+
+
+## 2026-09-28 — Final merged-dev fresh-install validation
+
+Alice Lab PR #2 was merged into `dev` as
+`d78c58759aa27fda0913e6e185a50c2c496a68ef`.
+
+A final fresh-install validation was performed from that exact merged `dev`
+commit using a new isolated HOME.
+
+Results:
+- `setup.sh` completed successfully.
+- The Gaussian scraper dependency installed successfully.
+- The installed `ink` launcher worked from outside the repository.
+- The fresh installation intentionally had no `~/.inkly/gaussian.db`.
+- Exact-output testing returned exactly `FINAL_OK`.
+- `How do I run Gaussian on Cuttlefish?` returned the deterministic unavailable/not-verified response in about 0.06 seconds.
+- `How do I submit a Gaussian job on Cuttlefish?` returned the same guarded response in about 0.06 seconds.
+- No unverified Gaussian module, executable, scheduler command, partition, or path was generated.
+
+The clean-install Gaussian source-scoping regression is therefore fixed and
+validated on the authoritative Alice Lab `dev` branch.
+
+The next Gaussian engineering stage is Phase 1B operational validation:
+compare scraper retrieval and Inkly-generated Gaussian SBATCH files against
+known-good jobs that actually ran successfully on Cuttlefish.

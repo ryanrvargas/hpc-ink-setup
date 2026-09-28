@@ -1,0 +1,29 @@
+schema_version = 1
+name = "Cuttlefish"
+
+# Used for automatic profile detection.
+host_patterns = ["cuttlefish*"]
+
+scheduler = "slurm"
+verified_on = "2026-09-28"
+
+[software.gaussian]
+installed = true
+runtime_verified = false
+
+access_group = "gaussian"
+
+modules = [
+  "gaussian/avx2/g16_rev_c01",
+  "gaussian/avx2/g16_rev_c02",
+  "gaussian/sse4/g16_rev_b01",
+]
+
+advertised_default_module = "gaussian/avx2/g16_rev_c02"
+
+scratch_template = "/scratch/gaussian/{user}"
+
+[software.gaussian.c02_environment]
+g16root = "/opt/software/gaussian/avx2/rev_c02"
+gauss_scrdir_template = "/scratch/gaussian/{user}"
+omp_num_threads = 1

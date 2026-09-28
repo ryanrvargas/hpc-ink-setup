@@ -735,3 +735,124 @@ This discovery becomes an explicit Phase 1B benchmark case: Inkly should be
 able to distinguish "software exists on the cluster" from "software is usable
 by this user." When access is missing, it should explain the prerequisite
 rather than generate a supposedly runnable job script.
+
+
+## 2026-09-28 — Initial Cuttlefish Gaussian ground-truth set created
+
+Created:
+
+`benchmarks/gaussian/cuttlefish_ground_truth.md`
+
+The benchmark separates directly observed Cuttlefish evidence into:
+- VERIFIED_RUNTIME
+- VERIFIED_CONFIG
+- BLOCKED_BY_ACCESS
+- UNKNOWN
+- GAUSSIAN_GENERAL
+- EXTERNAL_CLUSTER
+
+This avoids treating all retrieved documentation as equally authoritative.
+
+The initial record includes:
+- Slurm and partition configuration
+- advertised Gaussian modules
+- Gaussian installation permissions
+- current-user access failure
+- configured Gaussian scratch behavior
+- modulefile environment behavior
+- explicitly unknown operational facts
+
+This file will serve as the reference against which current Inkly behavior and
+future scraper/retrieval changes are evaluated.
+
+
+## 2026-09-28 — Inkly pre-local-knowledge baseline
+
+Ran seven realistic Cuttlefish Gaussian questions against the current Inkly
+implementation.
+
+All seven queries returned the deterministic cluster-source withholding
+response.
+
+Conclusion:
+The current implementation successfully prevents external documentation from
+being rewritten as Cuttlefish fact, but it is now too conservative.
+
+Inkly already has directly verified local facts available from Cuttlefish,
+including:
+- scheduler and partition information
+- Gaussian module inventory
+- Gaussian installation access restrictions
+- configured Gaussian scratch location
+- current-user group-access failure
+
+The current Gaussian documentation path cannot expose those facts because
+`docs_gaussian` intentionally treats its database as external documentation.
+
+Architecture decision:
+Do not mix trusted Cuttlefish facts into the external Gaussian scraper corpus.
+
+Instead, add a generic trusted cluster-profile mechanism to Inkly. The local
+profile will represent facts verified for the current HPC environment, while
+Nathan's scraper remains responsible for broader Gaussian documentation and
+external examples.
+
+The eventual answer path should combine:
+trusted local cluster evidence + relevant general documentation + user intent.
+
+Verified facts may be answered directly. Unknown local facts must still be
+withheld. External-cluster commands must remain explicitly scoped to their
+source.
+
+## 2026-09-28 — Gaussian compute-node access validation
+
+Completed a controlled Slurm diagnostic to determine whether the previously
+observed Gaussian access restriction was limited to the Cuttlefish login node.
+
+Submitted job `2173009` to the `general` partition. The job ran on `node10`
+and Slurm itself completed successfully.
+
+Inside the compute job:
+
+- Gaussian modules were visible.
+- `gaussian/avx2/g16_rev_c02` was advertised as the default.
+- The module load returned status 1.
+- Lmod reported `Permission denied` while sourcing the Gaussian `g16.profile`.
+- `g16` was not available on PATH after the failure.
+
+This confirms that the current user's Gaussian access restriction also applies
+inside a real compute job.
+
+The diagnostic script deliberately exited 0 after collecting evidence, so the
+Slurm COMPLETED state records successful execution of the diagnostic itself,
+not successful execution of Gaussian.
+
+Phase 1B now has direct evidence distinguishing:
+
+- working Slurm batch execution
+- installed/configured Gaussian software
+- current-user Gaussian access failure
+- still-unverified Gaussian runtime behavior
+
+Next operational dependency:
+obtain Gaussian access, then repeat validation with a minimal real Gaussian
+calculation before treating generated Gaussian SBATCH files as proven runnable.
+
+## 2026-09-28 — Trusted-profile benchmark after access guard
+
+Repeated the seven-question Cuttlefish Gaussian benchmark after adding the
+trusted local cluster profile and deterministic BLOCKED_BY_ACCESS guard.
+
+The earlier unsafe module-answer behavior was corrected. Inkly no longer emits
+a Gaussian `module load` command when trusted local evidence shows that the
+current user lacks Gaussian access.
+
+All seven benchmark cases now preserve the intended evidence boundaries:
+
+- locally verified facts are surfaced
+- blocked execution requests are stopped deterministically
+- unknown Gaussian CPU and memory mappings remain unknown
+- external documentation is not rewritten as Cuttlefish configuration
+
+The implementation test suite currently passes 127 tests with Ruff and
+formatting checks clean.

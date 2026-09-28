@@ -128,8 +128,8 @@ Initial baseline:
 - [x] Identify a scheduler-confusion failure: a Slurm submission query ranked an NC State `bsub`/LSF example first.
 - [x] Identify weak or missing retrieval coverage for CPU/resource mapping, memory mapping, scratch usage, and restart workflows.
 - [x] Confirm that a Cuttlefish-specific query currently retrieves only external-institution documentation.
-- [ ] Build a Cuttlefish Gaussian ground-truth validation set before modifying the retrieval architecture.
-- [ ] Define source scopes for verified-local, Gaussian-general, external-cluster, and community knowledge.
+- [x] Create the initial `benchmarks/gaussian/cuttlefish_ground_truth.md` from directly observed Cuttlefish scheduler, module, access, and scratch configuration.
+- [x] Define initial evidence scopes: VERIFIED_RUNTIME, VERIFIED_CONFIG, VERIFIED_ACCESS, BLOCKED_BY_ACCESS, UNKNOWN, GAUSSIAN_GENERAL, and EXTERNAL_CLUSTER.
 - [x] Verify Cuttlefish uses Slurm and identify the current partition/resource configuration.
 - [x] Verify installed Cuttlefish Gaussian modules and identify `gaussian/avx2/g16_rev_c02` as the default module.
 - [x] Test the default Gaussian module instead of assuming that an advertised module is usable.
@@ -137,7 +137,12 @@ Initial baseline:
 - [ ] Verify at least one Gaussian module can actually load and expose a working `g16` executable before constructing the first controlled Gaussian SBATCH job.
 - [ ] Confirm the correct process for obtaining Gaussian access/group membership on Cuttlefish.
 - [ ] After access is granted, re-run module and executable validation before attempting a Gaussian job.
-- [ ] Add an access-aware benchmark case: Inkly must recognize when Gaussian is installed but unavailable to the current user instead of generating a supposedly runnable SBATCH file.
+- [x] Add an access-aware benchmark case: Inkly must recognize when Gaussian is installed but unavailable to the current user instead of generating a supposedly runnable SBATCH file.
+- [x] Capture the seven-question pre-local-knowledge Inkly baseline.
+- [ ] Add a generic trusted cluster-profile mechanism to Inkly rather than hard-coding Cuttlefish-specific facts into runtime code.
+- [ ] Make local Gaussian questions consume both trusted cluster facts and external Gaussian documentation while preserving source boundaries.
+- [ ] Replace the all-or-nothing Gaussian hard stop with evidence-aware behavior: answer verified local facts, use external material only as attributed general guidance, and withhold unknown local details.
+
 
 
 
@@ -211,3 +216,19 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Repeat isolated fresh-install test with no `gaussian.db`; `ink` safely withheld Cuttlefish Gaussian commands.
 - [x] Merge the fresh-install Gaussian source-scoping hotfix through Alice Lab PR #2 (`d78c58759aa27fda0913e6e185a50c2c496a68ef`).
 - [x] Personal PR #122 was automatically recognized as merged after the validated Alice Lab `dev` history was synchronized to personal `dev`.
+
+### Phase 1B Gaussian operational validation update — 2026-09-28
+
+- [x] Add trusted cluster-local profile support.
+- [x] Detect current-user Gaussian group access separately from static cluster configuration.
+- [x] Preserve external Gaussian documentation as externally scoped evidence.
+- [x] Add deterministic `BLOCKED_BY_ACCESS` handling for Gaussian execution requests.
+- [x] Validate Gaussian access on the Cuttlefish login node.
+- [x] Submit a controlled Gaussian-access diagnostic through Slurm.
+- [x] Reproduce the Gaussian permission failure on a real compute node.
+- [ ] Obtain valid Gaussian access for a test account.
+- [ ] Verify successful Gaussian module load on a compute node.
+- [ ] Run a minimal real Gaussian calculation.
+- [ ] Verify CPU / `%NProcShared` behavior.
+- [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
+- [ ] Produce and validate a proven-working Gaussian SBATCH file.

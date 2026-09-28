@@ -49,6 +49,13 @@ class InklyRuntime:
     If local context does not confirm the answer, say the cluster-specific information is unavailable.
     Present external material only as an explicitly attributed example that requires local verification.
 
+    Context marked scope=verified-local-cluster is trusted local cluster evidence.
+    Use that evidence for cluster-specific facts while preserving its evidence labels.
+    VERIFIED_CONFIG confirms configuration but does not prove successful runtime behavior.
+    UNKNOWN facts must remain unknown and must not be filled from external-cluster examples.
+    If local evidence says software is BLOCKED_BY_ACCESS, explain the access prerequisite
+    and do not present commands or job scripts as currently runnable for that user.
+
     Do not reinterpret a general, literal, testing, or unrelated request as an HPC task
     just because Inkly is normally used on an HPC cluster.
 
@@ -71,6 +78,20 @@ class InklyRuntime:
         "documentation database. I found external Gaussian documentation, but its "
         "commands and policies are not verified for this cluster, so I won't guess "
         "a local module, partition, path, or scheduler command."
+    )
+    TRUSTED_LOCAL_SCOPE_MARKER = "scope=verified-local-cluster"
+    GAUSSIAN_BLOCKED_ACCESS_MARKER = "evidence=BLOCKED_BY_ACCESS"
+    GAUSSIAN_ACCESS_ACTION_MARKERS = (
+        "run gaussian",
+        "running gaussian",
+        "load gaussian",
+        "loading gaussian",
+        "gaussian module",
+        "sbatch",
+        "submit gaussian",
+        "execute gaussian",
+        "launch gaussian",
+        "permission denied",
     )
     GAUSSIAN_CLUSTER_MARKERS = (
         "this cluster",
@@ -147,11 +168,91 @@ class InklyRuntime:
             marker in normalized for marker in self.GAUSSIAN_CLUSTER_MARKERS
         )
 
-    def _source_scoped_response(self, plugin_outputs: dict[str, str]) -> str | None:
-        """Return a deterministic answer when local Gaussian commands are unverified."""
+    def _requires_gaussian_access_guard(self, query: str) -> bool:
+        """Return whether the query asks for Gaussian execution/access guidance."""
+        normalized = " ".join(query.casefold().split())
+
+        if "gaussian" not in normalized:
+            return False
+
+        return any(
+            marker in normalized for marker in self.GAUSSIAN_ACCESS_ACTION_MARKERS
+        )
+
+    @staticmethod
+    def _extract_local_fact(local_output: str, label: str) -> str | None:
+        """Extract one labeled fact from trusted cluster-profile output."""
+        marker = f"{label}: "
+
+        for line in local_output.splitlines():
+            if marker in line:
+                return line.split(marker, 1)[1].strip()
+
+        return None
+
+    def _blocked_gaussian_access_response(self, local_output: str) -> str:
+        """Build a deterministic response when Gaussian access is blocked."""
+        access_group = self._extract_local_fact(
+            local_output,
+            "Gaussian access group",
+        )
+        default_module = self._extract_local_fact(
+            local_output,
+            "Advertised default Gaussian module",
+        )
+
+        lines = [
+            (
+                "Gaussian is configured on this cluster, but trusted local evidence "
+                "shows that it is currently blocked for your account."
+            )
+        ]
+
+        if access_group:
+            lines.append(
+                f"Your account does not satisfy the required `{access_group}` "
+                "access-group prerequisite."
+            )
+
+        if default_module:
+            lines.append(
+                f"The advertised default module is `{default_module}`, but that is "
+                "configuration evidence, not proof that the module is runnable for "
+                "your account."
+            )
+
+        lines.append(
+            "I won't provide a load, run, submit, or runnable SBATCH command until "
+            "access is available and Gaussian runtime behavior has been verified."
+        )
+        lines.append(
+            "The trusted local profile does not yet contain a verified procedure "
+            "for obtaining Gaussian access."
+        )
+
+        return " ".join(lines)
+
+    def _source_scoped_response(
+        self,
+        plugin_outputs: dict[str, str],
+        query: str = "",
+    ) -> str | None:
+        """Return a deterministic answer when local Gaussian commands are unsafe."""
         gaussian_output = plugin_outputs.get("docs_gaussian", "")
+        local_output = plugin_outputs.get("cluster_profile", "")
+
+        if (
+            self.GAUSSIAN_BLOCKED_ACCESS_MARKER in local_output
+            and self._requires_gaussian_access_guard(query)
+        ):
+            return self._blocked_gaussian_access_response(local_output)
+
         if self.CLUSTER_SCOPE_WITHHELD_MARKER not in gaussian_output:
             return None
+
+        if self.TRUSTED_LOCAL_SCOPE_MARKER in local_output:
+            return None
+
         return self.CLUSTER_SCOPE_WITHHELD_RESPONSE
 
     def assemble_prompt(
@@ -276,16 +377,14 @@ class InklyRuntime:
             ):
                 selected_plugins = list(discovered.values())
 
-            # Local-cluster Gaussian questions must pass through docs_gaussian even if
-            # approximate plugin retrieval misses it. This keeps source scoping a
-            # deterministic safety property rather than a retrieval-ranking outcome.
+            # Local-cluster Gaussian questions must include both external Gaussian
+            # documentation and trusted local cluster evidence even if approximate
+            # plugin retrieval misses either plugin.
             if self._requires_gaussian_source_scoping(query):
-                gaussian_plugin = discovered.get("docs_gaussian")
-                if (
-                    gaussian_plugin is not None
-                    and gaussian_plugin not in selected_plugins
-                ):
-                    selected_plugins.append(gaussian_plugin)
+                for plugin_name in ("docs_gaussian", "cluster_profile"):
+                    plugin = discovered.get(plugin_name)
+                    if plugin is not None and plugin not in selected_plugins:
+                        selected_plugins.append(plugin)
 
             # Run each selected plugin with the active query and collect its output.
             # Query-aware documentation plugins can use it for retrieval, while
@@ -304,7 +403,10 @@ class InklyRuntime:
             # When the Gaussian documentation plugin explicitly says that local
             # instructions are unavailable, do not ask a generative model to fill in
             # the missing cluster facts. Return the bounded deterministic answer.
-            source_scoped_response = self._source_scoped_response(plugin_outputs)
+            source_scoped_response = self._source_scoped_response(
+                plugin_outputs,
+                query=query,
+            )
             if source_scoped_response is not None:
                 self.conversation.append_turn(
                     user_id, "assistant", source_scoped_response

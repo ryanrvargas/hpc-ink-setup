@@ -103,6 +103,24 @@ Architecture:
 - [x] Validate end-to-end Gaussian documentation retrieval on the HPC environment.
 - [x] Benchmark Phase 1 retrieval and total response latency before introducing a network service.
 
+### Phase 1B — Cuttlefish Gaussian operational validation
+
+Before considering the Gaussian knowledge path fully validated, verify that
+scraper-retrieved information can support correct and useful Gaussian job
+creation on the actual Cuttlefish environment.
+
+- [ ] Collect a small set of known-good Gaussian job scripts that previously ran successfully on Cuttlefish.
+- [ ] Record the Cuttlefish-specific Gaussian requirements shown by those jobs, including SBATCH directives, executable/module usage, CPU and memory requests, scratch/environment setup, partitions, and input/output handling.
+- [ ] Compare scraper-retrieved Gaussian guidance against the known-good Cuttlefish jobs.
+- [ ] Classify retrieved guidance as Cuttlefish-verified, generally useful external guidance, conflicting/outdated guidance, or unsupported locally.
+- [ ] Test whether Inkly can use the retrieved documentation to produce a reasonable Gaussian SBATCH file without importing commands or policies from another cluster.
+- [ ] Compare generated SBATCH files against known-good Cuttlefish examples and document incorrect, missing, or unnecessary directives.
+- [ ] Add regression fixtures/tests for verified Cuttlefish Gaussian job patterns and for preventing external-cluster commands from being presented as local commands.
+- [ ] Perform non-destructive scheduler/script validation of generated Gaussian job files where supported by the Cuttlefish environment.
+- [ ] Run a minimal controlled Gaussian test job on Cuttlefish if permitted, and verify submission, startup, Gaussian execution, and expected output.
+- [ ] Record the verified local Gaussian facts separately from external documentation so future Inkly responses can distinguish Cuttlefish-specific knowledge from general examples.
+- [ ] Define a repeatable Gaussian job-generation evaluation so future scraper/database changes can be tested against the same known-good cases.
+
 ### Phase 2 — shared knowledge service / interoperability
 
 Begin only after Phase 1 is correct, fast, and stable.
@@ -126,7 +144,7 @@ Target window from the HPC meeting: November-December 2026.
 
 ## Deferred cleanup
 
-- [ ] Set explicit Git author name/email for future commits.
+- [x] Set explicit Git author name/email for future commits.
 - [ ] Review stale personal branches for eventual archival/deletion only after current collaboration work is stable.
 - [ ] Investigate any administrator-level Ollama/model instructions only if response behavior remains unexplained after contract simplification.
 - [ ] Revisit broader response formatting/code-output rules after correctness and latency are stable.
@@ -141,5 +159,19 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Verify Cuttlefish-specific guarded responses return in about 0.07 seconds instead of falling through to the slow model path.
 - [x] Verify `thealice-lab/hpc-ink-setup` contains `main`, `dev`, and `integration/gaussian-docs`.
 - [x] Synchronize `integration/gaussian-docs` between the local checkout, personal repository, and Alice Lab organization at `6bba0246`.
-- [ ] Merge the validated `integration/gaussian-docs` work into the Alice Lab `dev` branch through a pull request.
+- [x] Merge the validated `integration/gaussian-docs` work into Alice Lab `dev` through PR #1 (`8c8ffe36`).
 - [ ] Validate a fresh install from the updated `dev` branch and confirm users can run `ink` directly without needing `./ink`.
+
+## 2026-09-28 — Fresh-install Gaussian source-scoping regression
+
+- [x] Merge Alice Lab PR #1 into `dev` at `8c8ffe36b136ab180fe3f0d772d40d408a2bd55f`.
+- [x] Sync local `dev` to the merged Alice Lab `dev`.
+- [x] Run an isolated fresh install from merged `dev`.
+- [x] Verify the fresh-installed `ink` launcher works outside the repository and returns exact `FINAL_OK`.
+- [x] Identify a clean-install source-scoping regression when `~/.inkly/gaussian.db` is absent.
+- [x] Fix cluster-specific Gaussian handling for missing, corrupt, or empty documentation databases.
+- [x] Add regression tests for missing scraper/database, corrupt database, and no-relevant-match clean-install paths.
+- [x] Re-run validation: 118 tests passed, Ruff lint passed, Ruff formatting passed, and `git diff --check` passed.
+- [x] Repeat isolated fresh-install test with no `gaussian.db`; `ink` safely withheld Cuttlefish Gaussian commands.
+- [ ] Merge the hotfix into Alice Lab `dev`.
+- [ ] Close personal PR #122 as superseded only after the hotfix is merged and validated.

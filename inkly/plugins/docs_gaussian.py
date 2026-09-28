@@ -34,6 +34,10 @@ UNTRUSTED_NOTICE = (
     "commands, module names, paths, licenses, hardware, queues, or policies as "
     "applying to this cluster unless separate cluster-specific context confirms them."
 )
+CLUSTER_UNAVAILABLE_NOTICE = (
+    "Cluster-specific Gaussian instructions are unavailable in the current "
+    "documentation database."
+)
 CLUSTER_SPECIFIC_MARKERS = (
     "this cluster",
     "current cluster",
@@ -77,10 +81,9 @@ def _bounded_external_sources(matches) -> list[str]:
     lines = [
         UNTRUSTED_NOTICE,
         (
-            "Cluster-specific Gaussian instructions are unavailable in the current "
-            "documentation database. Relevant external sources were retrieved, but "
-            "their commands and policies are withheld because they are not verified "
-            "for this cluster. Do not guess a local module name or command."
+            f"{CLUSTER_UNAVAILABLE_NOTICE} Relevant external sources were retrieved, "
+            "but their commands and policies are withheld because they are not "
+            "verified for this cluster. Do not guess a local module name or command."
         ),
     ]
     used = sum(len(line) for line in lines)
@@ -107,23 +110,49 @@ def _bounded_external_sources(matches) -> list[str]:
 
 def run(query: str) -> str:
     """Retrieve bounded Gaussian documentation passages relevant to the user's query."""
+    cluster_specific = _is_cluster_specific_query(query)
+
     try:
         from gaussian_scraper.search import search_docs
 
         matches = search_docs("gaussian", query, top_k=TOP_K)
     except (ImportError, OSError, ValueError, sqlite3.DatabaseError):
+        if cluster_specific:
+            return format_plugin_output(
+                "Gaussian Documentation",
+                [
+                    CLUSTER_UNAVAILABLE_NOTICE,
+                    (
+                        "Gaussian documentation retrieval is unavailable, so no "
+                        "local module name or command will be guessed."
+                    ),
+                ],
+            )
+
         return format_plugin_output(
             "Gaussian Documentation",
             ["Gaussian documentation is unavailable."],
         )
 
-    if _is_cluster_specific_query(query):
+    if cluster_specific:
         lines = _bounded_external_sources(matches)
     else:
         lines = _bounded_passages(matches)
 
-    minimum_lines = 2 if _is_cluster_specific_query(query) else 1
+    minimum_lines = 2 if cluster_specific else 1
     if len(lines) == minimum_lines:
+        if cluster_specific:
+            return format_plugin_output(
+                "Gaussian Documentation",
+                [
+                    CLUSTER_UNAVAILABLE_NOTICE,
+                    (
+                        "No relevant verified local Gaussian documentation was found "
+                        "for this query. Do not guess a local module name or command."
+                    ),
+                ],
+            )
+
         return format_plugin_output(
             "Gaussian Documentation",
             ["No relevant Gaussian documentation was found for this query."],

@@ -387,3 +387,48 @@ Validation:
 - Re-running `setup.sh` against the same temporary installation completed successfully and reused the existing environment and scraper checkout.
 
 Inkly commit: `db575774bd39eb3a8919e0041cdf23f2869f6b7a` (`Add one-command Inkly setup`).
+
+## 2026-09-28 — Installed Ink validation and Alice Lab branch sync
+
+Returned to the Cuttlefish Phase 1 Gaussian integration work on branch `integration/gaussian-docs`.
+
+Initial validation:
+- Working tree was clean.
+- Full Inkly test suite passed: 115 tests.
+- `python -m py_compile` passed.
+- `git diff --check` passed.
+- Ruff lint passed.
+- Ruff formatting check passed.
+
+Launcher/runtime investigation:
+- The repository `./ink` launcher was newer than the installed `~/.inkly/bin/ink`.
+- The installed runtime under `~/.inkly/lib/inkly` was also older than the current integration branch.
+- This caused `ink` and `./ink` to behave differently.
+- `./ink` correctly intercepted Cuttlefish-specific Gaussian questions and withheld unverified external cluster commands.
+- The stale installed `ink` sometimes fell through to the model path, took roughly 27-34 seconds, and could return generic HPC instructions that were not verified for Cuttlefish.
+
+Installed-runtime update:
+- Created a backup of the existing Inkly installation before making changes.
+- Ran the repository's existing `python install.py` installer instead of manually copying runtime files.
+- The installer copied the current Inkly runtime into `~/.inkly/lib/inkly` and installed the current launcher into `~/.inkly/bin/ink`.
+- Verified the installed launcher uses the intended Python interpreter.
+- Verified the installed runtime contains the deterministic source-scoping logic.
+
+Post-install Cuttlefish validation:
+- `ink How do I run Gaussian on Cuttlefish?` returned the expected cluster-specific unavailable/not-verified response in about 0.077 seconds.
+- `ink How do I submit a Gaussian job on Cuttlefish?` returned the same guarded response in about 0.072 seconds.
+- The normal `ink` command now behaves like the validated source `./ink` path for these cluster-specific requests.
+
+Repository synchronization:
+- Confirmed Alice Lab `dev` is an ancestor of the Gaussian integration branch with no missing `dev` commits.
+- Confirmed the organization repository contains `main`, `dev`, and `integration/gaussian-docs`.
+- Did not bulk-copy old personal feature branches because many are historical and are not required for the current integration work.
+- The personal `integration/gaussian-docs` branch contained one later documentation-only commit, `6bba0246` (`Record Phase 1 HPC validation and benchmark`).
+- Fast-forwarded the local branch to that commit.
+- Pushed the complete branch to `thealice-lab/hpc-ink-setup`.
+- Local, personal GitHub, and Alice Lab copies of `integration/gaussian-docs` were synchronized at `6bba0246e46946c220b99bcccd75e0f6db6e15cf`.
+
+Next:
+- Commit and push this progress log.
+- Merge `integration/gaussian-docs` into the Alice Lab `dev` branch through a pull request.
+- Perform a fresh-install validation from updated `dev` to prove a normal user gets the correct `ink` command immediately after installation.

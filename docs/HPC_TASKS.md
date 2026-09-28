@@ -130,3 +130,16 @@ Target window from the HPC meeting: November-December 2026.
 - [ ] Review stale personal branches for eventual archival/deletion only after current collaboration work is stable.
 - [ ] Investigate any administrator-level Ollama/model instructions only if response behavior remains unexplained after contract simplification.
 - [ ] Revisit broader response formatting/code-output rules after correctness and latency are stable.
+
+## 2026-09-28 — Phase 1 install and organization sync
+
+- [x] Revalidate `integration/gaussian-docs` on Cuttlefish: 115 tests passed, Ruff passed, formatting passed, and working tree was clean.
+- [x] Compare source `./ink` against installed `ink` and confirm the installed launcher/runtime was stale.
+- [x] Back up the existing `~/.inkly` launcher, runtime, config, and databases before reinstalling.
+- [x] Reinstall the current validated branch with `python install.py`.
+- [x] Verify the normal `ink` command now uses the current installed runtime and matches the safe `./ink` behavior for Cuttlefish-specific Gaussian questions.
+- [x] Verify Cuttlefish-specific guarded responses return in about 0.07 seconds instead of falling through to the slow model path.
+- [x] Verify `thealice-lab/hpc-ink-setup` contains `main`, `dev`, and `integration/gaussian-docs`.
+- [x] Synchronize `integration/gaussian-docs` between the local checkout, personal repository, and Alice Lab organization at `6bba0246`.
+- [ ] Merge the validated `integration/gaussian-docs` work into the Alice Lab `dev` branch through a pull request.
+- [ ] Validate a fresh install from the updated `dev` branch and confirm users can run `ink` directly without needing `./ink`.

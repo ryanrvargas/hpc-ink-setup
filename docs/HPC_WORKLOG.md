@@ -495,3 +495,30 @@ Fresh-install regression validation:
 - No Gaussian module, executable, scheduler command, path, or other Cuttlefish-specific value was invented.
 
 The clean-install regression is fixed and validated. Next step is to commit/push the hotfix, merge it into Alice Lab `dev`, then repeat the final installed-dev smoke test before closing personal PR #122 as superseded.
+
+## 2026-09-28 — Added Gaussian operational validation gate
+
+Reviewed the remaining Phase 1 work and identified a missing validation step.
+
+Existing testing proves that:
+- Gaussian documentation can be scraped and stored.
+- Inkly can retrieve that documentation.
+- External documentation is source-labeled and prevented from becoming unverified Cuttlefish facts.
+- Retrieval and response paths function end-to-end.
+
+However, these tests do not prove that the retrieved documentation is actually useful for creating correct Gaussian jobs on Cuttlefish.
+
+Added a new Phase 1B operational-validation section before Phase 2.
+
+Phase 1B will:
+- collect known-good Gaussian job scripts that previously ran successfully on Cuttlefish
+- identify the actual local SBATCH, Gaussian, resource, environment, scratch, and I/O requirements
+- compare scraper-retrieved guidance against those known-good jobs
+- distinguish verified Cuttlefish facts from useful external guidance and conflicting/outdated material
+- test Inkly-generated Gaussian SBATCH files against known-good local examples
+- add regression cases for verified local job patterns
+- perform non-destructive scheduler/script validation where possible
+- eventually run a minimal controlled Gaussian job if permitted
+- create a repeatable Gaussian job-generation evaluation for future scraper/database changes
+
+This operational validation is now considered part of Phase 1 completion before moving to Phase 2/MCP infrastructure work.

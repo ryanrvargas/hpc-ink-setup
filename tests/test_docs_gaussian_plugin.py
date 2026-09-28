@@ -188,3 +188,53 @@ def test_general_gaussian_query_keeps_relevant_external_passage(monkeypatch):
 
     assert external_text in output
     assert "Source: Gaussian Reference" in output
+
+
+def test_cluster_specific_query_with_missing_scraper_remains_guarded(monkeypatch):
+    monkeypatch.delitem(sys.modules, "gaussian_scraper", raising=False)
+    monkeypatch.delitem(sys.modules, "gaussian_scraper.search", raising=False)
+
+    real_import = __import__
+
+    def fail_scraper_import(name, *args, **kwargs):
+        if name.startswith("gaussian_scraper"):
+            raise ImportError("scraper unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fail_scraper_import)
+
+    output = docs_gaussian.run("How do I run Gaussian on Cuttlefish?")
+
+    assert "Cluster-specific Gaussian instructions are unavailable" in output
+    assert "no local module name or command will be guessed" in output
+
+
+def test_cluster_specific_query_with_corrupt_database_remains_guarded(monkeypatch):
+    def search_docs(domain, query, *, top_k):
+        raise sqlite3.DatabaseError("database disk image is malformed")
+
+    _install_search(monkeypatch, search_docs)
+
+    output = docs_gaussian.run("How do I run Gaussian on this cluster?")
+
+    assert "Cluster-specific Gaussian instructions are unavailable" in output
+    assert "no local module name or command will be guessed" in output
+
+
+def test_cluster_specific_query_with_no_relevant_matches_remains_guarded(monkeypatch):
+    def search_docs(domain, query, *, top_k):
+        return [
+            SimpleNamespace(
+                label="Unrelated",
+                text="Unrelated documentation",
+                score=docs_gaussian.MIN_RELEVANCE - 0.001,
+            )
+        ]
+
+    _install_search(monkeypatch, search_docs)
+
+    output = docs_gaussian.run("How do I run Gaussian on Cuttlefish?")
+
+    assert "Cluster-specific Gaussian instructions are unavailable" in output
+    assert "Do not guess a local module name or command." in output
+    assert "Unrelated documentation" not in output

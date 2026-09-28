@@ -432,3 +432,66 @@ Next:
 - Commit and push this progress log.
 - Merge `integration/gaussian-docs` into the Alice Lab `dev` branch through a pull request.
 - Perform a fresh-install validation from updated `dev` to prove a normal user gets the correct `ink` command immediately after installation.
+
+## 2026-09-28 — Fresh-install Gaussian source-scoping regression
+
+Alice Lab PR #1 was merged into `dev` as merge commit `8c8ffe36b136ab180fe3f0d772d40d408a2bd55f`.
+
+An isolated fresh-install validation was then performed using a temporary HOME so the existing user installation was not reused.
+
+Fresh-install results:
+- `setup.sh` completed successfully.
+- The private Inkly Python environment was created.
+- The Gaussian scraper package installed successfully.
+- The installed `ink` launcher used the private Inkly Python interpreter.
+- Running `ink` from outside the repository returned exactly `FINAL_OK` for the exact-output test.
+
+A source-scoping regression was discovered during the clean-install Gaussian test.
+
+Query:
+`How do I run Gaussian on Cuttlefish?`
+
+The fresh installation did not yet contain `~/.inkly/gaussian.db`. In this state, `docs_gaussian` returned a generic documentation-unavailable result rather than the cluster-specific unavailable marker expected by the runtime safety guard. The request therefore fell through to the LLM, which produced an unverified Cuttlefish-specific Gaussian command.
+
+This is not acceptable behavior. Missing, corrupt, or empty documentation must never allow the model to invent local cluster commands.
+
+Root cause:
+- The runtime deterministic guard activates when `docs_gaussian` emits the cluster-unavailable marker.
+- The plugin emitted that marker when external matches existed.
+- Missing/corrupt databases and no-relevant-match paths returned generic messages without the marker.
+- The LLM was therefore allowed to generate a cluster-specific answer.
+
+A dedicated hotfix branch will make all cluster-specific Gaussian failure paths emit the deterministic unavailable marker and will add regression coverage for missing database, corrupt database, and no-relevant-match cases.
+
+Personal PR #122 remains open and must not be closed until the hotfix is merged into Alice Lab `dev` and the clean-install test passes.
+
+
+## 2026-09-28 — Fresh-install Gaussian source-scoping hotfix validated
+
+Implemented the clean-install Gaussian source-scoping fix on branch
+`fix/fresh-install-gaussian-source-scoping`.
+
+Changes:
+- Cluster-specific Gaussian queries now emit the deterministic unavailable marker when documentation retrieval is unavailable.
+- Missing scraper/database, corrupt database, and no-relevant-match paths can no longer fall through to the LLM for local Gaussian commands.
+- General Gaussian questions retain their existing behavior.
+- Added regression coverage for all three clean-install/failure paths.
+
+Validation:
+- Targeted Gaussian/source-scoping tests: 16 passed.
+- Full Inkly suite: 118 passed.
+- `git diff --check` passed.
+- Ruff lint passed.
+- Ruff formatting check passed.
+
+Fresh-install regression validation:
+- Created a new isolated HOME.
+- Ran the normal `setup.sh` installation from the hotfix branch.
+- Confirmed no `~/.inkly/gaussian.db` existed in the clean installation.
+- Ran the installed `ink` command from outside the repository.
+- Exact-output test returned exactly `FINAL_OK`.
+- `How do I run Gaussian on Cuttlefish?` returned the deterministic unavailable/not-verified response in about 0.06 seconds.
+- `How do I submit a Gaussian job on Cuttlefish?` returned the same guarded response in about 0.05 seconds.
+- No Gaussian module, executable, scheduler command, path, or other Cuttlefish-specific value was invented.
+
+The clean-install regression is fixed and validated. Next step is to commit/push the hotfix, merge it into Alice Lab `dev`, then repeat the final installed-dev smoke test before closing personal PR #122 as superseded.

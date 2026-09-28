@@ -174,4 +174,4 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Re-run validation: 118 tests passed, Ruff lint passed, Ruff formatting passed, and `git diff --check` passed.
 - [x] Repeat isolated fresh-install test with no `gaussian.db`; `ink` safely withheld Cuttlefish Gaussian commands.
 - [x] Merge the fresh-install Gaussian source-scoping hotfix through Alice Lab PR #2 (`d78c58759aa27fda0913e6e185a50c2c496a68ef`).
-- [ ] Close personal PR #122 as superseded only after the hotfix is merged and validated.
+- [x] Personal PR #122 was automatically recognized as merged after the validated Alice Lab `dev` history was synchronized to personal `dev`.

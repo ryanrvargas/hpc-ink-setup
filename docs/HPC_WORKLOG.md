@@ -566,3 +566,172 @@ The Gaussian integration and fresh-install source-scoping work is now complete.
 Before beginning Phase 1B, the operational-validation methodology will be
 reviewed to determine the strongest way to measure whether scraper knowledge
 actually improves useful and correct Gaussian SBATCH generation on Cuttlefish.
+
+
+## 2026-09-28 — Phase 1B evaluation direction
+
+Defined the broader operational goal for Inkly.
+
+Inkly should reduce the amount of HPC/Linux-specific knowledge a user must
+already know. A user should be able to describe the task they want to perform,
+and Inkly should use verified information for the HPC system they are currently
+using to provide correct guidance and, where appropriate, generate usable
+Slurm SBATCH files.
+
+Phase 1B will therefore evaluate the whole knowledge path rather than only
+testing whether documentation retrieval technically works.
+
+The evaluation will measure:
+- whether the scraper contains information needed for realistic Gaussian/HPC tasks
+- whether retrieval returns the right passages for those tasks
+- whether local Cuttlefish facts are distinguished from general or external-cluster guidance
+- whether Inkly can generate structurally and locally correct Gaussian SBATCH files
+- whether controlled generated jobs can eventually execute successfully on Cuttlefish
+
+Initial scraper review also identified an architectural limitation: retrieval
+currently ranks passages primarily by textual relevance, while stored source
+records do not yet provide a first-class classification for verified local
+cluster information versus general Gaussian information or another cluster's
+configuration.
+
+Phase 1B will first establish ground truth and measure the current system before
+deciding whether source-scope/provenance metadata or retrieval changes are
+required.
+
+
+## 2026-09-28 — Phase 1B initial Gaussian retrieval audit
+
+Ran the first operational baseline against the current Gaussian documentation
+database before changing retrieval, sources, or source-ranking behavior.
+
+Current database:
+- 3 sources
+- 70 passages
+- Harvard RC Gaussian documentation
+- TACC Gaussian documentation
+- NC State HPC Gaussian documentation
+
+Ten realistic Gaussian/HPC queries were tested, covering:
+- Slurm submission
+- SBATCH generation
+- CPU requests
+- memory requests
+- Gaussian %mem versus scheduler memory
+- Gaussian %nprocshared versus scheduler CPUs
+- scratch space
+- input/output handling
+- restarting calculations
+- running Gaussian specifically on Cuttlefish
+
+Key finding:
+The current retrieval layer measures textual relevance but does not understand
+operational compatibility or source authority.
+
+For example, a query asking how to submit Gaussian using Slurm ranked an NC
+State passage using `bsub` as its highest result. `bsub` is not a Slurm
+submission command.
+
+Other gaps were observed for:
+- CPU allocation versus Gaussian %nprocshared
+- scheduler memory versus Gaussian %mem
+- scratch-space handling
+- Gaussian restart workflows
+
+A query explicitly asking how to run Gaussian on Cuttlefish still retrieved
+only external-institution documentation.
+
+Decision:
+Do not optimize retrieval or add additional scraper sources blindly.
+
+Phase 1B will first build a Cuttlefish Gaussian ground-truth validation set.
+That ground truth will be used to measure source coverage, retrieval quality,
+source correctness, generated SBATCH quality, and eventually real execution.
+
+The working knowledge model will distinguish:
+- VERIFIED_LOCAL: confirmed Cuttlefish-specific information
+- GAUSSIAN_GENERAL: portable Gaussian behavior
+- EXTERNAL_CLUSTER: another HPC system's commands/policies/examples
+- COMMUNITY: tutorials, forums, and other lower-authority material
+
+This classification is currently an evaluation concept. It will not be added
+to the scraper schema until the ground-truth evaluation demonstrates what
+metadata and retrieval behavior are actually required.
+
+
+## 2026-09-28 — Live Cuttlefish Gaussian environment discovery
+
+Phase 1B queried the live Cuttlefish environment rather than assuming that
+external documentation or advertised modules represent working behavior.
+
+Verified Cuttlefish scheduler facts:
+- Slurm 26.05.2 is installed.
+- `general` is the default partition.
+- `general` has a 1-hour default time and a 14-day maximum time.
+- Slurm reports a default memory value of `DefMemPerCPU=1536`.
+- Additional visible partitions include highmem, interactive, gpu, and debug.
+
+Verified Gaussian module inventory:
+- gaussian/avx2/g16_rev_c01
+- gaussian/avx2/g16_rev_c02 (default)
+- gaussian/sse4/g16_rev_b01
+
+An important operational failure was discovered:
+loading the default `gaussian/avx2/g16_rev_c02` module currently fails while
+Lmod attempts to source:
+
+`/opt/software/gaussian/avx2/rev_c02/g16/bsd/g16.profile`
+
+The shell reports `Permission denied`.
+
+Because the module load fails:
+- no Gaussian module remains loaded
+- `g16` is not exposed through PATH
+- Gaussian execution on this account is not yet verified
+
+No historical Gaussian jobs were found in the current user's Slurm accounting
+history or local job-script search.
+
+Decision:
+Do not create or submit a Gaussian benchmark job until the module-access issue
+is understood. Phase 1B must distinguish "module advertised by the cluster"
+from "module verified usable by the user." This is an example of the kind of
+live cluster fact Inkly must eventually represent correctly.
+
+
+## 2026-09-28 — Gaussian access root cause identified
+
+The Gaussian module-loading failure was traced to filesystem/group access rather
+than to one particular Gaussian module revision.
+
+The current user is a member of the normal Cuttlefish HPC user groups but is
+not a member of the Unix group `gaussian`.
+
+The Gaussian installation root is owned by `root:gaussian` and is not
+traversable by users outside that group. As a result, the current account
+cannot access the Gaussian installation or source `g16.profile`.
+
+All three advertised Gaussian modules were tested:
+- gaussian/avx2/g16_rev_c01
+- gaussian/avx2/g16_rev_c02
+- gaussian/sse4/g16_rev_b01
+
+All three failed with the same permission error.
+
+This is therefore an account/access prerequisite, not a version-specific module
+failure.
+
+The readable C02 modulefile also provides configuration evidence including:
+- g16root under /opt/software/gaussian/avx2/rev_c02
+- per-user scratch under /scratch/gaussian/<user>
+- OMP_NUM_THREADS=1
+- Gaussian's executable directory added to PATH
+- g16.profile sourced during module initialization
+
+These values are treated as Cuttlefish configuration evidence but not yet as
+successfully runtime-validated behavior because the current account cannot load
+the software.
+
+This discovery becomes an explicit Phase 1B benchmark case: Inkly should be
+able to distinguish "software exists on the cluster" from "software is usable
+by this user." When access is missing, it should explain the prerequisite
+rather than generate a supposedly runnable job script.

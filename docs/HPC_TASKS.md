@@ -2,6 +2,22 @@
 
 This file tracks the current public project state and next work. Detailed machine-specific debugging notes remain private and are not committed here.
 
+## Project goal
+
+Inkly should make HPC/Linux easier for users by allowing them to describe what
+they are trying to accomplish and receiving correct, useful guidance for the
+HPC system they are actually using.
+
+For Slurm workflows, Inkly should be able to help create usable SBATCH files
+grounded in verified information about the current HPC environment. General or
+external documentation may supplement that knowledge, but cluster-specific
+commands, paths, modules, partitions, resource policies, and other local facts
+must not be presented as correct unless they are verified for that cluster.
+
+The goal is not simply to retrieve documentation. The full path must be useful:
+
+`user intent -> verified/relevant knowledge -> Inkly reasoning -> correct HPC guidance or SBATCH file -> successful user task`
+
 ## Current baseline
 
 - [x] Personal canonical repository remains `ryanrvargas/hpc-ink-setup`.
@@ -104,6 +120,26 @@ Architecture:
 - [x] Benchmark Phase 1 retrieval and total response latency before introducing a network service.
 
 ### Phase 1B — Cuttlefish Gaussian operational validation
+
+Initial baseline:
+- [x] Audit the current Gaussian knowledge database before changing retrieval or adding sources.
+- [x] Confirm the current Cuttlefish database contains 3 external sources and 70 passages.
+- [x] Run a 10-query realistic Gaussian/HPC retrieval baseline covering submission, SBATCH generation, CPUs, memory, `%mem`, `%nprocshared`, scratch, I/O, restart, and Cuttlefish-specific execution.
+- [x] Identify a scheduler-confusion failure: a Slurm submission query ranked an NC State `bsub`/LSF example first.
+- [x] Identify weak or missing retrieval coverage for CPU/resource mapping, memory mapping, scratch usage, and restart workflows.
+- [x] Confirm that a Cuttlefish-specific query currently retrieves only external-institution documentation.
+- [ ] Build a Cuttlefish Gaussian ground-truth validation set before modifying the retrieval architecture.
+- [ ] Define source scopes for verified-local, Gaussian-general, external-cluster, and community knowledge.
+- [x] Verify Cuttlefish uses Slurm and identify the current partition/resource configuration.
+- [x] Verify installed Cuttlefish Gaussian modules and identify `gaussian/avx2/g16_rev_c02` as the default module.
+- [x] Test the default Gaussian module instead of assuming that an advertised module is usable.
+- [x] Investigate the `g16.profile` permission failure: the Gaussian installation is restricted to the `gaussian` Unix group and the current account is not a member.
+- [ ] Verify at least one Gaussian module can actually load and expose a working `g16` executable before constructing the first controlled Gaussian SBATCH job.
+- [ ] Confirm the correct process for obtaining Gaussian access/group membership on Cuttlefish.
+- [ ] After access is granted, re-run module and executable validation before attempting a Gaussian job.
+- [ ] Add an access-aware benchmark case: Inkly must recognize when Gaussian is installed but unavailable to the current user instead of generating a supposedly runnable SBATCH file.
+
+
 
 Before considering the Gaussian knowledge path fully validated, verify that
 scraper-retrieved information can support correct and useful Gaussian job

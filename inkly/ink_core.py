@@ -47,6 +47,11 @@ def _build_query(argv: list[str]) -> str:
     return " ".join(argv).strip()
 
 
+def _response_was_streamed(runtime: InklyRuntime, response: str) -> bool:
+    """Return whether the response was already streamed by the model backend."""
+    return response != runtime.CLUSTER_SCOPE_WITHHELD_RESPONSE
+
+
 def main() -> int:
     """
     Main CLI entry point.
@@ -83,9 +88,9 @@ def main() -> int:
         user_id = _build_user_id()
         response = runtime.handle_query(user_id, query)
 
-        # In interactive terminals, the Ollama backend already streams the
-        # response directly to stdout. Avoid printing it again after generation finishes.
-        if not sys.stdout.isatty():
+        # Model-backed responses stream directly in an interactive terminal.
+        # Deterministic runtime responses do not, so render those explicitly.
+        if not sys.stdout.isatty() or not _response_was_streamed(runtime, response):
             print(response)
         elif response and not response.endswith("\n"):
             print()

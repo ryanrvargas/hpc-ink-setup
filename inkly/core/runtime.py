@@ -35,13 +35,19 @@ class InklyRuntime:
             value=self.config.core.max_concurrent_requests
         )  # Limits concurrent requests for thread safety
 
-    # The contract that governs all LLM responses for Inkly
+    # Keep safety-critical source-scoping rules early in the contract so they survive
+    # prompt-length truncation when optional context or a long query consumes the budget.
     BASE_RESPONSE_CONTRACT = textwrap.dedent("""
     You are Inkly, an assistant for users working on HPC and Slurm systems.
 
     Follow the user's current request exactly.
 
     If the user asks for an exact response, return only the exact requested text and nothing else.
+
+    Documentation from a named external institution or cluster is not evidence about the current cluster.
+    Never rewrite external commands, modules, paths, licenses, hardware, queues, or policies as local facts.
+    If local context does not confirm the answer, say the cluster-specific information is unavailable.
+    Present external material only as an explicitly attributed example that requires local verification.
 
     Do not reinterpret a general, literal, testing, or unrelated request as an HPC task
     just because Inkly is normally used on an HPC cluster.
@@ -55,6 +61,23 @@ class InklyRuntime:
 
     Keep answers concise unless the user requests more detail.
     """).strip()
+
+    CLUSTER_SCOPE_WITHHELD_MARKER = (
+        "Cluster-specific Gaussian instructions are unavailable in the current "
+        "documentation database."
+    )
+    CLUSTER_SCOPE_WITHHELD_RESPONSE = (
+        "Cluster-specific Gaussian instructions are unavailable in the current "
+        "documentation database. I found external Gaussian documentation, but its "
+        "commands and policies are not verified for this cluster, so I won't guess "
+        "a local module, partition, path, or scheduler command."
+    )
+    GAUSSIAN_CLUSTER_MARKERS = (
+        "this cluster",
+        "current cluster",
+        "our cluster",
+        "cuttlefish",
+    )
 
     def _build_contract_section(self) -> str:
         """
@@ -117,6 +140,20 @@ class InklyRuntime:
             ]
         )
 
+    def _requires_gaussian_source_scoping(self, query: str) -> bool:
+        """Return whether a Gaussian query asks for facts about the local cluster."""
+        normalized = query.casefold()
+        return "gaussian" in normalized and any(
+            marker in normalized for marker in self.GAUSSIAN_CLUSTER_MARKERS
+        )
+
+    def _source_scoped_response(self, plugin_outputs: dict[str, str]) -> str | None:
+        """Return a deterministic answer when local Gaussian commands are unverified."""
+        gaussian_output = plugin_outputs.get("docs_gaussian", "")
+        if self.CLUSTER_SCOPE_WITHHELD_MARKER not in gaussian_output:
+            return None
+        return self.CLUSTER_SCOPE_WITHHELD_RESPONSE
+
     def assemble_prompt(
         self,
         *,
@@ -134,29 +171,56 @@ class InklyRuntime:
         4. current user query
         Truncates the prompt if it exceeds the configured max length.
         """
-        sections = [
-            self._build_contract_section(),
+        contract_section = self._build_contract_section()
+        query_section = self._build_query_section(query)
+        max_length = self.config.core.max_prompt_length
+
+        # The response contract and current query are higher priority than optional
+        # history/plugin context. Never discard the contract merely because optional
+        # context made the assembled prompt too large.
+        required_prompt = (
+            "\n\n".join([contract_section, query_section]).rstrip("\n") + "\n"
+        )
+        if len(required_prompt) > max_length:
+            query_suffix = f"\n\n{query_section.strip()}\n"
+            contract_budget = max_length - len(query_suffix)
+            if contract_budget > 0:
+                return contract_section[:contract_budget].rstrip("\n") + query_suffix
+            return (query_section.strip() + "\n")[-max_length:]
+
+        optional_sections = [
             self._build_history_section(history_lines),
             self._build_plugin_section(plugin_outputs),
-            self._build_query_section(query),
         ]
+        optional_content = "\n\n".join(
+            section for section in optional_sections if section.strip()
+        )
+        if not optional_content:
+            return required_prompt
 
-        # Only include non-empty sections
-        non_empty_sections = [section for section in sections if section.strip()]
-        prompt = "\n\n".join(non_empty_sections).rstrip("\n") + "\n"
+        optional_budget = max_length - len(required_prompt) - 2
+        if optional_budget <= 0:
+            return required_prompt
 
-        # Truncate prompt if it exceeds max length
-        if len(prompt) > self.config.core.max_prompt_length:
-            prompt = prompt[-self.config.core.max_prompt_length :]
+        optional_content = optional_content[:optional_budget].rstrip()
+        if not optional_content:
+            return required_prompt
 
-        return prompt
+        return (
+            "\n\n".join([contract_section, optional_content, query_section]).rstrip(
+                "\n"
+            )
+            + "\n"
+        )
 
     def handle_query(self, user_id: str, query: str) -> str:
         """
         Handle a user query end-to-end:
         - Appends the user turn to the conversation
         - Discovers and selects plugins (optionally using retrieval)
-        - Runs selected plugins and collects their outputs
+        - Forces Gaussian documentation selection for local-cluster Gaussian queries
+        - Runs selected plugins with the current query and collects their outputs
+        - Enforces deterministic source scoping when local Gaussian facts are unavailable
         - Builds conversation history context
         - Assembles the full prompt for the LLM
         - Calls the LLM backend to generate a response
@@ -212,7 +276,20 @@ class InklyRuntime:
             ):
                 selected_plugins = list(discovered.values())
 
-            # Run each selected plugin and collect its output
+            # Local-cluster Gaussian questions must pass through docs_gaussian even if
+            # approximate plugin retrieval misses it. This keeps source scoping a
+            # deterministic safety property rather than a retrieval-ranking outcome.
+            if self._requires_gaussian_source_scoping(query):
+                gaussian_plugin = discovered.get("docs_gaussian")
+                if (
+                    gaussian_plugin is not None
+                    and gaussian_plugin not in selected_plugins
+                ):
+                    selected_plugins.append(gaussian_plugin)
+
+            # Run each selected plugin with the active query and collect its output.
+            # Query-aware documentation plugins can use it for retrieval, while
+            # cluster-state plugins may ignore it and preserve their existing behavior.
             for fallback_name, plugin in discovered.items():
                 if plugin not in selected_plugins:
                     continue
@@ -220,9 +297,19 @@ class InklyRuntime:
                 plugin_name = getattr(plugin, "name", fallback_name)
 
                 try:
-                    plugin_outputs[plugin_name] = plugin.run()
+                    plugin_outputs[plugin_name] = plugin.run(query)
                 except Exception as exc:
                     plugin_outputs[plugin_name] = f"Plugin error: {exc}"
+
+            # When the Gaussian documentation plugin explicitly says that local
+            # instructions are unavailable, do not ask a generative model to fill in
+            # the missing cluster facts. Return the bounded deterministic answer.
+            source_scoped_response = self._source_scoped_response(plugin_outputs)
+            if source_scoped_response is not None:
+                self.conversation.append_turn(
+                    user_id, "assistant", source_scoped_response
+                )
+                return source_scoped_response
 
             # Build conversation history context for the prompt
             history_lines = self.conversation.build_context(

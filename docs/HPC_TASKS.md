@@ -288,4 +288,11 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Full automated test suite passes (127 passed).
 - [x] Ruff lint passes.
 - [x] Live Cuttlefish trusted-profile output exposes verified runtime, CPU, cgroup-memory, and 75% automatic memory policy.
-- [ ] Re-run formatter checks after the tracked profile formatting fix; keep untracked live-test artifacts separate from production commits.
+- [x] Re-run formatter checks after the tracked profile formatting fix; all tracked validation passes, while untracked live-test artifacts remain separate from production commits.
+
+
+### User-facing Gaussian generation validation
+
+- [ ] Validate Inkly's user-facing Cuttlefish Gaussian SBATCH guidance against the trusted profile.
+- [ ] Verify generated guidance uses the local module, general partition, physical-core CPU rule, dynamic `g16 -c` binding, and conservative memory policy.
+- [ ] Add deterministic/regression coverage for any generation failures found.

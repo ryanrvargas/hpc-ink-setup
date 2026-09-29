@@ -482,3 +482,27 @@ Known scheduler behavior:
 
 Cuttlefish currently exposes and accounts for both SMT siblings of each allocated
 physical core, so a request for N physical cores can show `AllocCPUS=2N`.
+
+
+## Gaussian memory control mechanism
+
+### VERIFIED_CONFIG / VERIFIED_LOCAL_SOURCE
+
+Installed Gaussian 16 C.02 evidence shows:
+
+- Gaussian calculation inputs use the Link 0 directive `%mem=...`
+- installed helper scripts generate `%mem=...` directly in the input
+- no active cluster profile/environment memory default was found
+- no supported main-`g16` command-line memory override analogous to `g16 -c="..."`
+  was identified in the inspected local installation
+- `-m=...` documentation found locally applies to utilities such as `formchk`, not
+  the main Gaussian calculation executable
+
+Therefore, until runtime testing proves otherwise, Inkly should treat Gaussian memory as
+an input-level setting rather than a `g16` command-line setting.
+
+Still UNKNOWN:
+
+- the safe mapping between Slurm `--mem` and Gaussian `%mem`
+- the appropriate safety margin for generated Cuttlefish jobs
+- the exact runtime reporting behavior for a controlled `%mem` setting

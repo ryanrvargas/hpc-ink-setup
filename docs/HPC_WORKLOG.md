@@ -1494,3 +1494,24 @@ Next:
 run a controlled Gaussian calculation with a known Slurm `--mem` allocation and an
 explicit `%mem` value, then inspect Gaussian's own runtime memory reporting before
 choosing any mapping formula.
+
+
+## 2026-09-29 — Basic memory separation runtime check
+
+Job `2173173` validated the basic relationship between scheduler memory and Gaussian memory settings.
+
+Observed:
+- Slurm requested `--mem=1G`
+- Slurm reported `ReqMem=1G`
+- Gaussian input used `%mem=512MB`
+- Gaussian echoed `%mem=512MB`
+- `g16` exited 0
+- Gaussian terminated normally
+
+Conclusion:
+Slurm memory and Gaussian `%mem` are separate controls. This test proves that Gaussian can run with an internal memory allowance smaller than the Slurm allocation.
+
+It does not establish a production ratio. The small water calculation did not pressure memory enough to justify a fixed percentage.
+
+Next:
+determine a safe Inkly mapping between Slurm `--mem` and Gaussian `%mem`, then validate that mapping with a more memory-demanding local test.

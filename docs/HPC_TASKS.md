@@ -259,8 +259,10 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Decide the Phase 1B Inkly CPU-generation rule: request N CPUs with `--hint=nomultithread`, derive one logical CPU from each allocated physical core at runtime, and pass those actual CPU IDs to Gaussian with `g16 -c="..."`.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [x] Trace the locally installed Gaussian `%mem` control mechanism: no `g16` command-line/environment memory override was found in the installed C.02 materials; installed scripts generate `%mem=...` in the Gaussian input, while `-m=...` examples apply to utilities such as `formchk`.
-- [ ] Run a controlled Gaussian job with a known Slurm `--mem` allocation and explicit `%mem`, then verify Gaussian's reported memory and successful completion.
-- [ ] Runtime-test Gaussian memory reporting under a controlled Slurm memory allocation before choosing any Inkly memory formula.
+- [x] Run a controlled Gaussian job with a known Slurm `--mem` allocation and explicit `%mem`: job `2173173` used Slurm `--mem=1G`, Gaussian `%mem=512MB`, exited 0, echoed `%mem=512MB`, and terminated normally.
+- [x] Runtime-test basic Gaussian memory control under a known Slurm allocation: `%mem` is independently accepted inside the larger Slurm allocation.
+- [ ] Determine a safe Inkly mapping between Slurm `--mem` and Gaussian `%mem` without assuming a percentage from generic documentation.
+- [ ] Validate the chosen Slurm/Gaussian memory relationship with a more memory-demanding controlled Gaussian workload or another local runtime signal.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.
 - [ ] Sync the completed Phase 1B work from the personal branch to `thealice-lab/hpc-ink-setup` before ending the work session.

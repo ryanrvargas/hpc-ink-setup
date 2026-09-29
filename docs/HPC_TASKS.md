@@ -280,3 +280,12 @@ Target window from the HPC meeting: November-December 2026.
 - [ ] Make Inkly combine general HPC/application knowledge + verified cluster profile + user intent when generating commands and SBATCH files.
 - [ ] Ensure a brand-new HPC starts conservatively and becomes more capable only as local facts are verified.
 - [ ] Use Cuttlefish as the reference implementation for the first reusable onboarding framework rather than hard-coding Cuttlefish-specific behavior into Inkly core.
+
+
+### Cuttlefish implementation validation
+
+- [x] Trusted Gaussian profile/runtime policy passes targeted tests (9 passed).
+- [x] Full automated test suite passes (127 passed).
+- [x] Ruff lint passes.
+- [x] Live Cuttlefish trusted-profile output exposes verified runtime, CPU, cgroup-memory, and 75% automatic memory policy.
+- [ ] Re-run formatter checks after the tracked profile formatting fix; keep untracked live-test artifacts separate from production commits.

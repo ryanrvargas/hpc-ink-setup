@@ -1091,3 +1091,34 @@ mechanism against Cuttlefish's directly verified Slurm CPU affinity.
 
 The vendor reference-log statement "Default is to use a total of 4 processors" is
 not classified as a Cuttlefish local fact.
+
+
+## 2026-09-29 — Gaussian C.02 local CPU guidance verified
+
+Read the locally installed Gaussian 16 C.02 release notes rather than relying on
+external HPC documentation for processor guidance.
+
+The local Gaussian documentation states:
+
+- `%cpu` specifies the specific CPUs used by Gaussian
+- tying Gaussian threads to specific CPUs is the recommended mode of operation
+- `%cpu` is preferred over processor-count-only control because it pins each thread
+- `%nprocshared` and `%nproclinda` are deprecated
+- hyperthreading is not useful for Gaussian
+- when hyperthreading cannot be disabled, Gaussian jobs should use only one hardware
+  thread from each physical CPU/core
+
+This aligns directly with the Cuttlefish topology probes, which showed that Slurm
+allocates physical cores while exposing both sibling hardware threads in the job
+affinity set.
+
+Important unresolved question:
+
+The correct Inkly implementation is not yet known. A static `%cpu=0-N` line would
+be unsafe because Slurm may assign different CPU IDs to each job. Before generating
+a processor-aware Gaussian input, inspect successful real Cuttlefish Gaussian jobs
+with no explicit `%cpu` directive to determine whether Gaussian automatically honors
+the Slurm cpuset and how many threads it actually selects.
+
+Only after observing that runtime behavior should Inkly either rely on Gaussian's
+cpuset behavior or dynamically derive a `%cpu` directive from the Slurm allocation.

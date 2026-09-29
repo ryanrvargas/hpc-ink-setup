@@ -1598,3 +1598,25 @@ the actual RSS. A live Slurm run with GNU time / cgroup accounting is still requ
 Before running the vendor test, inspect `test0977` for external files, checkpoints,
 multi-step dependencies, or other assumptions so the validation remains safe and
 self-contained.
+
+
+## 2026-09-29 — Selected live Gaussian memory candidate
+
+Inspected installed Gaussian test `test0977`.
+
+The input is self-contained:
+
+- one Link 0 directive: `%mem=2gb`
+- one route section
+- no `%oldchk`, checkpoint-read, external-file, or multi-Link1 dependency found
+- reference output contains one normal termination
+- reference CPU and elapsed time are approximately 31.8 seconds
+- reference scratch/file sizes are modest
+
+The reference `MaxMem` value matches the configured Gaussian memory ceiling but is not
+a Linux RSS measurement.
+
+Decision:
+use `test0977` for the live Cuttlefish memory measurement, with a Slurm allocation
+larger than 2 GiB so the first run measures real peak use rather than intentionally
+testing the OOM boundary.

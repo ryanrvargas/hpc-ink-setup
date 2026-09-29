@@ -1279,3 +1279,58 @@ Next:
 resume the Slurm binding experiment to compare `--threads-per-core=1`,
 `--hint=nomultithread`, and actual `srun` task affinity before finalizing Inkly's
 Gaussian CPU-generation rule.
+
+
+## 2026-09-29 — Slurm binding and srun affinity comparison
+
+Ran controlled Slurm binding probes with an actual `srun` step to distinguish
+scheduler allocation, batch-shell affinity, and task-step affinity.
+
+### Job 2173170 — `--cpus-per-task=2 --threads-per-core=1`
+
+Observed:
+
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+- batch-shell affinity: `60,61,124,125`
+- `srun` step affinity: `60,61,124,125`
+- logical CPUs exposed: 4
+- unique physical cores represented: 2
+- `60,124` are sibling threads of one physical core
+- `61,125` are sibling threads of another physical core
+
+### Job 2173171 — `--cpus-per-task=2 --hint=nomultithread`
+
+Observed the same topology and accounting behavior:
+
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+- batch-shell affinity: `60,61,124,125`
+- `srun` step affinity: `60,61,124,125`
+- logical CPUs exposed: 4
+- unique physical cores represented: 2
+
+### Important comparison with the earlier plain two-CPU request
+
+Earlier job `2173139`, submitted with only `--cpus-per-task=2`, was confined to
+logical CPUs `4,68`, which are sibling hardware threads of a single physical core.
+
+Therefore the one-thread-per-core Slurm controls do have a useful effect on Cuttlefish:
+they cause a two-CPU request to span two distinct physical cores rather than two sibling
+threads of one core.
+
+However, they do not reduce the actual cpuset or Slurm allocation accounting to one
+logical CPU per physical core. Both sibling hardware threads remain visible and
+`AllocCPUS` is 4.
+
+Current best-supported CPU strategy:
+
+1. request N CPUs with a verified one-thread-per-core Slurm control
+2. Slurm places those N requested CPUs across N physical cores
+3. inspect the actual job cpuset/topology
+4. select one logical CPU from each unique physical core
+5. generate Gaussian `%cpu=<selected CPU IDs>`
+6. Gaussian uses exactly those pinned processors
+
+This should be validated end-to-end with a real Gaussian job before becoming Inkly's
+final CPU-generation rule.

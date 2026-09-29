@@ -134,11 +134,71 @@ def _gaussian_lines(profile: dict) -> list[str]:
                 f"C02 modulefile sets OMP_NUM_THREADS={omp_threads}"
             )
 
-    if not runtime_verified:
+    if runtime_verified:
+        verified_on = gaussian.get("runtime_verified_on")
+        suffix = f" on {verified_on}" if verified_on else ""
+        lines.append(
+            "evidence=VERIFIED_RUNTIME | Successful Gaussian runtime execution "
+            f"has been verified for this cluster profile{suffix}."
+        )
+    else:
         lines.append(
             "evidence=UNKNOWN | Successful Gaussian runtime execution has "
             "not yet been verified for this cluster profile."
         )
+
+    slurm = gaussian.get("slurm", {})
+    if isinstance(slurm, dict):
+        partition = slurm.get("verified_partition")
+        if partition:
+            lines.append(
+                "evidence=VERIFIED_RUNTIME | "
+                f"Verified Gaussian Slurm partition: {partition}"
+            )
+
+        cpu_hint = slurm.get("cpu_hint")
+        cpu_selection = slurm.get("cpu_selection")
+        cpu_launch = slurm.get("cpu_launch")
+        if cpu_hint and cpu_selection and cpu_launch:
+            lines.append(
+                "evidence=VERIFIED_RUNTIME | Gaussian CPU generation rule: "
+                "request N processors with --cpus-per-task=N and "
+                f"--hint={cpu_hint}; at runtime select {cpu_selection}; "
+                f"launch with {cpu_launch}."
+            )
+
+        if slurm.get("memory_enforced_by_cgroup") is True:
+            lines.append(
+                "evidence=VERIFIED_RUNTIME | Slurm --mem is enforced as a "
+                "cgroup memory boundary on this cluster."
+            )
+
+        memory_fraction = slurm.get("auto_memory_fraction")
+        memory_rounding = slurm.get("memory_rounding")
+        if memory_fraction is not None:
+            percent = float(memory_fraction) * 100
+            rounding = (
+                f" and round {memory_rounding}"
+                if memory_rounding
+                else ""
+            )
+            lines.append(
+                "evidence=VERIFIED_RUNTIME | Gaussian automatic memory rule: "
+                f"set %mem to at most {percent:g}% of Slurm --mem{rounding}; "
+                "never set %mem equal to the Slurm memory limit."
+            )
+
+        validated_slurm = slurm.get("validated_slurm_memory_mib")
+        validated_gaussian = slurm.get("validated_gaussian_memory_mib")
+        workloads = slurm.get("validated_memory_workloads", [])
+        if validated_slurm and validated_gaussian and workloads:
+            lines.append(
+                "evidence=VERIFIED_RUNTIME | Memory policy validation: "
+                f"Gaussian ~{validated_gaussian} MiB inside Slurm "
+                f"{validated_slurm} MiB completed successfully for "
+                + ", ".join(str(workload) for workload in workloads)
+                + "."
+            )
 
     return lines
 

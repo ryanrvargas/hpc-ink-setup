@@ -385,3 +385,42 @@ Still to test:
 - whether `--hint=nomultithread` changes the actual cpuset/allocation
 - whether another supported Slurm binding option can request one thread per physical
   core without allocating sibling logical CPUs
+
+
+## Slurm physical-core placement with binding hints — jobs 2173170 and 2173171
+
+### VERIFIED_RUNTIME
+
+Controlled tests compared the batch shell and a real `srun` task step.
+
+For both:
+
+- `--cpus-per-task=2 --threads-per-core=1`
+- `--cpus-per-task=2 --hint=nomultithread`
+
+Cuttlefish produced:
+
+- two unique physical cores
+- four logical CPUs in the cpuset
+- both sibling hardware threads of each allocated physical core
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+
+The same four logical CPUs were visible in both the batch shell and the `srun` step.
+
+Important comparison:
+
+A plain earlier `--cpus-per-task=2` request used the two sibling threads of one
+physical core. The one-thread-per-core controls therefore change physical-core placement
+even though they do not remove sibling hardware threads from the cpuset or allocation
+accounting.
+
+Verified implication:
+
+For a Gaussian workflow that should use N physical cores, a Cuttlefish Slurm
+one-thread-per-core control can be used to obtain N distinct physical cores, while
+Gaussian's explicit dynamically generated `%cpu` list can select one logical hardware
+thread from each of those cores.
+
+This combined rule still requires one real end-to-end Gaussian validation before it is
+promoted to the final generated-job pattern.

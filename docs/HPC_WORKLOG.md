@@ -1650,3 +1650,21 @@ The configured Gaussian memory ceiling must not be treated as expected RSS.
 Therefore this workload cannot justify a production Slurm/Gaussian memory headroom
 ratio. Select a workload whose measured RSS materially approaches its configured
 Gaussian memory allowance before defining Inkly's memory rule.
+
+
+## 2026-09-29 — Memory candidate ranking after test0977
+
+Ranked installed Gaussian reference tests by the largest observed `NReq` relative to
+their configured `MaxMem`, while preferring runs with practical reference runtimes.
+
+Useful candidates included:
+
+- `test0875`: ratio ~0.624, ~259 s CPU time
+- `test0983`: ratio ~0.602, ~58.4 s CPU time
+- `test0400`: ratio ~0.597, ~116.6 s CPU time
+- `test0934`: ratio ~0.595, but reference CPU time reported 0.0 s and input includes a rearchive step
+
+Decision:
+inspect `test0983` next because it combines a high memory-demand indicator with a much
+shorter reference runtime. The NReq/MaxMem ratio is only a screening heuristic; actual
+Linux RSS/cgroup peak still must be measured on Cuttlefish.

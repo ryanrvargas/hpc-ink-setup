@@ -856,3 +856,54 @@ All seven benchmark cases now preserve the intended evidence boundaries:
 
 The implementation test suite currently passes 127 tests with Ruff and
 formatting checks clean.
+
+
+## 2026-09-29 — Gaussian access restored and real runtime validation
+
+The `rrv9177` account is now a member of the Cuttlefish `gaussian` Unix group.
+
+Fresh-session validation confirmed that `gaussian/avx2/g16_rev_c02` loads successfully,
+`g16` is available on PATH, and the expected Gaussian environment and per-user scratch
+directory are established.
+
+Job `2173134` re-ran the same Slurm Gaussian-access skeleton that previously failed.
+It completed `0:0` on `node7`, proving successful Gaussian module loading and `g16`
+availability on a compute node after access was granted.
+
+Job `2173135` verified compute-node Gaussian scratch behavior by creating and deleting
+a probe file under `/scratch/gaussian/rrv9177`.
+
+The installed Gaussian C.02 tests and helper scripts were inspected as local evidence.
+Decision: use these files as evidence sources, but do not bulk-copy the proprietary
+Gaussian test corpus into Inkly or Nathan's scraper database. Nathan's scraper remains
+the broad external/general documentation layer; Cuttlefish runtime/configuration evidence
+remains the trusted local layer.
+
+A real Gaussian calculation was executed through Slurm using the installed
+`test0000.com` water RHF/STO-3G case. Job `2173136` completed `0:0`; `g16`
+returned 0, the SCF calculation completed, and Gaussian reported normal termination.
+This runtime-verifies the basic Cuttlefish invocation pattern:
+
+`g16 < input.com > output.log`
+
+The vendor test's archive-specific options produced an archive warning but did not
+prevent normal termination. Those test-specific options are not treated as production
+recommendations.
+
+### Reproducible CPU accounting issue
+
+The Slurm CPU discrepancy is now reproducible rather than a one-off observation:
+
+- Job `2173135`: `ReqCPUS=1`, `AllocCPUS=2`
+- Job `2173136`: `ReqCPUS=1`, `AllocCPUS=2`
+- Job `2173137`: `ReqCPUS=1`, `AllocCPUS=2`
+
+Cuttlefish node topology shows two hardware threads per core, but the cause of the
+accounting behavior is still `UNKNOWN`. Do not assume a mapping between Slurm
+`--cpus-per-task` and Gaussian `%NProcShared` until controlled CPU-affinity,
+core, and hardware-thread tests are completed.
+
+Next investigation:
+test controlled 1-, 2-, and 4-CPU Slurm allocations and inspect scheduler allocation,
+CPU affinity, physical cores, and hardware threads before validating Gaussian
+`%NProcShared`.

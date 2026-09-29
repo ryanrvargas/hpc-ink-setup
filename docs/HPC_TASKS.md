@@ -253,8 +253,9 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Run a controlled Gaussian `%cpu` test using CPU IDs dynamically derived from the job's Slurm cpuset, selecting one hardware thread per physical core.
 - [x] Verify Gaussian's runtime output reflects the explicit `%cpu` selection and completes normally: job `2173144` generated `%cpu=60,61`, Gaussian reported `Will use up to 2 processors via shared memory`, and terminated normally.
 - [x] Runtime-test the locally documented Gaussian `%cpu` processor-control mechanism against verified Slurm CPU affinity.
-- [ ] Test whether Slurm can allocate one hardware thread per physical core directly (for example with supported thread/core binding options) so Inkly does not request extra logical CPUs unnecessarily.
-- [ ] Decide the final Inkly CPU-generation rule only after comparing direct Slurm one-thread-per-core allocation with the proven dynamic `%cpu` fallback.
+- [x] Test `--threads-per-core=1` on Cuttlefish: job `2173145` still received four logical CPUs / both sibling threads for a two-CPU request, so this option does not eliminate the extra sibling allocation by itself.
+- [ ] Test `--hint=nomultithread` (if supported) to see whether Cuttlefish can produce a cpuset containing one hardware thread per physical core.
+- [ ] Decide the final Inkly CPU-generation rule only after comparing supported Slurm binding options with the proven dynamic `%cpu` fallback.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

@@ -1794,3 +1794,46 @@ Decision:
 run `test0400` under the same tested memory relationship used for the successful
 `test0983` tight-memory run: Slurm `--mem=1G` with Gaussian `%mem=100mw`.
 This provides a cross-workload check before defining Inkly's Phase 1B memory policy.
+
+
+## 2026-09-29 — cross-workload memory validation complete
+
+Ran installed Gaussian TD-DFT test `test0400` as job `2173179`.
+
+Configuration:
+
+- Slurm `--mem=1G`
+- effective cgroup limit: 1073741824 bytes
+- Gaussian `%mem=100mw` (~800 MiB)
+- four explicitly bound physical-core CPUs
+- two Link1 calculations
+
+Observed:
+
+- job completed with exit code 0
+- both Gaussian sections terminated normally
+- GNU time MaxRSS: 532164 KB
+- aggregate cgroup peak: 673034240 bytes (~641.9 MiB)
+- measured remaining cgroup margin: ~382.1 MiB
+- largest observed `NReq=62618576` words
+
+This independently confirms the same tested memory relationship previously validated
+with `test0983`: Gaussian `%mem=100mw` (~800 MiB) operates successfully inside an
+enforced 1 GiB Cuttlefish Slurm memory allocation.
+
+Phase 1B memory policy evidence now covers two materially different Gaussian workload
+classes (GHF/DFT multi-link and TD-DFT).
+
+Recommended Phase 1B generation policy:
+- keep Gaussian `%mem` below Slurm `--mem`
+- for automatically generated Cuttlefish jobs, use a conservative maximum Gaussian
+  internal memory target of about 75-78% of the requested Slurm job memory
+- round downward to a simple Gaussian memory value
+- never set `%mem` equal to the Slurm memory limit
+- preserve explicit user-provided Gaussian memory only if it fits below the scheduler
+  allocation with the configured safety margin; otherwise warn/adjust
+- retain the policy as conservative cluster guidance rather than a universal Gaussian
+  law
+
+Memory validation experiments can stop here for Phase 1B; next work is implementation
+and regression coverage.

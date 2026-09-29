@@ -1889,3 +1889,30 @@ The full repository format check also reports the untracked live-test helper
 `benchmarks/gaussian/live_tests/cpu_affinity_report.py`. That file is a local
 validation artifact and should remain separate from production changes unless we
 explicitly decide to keep it.
+
+
+## 2026-09-29 — Phase 1B trusted-profile implementation validated
+
+Final Cuttlefish validation after the formatting fix succeeded:
+
+- targeted trusted-profile/runtime tests: 9 passed
+- full test suite: 127 passed
+- Ruff lint: passed
+- Ruff format check: all 69 checked files formatted
+- `git diff --check`: passed
+- live profile assertion: `TRUSTED_PROFILE_VALIDATION_OK`
+
+The live trusted profile exposes the verified Cuttlefish Gaussian facts required for
+generation: runtime status, `general` partition, CPU request/binding rule, cgroup
+memory enforcement, and the conservative 75% automatic Gaussian memory cap.
+
+The Phase 1B trusted-profile/memory implementation is complete.
+
+Next:
+exercise Inkly itself with a user-facing Cuttlefish Gaussian/SBATCH request and verify
+that the resulting answer actually follows the trusted rules. Any failure at that layer
+should be fixed with regression coverage rather than changing the already-verified
+cluster ground truth.
+
+The numerous files under `benchmarks/gaussian/live_tests/` remain untracked local
+validation artifacts and were not added to the production implementation.

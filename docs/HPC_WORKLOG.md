@@ -1422,3 +1422,46 @@ Next:
 2. run a controlled Gaussian job under a known Slurm memory allocation
 3. inspect Gaussian's own runtime memory reporting
 4. only then select an Inkly memory-generation rule
+
+
+## 2026-09-29 — Future direction: reusable HPC onboarding
+
+Agreed that the Cuttlefish validation work should become the reference implementation
+for a reusable Inkly cluster onboarding and validation system.
+
+Goal:
+
+Do not require the same manual investigation for every new HPC. Instead, after the
+current Cuttlefish Phase 1B work is complete, design a safe setup flow that can inspect
+and validate a new cluster, build a trusted local profile, and let Inkly become
+cluster-specific without hard-coding one institution.
+
+Target architecture:
+
+general HPC/application knowledge
++ verified cluster profile
++ runtime validation evidence
++ user request
+-> cluster-specific Inkly guidance / generated job
+
+The future onboarding flow should be able to discover and/or validate items such as:
+
+- cluster identity / hostname
+- scheduler and partitions
+- CPU topology and binding behavior
+- memory behavior
+- scratch paths and permissions
+- installed modules/software
+- application access
+- small safe runtime validation jobs
+
+The resulting profile should contain only verified local facts and retain evidence
+classification such as VERIFIED_RUNTIME, VERIFIED_CONFIG, VERIFIED_ACCESS,
+VERIFIED_LOCAL_SOURCE, DOCUMENTED_ONLY, EXTERNAL, and UNKNOWN.
+
+A possible future UX is an `ink init` or `ink init-cluster` workflow that safely
+builds the local cluster profile and ground truth before Inkly begins generating
+cluster-specific commands.
+
+Cuttlefish is the first reference implementation for this framework, not a set of
+special cases that should be embedded permanently into Inkly core.

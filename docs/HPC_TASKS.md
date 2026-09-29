@@ -258,7 +258,8 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Run an end-to-end Gaussian job combining `--cpus-per-task=2`, `--hint=nomultithread`, and dynamically derived Gaussian CPU binding: job `2173172` completed normally with `g16 -c="60,61"` and Gaussian reported two shared-memory processors.
 - [x] Decide the Phase 1B Inkly CPU-generation rule: request N CPUs with `--hint=nomultithread`, derive one logical CPU from each allocated physical core at runtime, and pass those actual CPU IDs to Gaussian with `g16 -c="..."`.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
-- [ ] Trace the locally installed Gaussian `%mem` default/override mechanism and determine whether there is a supported command-line/environment equivalent suitable for generated SBATCH wrappers.
+- [x] Trace the locally installed Gaussian `%mem` control mechanism: no `g16` command-line/environment memory override was found in the installed C.02 materials; installed scripts generate `%mem=...` in the Gaussian input, while `-m=...` examples apply to utilities such as `formchk`.
+- [ ] Run a controlled Gaussian job with a known Slurm `--mem` allocation and explicit `%mem`, then verify Gaussian's reported memory and successful completion.
 - [ ] Runtime-test Gaussian memory reporting under a controlled Slurm memory allocation before choosing any Inkly memory formula.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

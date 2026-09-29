@@ -550,3 +550,39 @@ This workload did not consume enough memory to validate a production headroom ra
 The effective location of Slurm's memory limit in the cgroup hierarchy is not yet
 verified. Do not interpret task-level `memory.max=max` as proof that the scheduler
 does not enforce `--mem`.
+
+
+## Slurm memory enforcement — job 2173175
+
+### VERIFIED_RUNTIME / VERIFIED_CONFIG
+
+A job submitted with `--mem=1G` was inspected through its cgroup v2 hierarchy.
+
+Verified effective limits:
+
+`memory.max=1073741824`
+
+`memory.high=1073741824`
+
+These limits appeared on the Slurm job/user cgroup and job root even though the
+individual task cgroup reported `memory.max=max`.
+
+Relevant Slurm configuration:
+
+- `ProctrackType=proctrack/cgroup`
+- `TaskPlugin=task/cgroup`
+- `ConstrainRAMSpace=yes`
+- `AllowedRAMSpace=100`
+- `SelectType=select/cons_tres`
+- `SelectTypeParameters=CR_CORE_MEMORY,CR_ONE_TASK_PER_CORE`
+
+Verified implication:
+
+Cuttlefish enforces Slurm `--mem` as a real cgroup memory boundary. Gaussian `%mem`
+must therefore leave room inside that boundary for memory not counted in Gaussian's
+internal allocation.
+
+Still UNKNOWN:
+
+- how much headroom is required for representative Gaussian workloads
+- whether one fixed percentage is appropriate across workload classes

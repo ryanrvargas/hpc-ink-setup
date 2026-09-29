@@ -263,3 +263,17 @@ Target window from the HPC meeting: November-December 2026.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.
 - [ ] Sync the completed Phase 1B work from the personal branch to `thealice-lab/hpc-ink-setup` before ending the work session.
+
+
+## Future major workstream — reusable cluster onboarding and validation
+
+- [ ] Design a reusable Inkly cluster onboarding/validation framework after Cuttlefish Phase 1B is complete.
+- [ ] Turn the manual Cuttlefish discovery process into a safe automated setup flow for new HPCs.
+- [ ] Define an `ink init` / `ink init-cluster` style workflow that detects the cluster, scheduler, available software, CPU topology, memory behavior, scratch paths, and other local capabilities.
+- [ ] Generate a cluster profile containing only facts that were actually verified on that HPC.
+- [ ] Preserve evidence classifications such as `VERIFIED_RUNTIME`, `VERIFIED_CONFIG`, `VERIFIED_ACCESS`, `VERIFIED_LOCAL_SOURCE`, `DOCUMENTED_ONLY`, `EXTERNAL`, and `UNKNOWN`.
+- [ ] Build reusable safe validation jobs for scheduler behavior, CPU topology/binding, memory, scratch, modules/software access, and application-specific execution.
+- [ ] Store validation results / ground truth separately from broad external documentation so cluster-local facts remain authoritative.
+- [ ] Make Inkly combine general HPC/application knowledge + verified cluster profile + user intent when generating commands and SBATCH files.
+- [ ] Ensure a brand-new HPC starts conservatively and becomes more capable only as local facts are verified.
+- [ ] Use Cuttlefish as the reference implementation for the first reusable onboarding framework rather than hard-coding Cuttlefish-specific behavior into Inkly core.

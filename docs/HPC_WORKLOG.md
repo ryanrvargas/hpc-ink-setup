@@ -1208,3 +1208,44 @@ the current Cuttlefish allocation exposes two hardware threads per core. Before 
 this Inkly's final resource-generation rule, test whether supported Slurm options can
 request one hardware thread per physical core directly. If so, that may avoid requesting
 unused sibling hardware threads. The dynamic `%cpu` mechanism remains a proven fallback.
+
+
+## 2026-09-29 — Slurm threads-per-core test
+
+Tested whether Cuttlefish can avoid allocating unused sibling hardware threads by
+submitting a two-CPU job with:
+
+`--cpus-per-task=2 --threads-per-core=1`
+
+Job `2173145` completed successfully on `node7`.
+
+Observed:
+
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+- `NCPUS=4`
+- `SLURM_CPUS_PER_TASK=2`
+- `SLURM_CPUS_ON_NODE=2`
+- actual Linux affinity: `60,61,124,125`
+
+Topology:
+
+- `60,124` are sibling hardware threads of physical core 28
+- `61,125` are sibling hardware threads of physical core 29
+
+Conclusion:
+
+On the current Cuttlefish Slurm configuration, `--threads-per-core=1` by itself does
+not reduce the actual allocated logical CPU set to one hardware thread per physical
+core. The accounting allocation still includes both sibling threads of each allocated
+physical core.
+
+Do not generate this option in Inkly as an efficiency optimization unless another
+supported Slurm binding/hint combination is runtime-verified to change the actual
+allocation/cpuset.
+
+Next:
+test `--hint=nomultithread` if supported. If Cuttlefish still allocates/exposes sibling
+threads, retain dynamic Gaussian `%cpu` selection as the verified mechanism and treat
+the extra sibling allocation as a scheduler-level characteristic rather than something
+Inkly can safely remove with a simple SBATCH directive.

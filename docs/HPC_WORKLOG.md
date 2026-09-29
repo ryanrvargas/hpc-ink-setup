@@ -1059,3 +1059,35 @@ Next:
 trace the installed Gaussian scripts/environment for the source of the default processor
 count, then run controlled Gaussian jobs with explicit processor settings only after the
 local mechanism is understood.
+
+
+## 2026-09-29 — Gaussian C.02 processor-control evidence
+
+Inspected the locally installed Gaussian C.02 input examples, runtime environment,
+helper scripts, profile, and release-note search results before defining how Inkly
+should generate processor settings.
+
+Observed:
+
+- searched installed `tests/com/*.com` inputs contain no explicit
+  `%NProcShared` directives
+- Gaussian vendor reference logs frequently report a four-processor default, but
+  those logs were generated in Gaussian's vendor/reference environment and do not
+  establish a Cuttlefish runtime default
+- the active Cuttlefish Gaussian environment exposes no `GAUSS_PDEF` or other
+  processor-count environment variable
+- the Cuttlefish module/profile sets `OMP_NUM_THREADS=1`
+- the installed C.02 release notes state that `%nprocshared` and `%nproclinda`
+  are deprecated and reference `%cpu` for processor/thread placement
+
+Decision:
+
+Do not make `%NProcShared` the default Inkly processor-control mechanism merely
+because external HPC documentation uses it.
+
+Before generating CPU-aware Gaussian jobs, inspect the locally installed C.02
+release-note guidance for `%cpu` and processor affinity, then runtime-test that
+mechanism against Cuttlefish's directly verified Slurm CPU affinity.
+
+The vendor reference-log statement "Default is to use a total of 4 processors" is
+not classified as a Cuttlefish local fact.

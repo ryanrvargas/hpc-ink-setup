@@ -1334,3 +1334,59 @@ Current best-supported CPU strategy:
 
 This should be validated end-to-end with a real Gaussian job before becoming Inkly's
 final CPU-generation rule.
+
+
+## 2026-09-29 — Production-style Gaussian CPU path verified
+
+Ran end-to-end Gaussian job `2173172` using the proposed Phase 1B CPU-generation
+pattern.
+
+SBATCH resources:
+
+- `--cpus-per-task=2`
+- `--hint=nomultithread`
+- `--mem=1G`
+
+Cuttlefish/Slurm behavior:
+
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+- job cpuset: `60,61,124,125`
+- physical core 28: sibling threads `60,124`
+- physical core 29: sibling threads `61,125`
+
+The runtime wrapper selected one logical CPU from each unique physical core:
+
+`60,61`
+
+Instead of rewriting the Gaussian input file, the job passed the dynamically selected
+CPU list through Gaussian's locally documented command-line processor option:
+
+`g16 -c="60,61" < input.com > output.log`
+
+Gaussian explicitly reported:
+
+- `Default CPUs for threads: 60,61`
+- `Default is to use a total of   2 processors:`
+- `2 via shared-memory`
+
+The calculation exited with status 0 and reported normal Gaussian 16 termination.
+
+### Phase 1B CPU rule — VERIFIED_RUNTIME
+
+For a Cuttlefish Gaussian job requesting N shared-memory processors:
+
+1. request `--cpus-per-task=N`
+2. include `--hint=nomultithread` so the request is placed across N distinct
+   physical cores
+3. inspect the actual job cpuset and Linux socket/core topology at runtime
+4. select one logical CPU from each unique physical core
+5. require exactly N selected physical cores
+6. invoke Gaussian with `g16 -c="<actual selected CPU IDs>"`
+
+This preserves the user's Gaussian input file and pins Gaussian threads to the actual
+CPUs allocated to the job.
+
+Cuttlefish still exposes/accounts for both SMT siblings, so `AllocCPUS` may be 2N.
+That is a scheduler-level characteristic observed on this cluster, not something Inkly
+should hide or claim to eliminate.

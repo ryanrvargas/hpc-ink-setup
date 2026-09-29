@@ -586,3 +586,26 @@ Still UNKNOWN:
 
 - how much headroom is required for representative Gaussian workloads
 - whether one fixed percentage is appropriate across workload classes
+
+
+## test0977 memory measurement — job 2173176
+
+### VERIFIED_RUNTIME
+
+Job `2173176` used Slurm `--mem=4G` and Gaussian `%mem=2gb`.
+
+Observed:
+
+- Gaussian used three explicitly bound processors and terminated normally
+- effective Slurm cgroup limit: 4 GiB
+- GNU time maximum RSS: 318244 KB
+- cgroup memory peak: 332816384 bytes
+- Gaussian's `MaxMem` remained the configured 2 GiB internal ceiling
+
+Verified implication:
+
+Gaussian `%mem` is an upper allowance, not a prediction of actual resident memory.
+A workload may use far less memory than its configured `%mem`.
+
+Do not derive Inkly's scheduler-memory headroom ratio from `test0977`; a more
+memory-demanding workload is required.

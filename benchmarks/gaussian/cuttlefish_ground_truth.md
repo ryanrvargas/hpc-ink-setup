@@ -313,3 +313,46 @@ Inkly can now distinguish between:
 Known local facts can be surfaced without treating external documentation as
 Cuttlefish policy. Gaussian execution commands are deterministically withheld
 when trusted evidence reports BLOCKED_BY_ACCESS.
+
+
+## Verified Gaussian CPU binding — job 2173144
+
+### VERIFIED_RUNTIME
+
+A controlled Gaussian calculation validated explicit CPU binding derived from the
+actual Slurm allocation.
+
+Slurm assigned logical CPUs:
+
+`60,61,124,125`
+
+Linux topology showed two physical cores:
+
+- core 28: sibling hardware threads `60,124`
+- core 29: sibling hardware threads `61,125`
+
+Selecting one hardware thread per physical core produced:
+
+`%cpu=60,61`
+
+Gaussian reported:
+
+`Will use up to    2 processors via shared memory.`
+
+The calculation completed with Gaussian normal termination and Slurm exit code `0:0`.
+
+Verified local behavior:
+
+- Gaussian C.02 accepts dynamically generated `%cpu` CPU-ID lists on Cuttlefish.
+- The CPU IDs can be derived from the job's actual Slurm cpuset.
+- Selecting one logical CPU per unique physical core follows the locally installed
+  Gaussian C.02 guidance to avoid using sibling hyperthreads.
+- Gaussian's reported shared-memory processor count matches the number of CPUs in the
+  explicit `%cpu` list for this controlled test.
+
+Still UNKNOWN / not yet a production rule:
+
+- whether Slurm can request one hardware thread per physical core directly using a
+  supported allocation/binding option
+- whether Inkly should rely on such a Slurm option, dynamic `%cpu`, or both
+- recommended processor counts for real user workloads

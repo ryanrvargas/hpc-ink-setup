@@ -1574,3 +1574,27 @@ allocation is not automatically safe.
 Next:
 identify a local Gaussian workload that actually consumes a substantial fraction of its
 configured `%mem` so the necessary headroom can be measured rather than guessed.
+
+
+## 2026-09-29 — Memory stress candidate scan
+
+Scanned installed Gaussian reference tests for inputs with explicit `%mem` settings and
+short reference runtimes.
+
+Leading candidate: `test0977`
+
+- input uses `%mem=2gb`
+- reference CPU time is approximately 31.8 seconds
+- Gaussian reference output reports `MaxMem=268435456`
+
+Important interpretation:
+Gaussian's `MaxMem` value is the program's internal configured memory ceiling
+(expressed in Gaussian's internal word units), not Linux peak resident memory.
+For `test0977`, 268435456 8-byte words corresponds to 2 GiB, matching `%mem=2gb`.
+
+Therefore the reference log confirms the configured Gaussian limit but does not tell us
+the actual RSS. A live Slurm run with GNU time / cgroup accounting is still required.
+
+Before running the vendor test, inspect `test0977` for external files, checkpoints,
+multi-step dependencies, or other assumptions so the validation remains safe and
+self-contained.

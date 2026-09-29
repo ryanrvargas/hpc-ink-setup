@@ -1620,3 +1620,33 @@ Decision:
 use `test0977` for the live Cuttlefish memory measurement, with a Slurm allocation
 larger than 2 GiB so the first run measures real peak use rather than intentionally
 testing the OOM boundary.
+
+
+## 2026-09-29 — test0977 live memory measurement
+
+Ran installed Gaussian test `test0977` as job `2173176` with:
+
+- `--cpus-per-task=3`
+- `--hint=nomultithread`
+- Slurm `--mem=4G`
+- Gaussian input `%mem=2gb`
+
+Runtime CPU selection chose `60,61,62` across three physical cores.
+
+Observed:
+
+- Gaussian exited 0 and terminated normally
+- Gaussian reported three processors
+- Slurm cgroup limit: 4294967296 bytes (4 GiB)
+- GNU time maximum RSS: 318244 KB
+- cgroup `memory.peak`: 332816384 bytes (~317.4 MiB)
+- Gaussian `MaxMem` reflected the configured 2 GiB ceiling
+
+Conclusion:
+
+`test0977` does not actually consume memory close to its configured `%mem=2gb`.
+The configured Gaussian memory ceiling must not be treated as expected RSS.
+
+Therefore this workload cannot justify a production Slurm/Gaussian memory headroom
+ratio. Select a workload whose measured RSS materially approaches its configured
+Gaussian memory allowance before defining Inkly's memory rule.

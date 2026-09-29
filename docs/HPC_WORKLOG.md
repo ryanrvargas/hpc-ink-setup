@@ -950,13 +950,14 @@ The nodes report:
 - 128 logical CPUs
 
 Combined with the previously observed Cuttlefish Slurm configuration using core-based
-allocation, the controlled affinity results support the following local scheduler fact:
+allocation, the controlled affinity results strongly indicate that allocation is being
+rounded at physical-core granularity and that Slurm is exposing both hardware threads
+of the allocated core.
 
-Cuttlefish allocates whole physical cores, while Slurm accounting exposes the two
-hardware threads belonging to each allocated core. Therefore a request for one CPU can
-produce an allocation containing two logical CPUs.
-
-This explains the repeatable `ReqCPUS=1 -> AllocCPUS=2` observation.
+That interpretation is not yet promoted to a final verified fact. The next probe must
+directly map affinity CPU IDs such as `4,68` and `60,61,124,125` to Linux
+core/socket IDs and thread-sibling lists. Only after that direct topology check should
+the physical-core explanation be marked verified.
 
 Important limitation:
 

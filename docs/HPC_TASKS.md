@@ -255,8 +255,8 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Runtime-test the locally documented Gaussian `%cpu` processor-control mechanism against verified Slurm CPU affinity.
 - [x] Test `--threads-per-core=1` on Cuttlefish: job `2173145` still received four logical CPUs / both sibling threads for a two-CPU request, so this option does not eliminate the extra sibling allocation by itself.
 - [x] Test `--hint=nomultithread` and an actual `srun` step: job `2173171` spans two physical cores for `--cpus-per-task=2`, but Cuttlefish still exposes and accounts for both sibling hardware threads.
-- [ ] Run an end-to-end Gaussian job combining `--cpus-per-task=2`, a verified one-thread-per-core Slurm hint, and dynamically generated Gaussian `%cpu` to prove the full efficient CPU path.
-- [ ] Decide the final Inkly CPU-generation rule after the combined Slurm + dynamic `%cpu` runtime test.
+- [x] Run an end-to-end Gaussian job combining `--cpus-per-task=2`, `--hint=nomultithread`, and dynamically derived Gaussian CPU binding: job `2173172` completed normally with `g16 -c="60,61"` and Gaussian reported two shared-memory processors.
+- [x] Decide the Phase 1B Inkly CPU-generation rule: request N CPUs with `--hint=nomultithread`, derive one logical CPU from each allocated physical core at runtime, and pass those actual CPU IDs to Gaussian with `g16 -c="..."`.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

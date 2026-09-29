@@ -296,3 +296,10 @@ Target window from the HPC meeting: November-December 2026.
 - [ ] Validate Inkly's user-facing Cuttlefish Gaussian SBATCH guidance against the trusted profile.
 - [ ] Verify generated guidance uses the local module, general partition, physical-core CPU rule, dynamic `g16 -c` binding, and conservative memory policy.
 - [ ] Add deterministic/regression coverage for any generation failures found.
+
+
+### User-facing Gaussian guidance
+
+- [ ] Validate Inkly end-to-end Gaussian job guidance on Cuttlefish using the verified cluster profile.
+- [ ] Confirm generated guidance uses local module/partition/CPU/memory rules and does not import external-cluster commands.
+- [ ] Confirm generated SBATCH guidance is operationally usable and consistent with the runtime-verified Phase 1B rules.

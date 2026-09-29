@@ -1690,3 +1690,42 @@ run the installed input directly from its read-only Gaussian installation path, 
 an isolated per-job working directory so its relative checkpoint files cannot collide
 with other runs. Measure actual Linux RSS and cgroup peak; do not treat NReq as actual
 resident memory.
+
+
+## 2026-09-29 — test0983 live memory measurement
+
+Ran installed Gaussian test `test0983` as Slurm job `2173177` in an isolated
+per-job working directory.
+
+Resources:
+
+- `--cpus-per-task=4`
+- `--hint=nomultithread`
+- `--mem=2G`
+- Gaussian `%mem=100mw` for each Link1 section
+
+Runtime:
+
+- selected physical-core CPU IDs: `29,30,31,60`
+- all eight Gaussian sections terminated normally
+- Slurm cgroup limit: 2147483648 bytes (2 GiB)
+- aggregate cgroup memory peak: 927997952 bytes (~885 MiB)
+- GNU time maximum RSS: 621892 KB (~607 MiB)
+- Gaussian internal `MaxMem=104857600` words, corresponding to the configured
+  `%mem=100mw` (~800 MiB using 8-byte words)
+- largest observed `NReq` remained around 63 million words
+
+Interpretation:
+
+This is the first live test where aggregate job memory materially approaches and
+slightly exceeds Gaussian's configured internal memory allowance. The cgroup peak was
+approximately 1.106 times the configured Gaussian memory ceiling, or about 85 MiB above
+800 MiB.
+
+The cgroup peak is more relevant than GNU time MaxRSS for scheduler sizing because the
+Gaussian driver launches child Link executables and the cgroup measures aggregate job
+memory.
+
+Do not promote 10.6% to a universal overhead constant from one workload. Use it as
+evidence that `%mem` must remain below Slurm `--mem`, and validate a conservative
+production margin with another controlled run.

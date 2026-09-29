@@ -356,3 +356,32 @@ Still UNKNOWN / not yet a production rule:
   supported allocation/binding option
 - whether Inkly should rely on such a Slurm option, dynamic `%cpu`, or both
 - recommended processor counts for real user workloads
+
+
+## Slurm one-thread-per-core attempt — job 2173145
+
+### VERIFIED_RUNTIME
+
+A controlled Slurm test requested:
+
+`--cpus-per-task=2 --threads-per-core=1`
+
+Observed:
+
+- `ReqCPUS=2`
+- `AllocCPUS=4`
+- `NCPUS=4`
+- actual cpuset/affinity: `60,61,124,125`
+- physical cores represented: two
+- both sibling hardware threads of each physical core remained exposed
+
+Therefore, on the tested Cuttlefish configuration, `--threads-per-core=1` alone does
+not produce an allocation containing only one logical CPU per physical core.
+
+This option must not be treated as a proven efficiency fix for Gaussian jobs.
+
+Still to test:
+
+- whether `--hint=nomultithread` changes the actual cpuset/allocation
+- whether another supported Slurm binding option can request one thread per physical
+  core without allocating sibling logical CPUs

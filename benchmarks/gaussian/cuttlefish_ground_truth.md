@@ -506,3 +506,21 @@ Still UNKNOWN:
 - the safe mapping between Slurm `--mem` and Gaussian `%mem`
 - the appropriate safety margin for generated Cuttlefish jobs
 - the exact runtime reporting behavior for a controlled `%mem` setting
+
+
+## Basic memory separation — job 2173173
+
+### VERIFIED_RUNTIME
+
+Job `2173173` used Slurm `--mem=1G` and Gaussian `%mem=512MB`.
+
+Gaussian accepted and echoed the `%mem=512MB` setting, exited successfully, and terminated normally.
+
+Verified:
+- Slurm memory and Gaussian `%mem` are separate controls.
+- Gaussian can run with an explicit internal memory allowance smaller than the Slurm allocation.
+
+Still unknown:
+- the production-safe relationship between `--mem` and `%mem`
+- the headroom Inkly should reserve for process/runtime overhead
+- whether one fixed ratio is appropriate for all Gaussian workload types

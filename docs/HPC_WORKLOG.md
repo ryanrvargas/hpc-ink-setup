@@ -968,3 +968,67 @@ the Slurm allocation and CPU affinity.
 
 Do not generate CPU-aware Gaussian jobs from a guessed one-to-one relationship until
 that runtime test is complete.
+
+
+## 2026-09-29 — Direct CPU sibling topology verified
+
+Ran direct Linux CPU topology probes for controlled Slurm allocations.
+
+### Job 2173141 — requested 1 CPU
+
+Observed:
+
+- `SLURM_CPUS_PER_TASK=1`
+- `SLURM_CPUS_ON_NODE=2`
+- Slurm: `ReqCPUS=1`, `AllocCPUS=2`
+- allowed CPUs: `4,68`
+- CPU 4 -> core 4, socket 0, thread siblings `4,68`
+- CPU 68 -> core 4, socket 0, thread siblings `4,68`
+
+This directly proves that a one-CPU Slurm request is allocated one physical core and
+both hardware threads of that core are exposed in the job's CPU affinity set.
+
+### Job 2173142 — requested 2 CPUs
+
+Observed:
+
+- `SLURM_CPUS_PER_TASK=2`
+- `SLURM_CPUS_ON_NODE=2`
+- Slurm: `ReqCPUS=2`, `AllocCPUS=2`
+- allowed CPUs: `4,68`
+- both logical CPUs are the sibling threads of physical core 4 on socket 0
+
+### Job 2173143 — requested 4 CPUs
+
+Observed:
+
+- `SLURM_CPUS_PER_TASK=4`
+- `SLURM_CPUS_ON_NODE=4`
+- Slurm: `ReqCPUS=4`, `AllocCPUS=4`
+- allowed CPUs: `60,61,124,125`
+- CPUs `60,124` are sibling threads of physical core 28 on socket 1
+- CPUs `61,125` are sibling threads of physical core 29 on socket 1
+
+### Verified scheduler conclusion
+
+Cuttlefish's observed Slurm behavior is now supported by direct topology evidence:
+
+- scheduler allocation occurs at physical-core granularity
+- each physical core has two hardware threads
+- both hardware threads of an allocated core are exposed in the job CPU affinity set
+- a request for one CPU can therefore result in `AllocCPUS=2`
+- a request for two CPUs can occupy the same one physical core
+- a request for four CPUs spans two physical cores
+
+This resolves the cause of the earlier repeatable `ReqCPUS=1 -> AllocCPUS=2` result.
+
+Important limitation:
+
+This does not yet define the correct Gaussian `%NProcShared` value. The next step is
+to run controlled Gaussian calculations with explicit processor settings and compare
+Gaussian's reported processor/thread behavior against the verified Slurm allocation.
+
+End-of-day requirement:
+before stopping the session, reconcile the Cuttlefish working branch with the personal
+remote tracking commits and sync the completed Phase 1B branch to
+`thealice-lab/hpc-ink-setup`.

@@ -250,9 +250,11 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Inspect the installed Gaussian processor configuration: current Cuttlefish module environment exposes no processor-count variable, installed test inputs contain no explicit `%NProcShared`, and vendor reference logs' four-processor default is not established as a Cuttlefish runtime default.
 - [x] Inspect Gaussian C.02 local release notes for `%cpu`, `%nprocshared`, and processor-affinity semantics: `%cpu` is the recommended mechanism, `%nprocshared` is deprecated, and Gaussian recommends one hardware thread per physical core when hyperthreading is enabled.
 - [x] Inspect successful jobs `2173136` and `2173137`: with no `%cpu` directive, the logs contain no processor/default-thread lines, so automatic Gaussian CPU selection cannot be verified from those runs.
-- [ ] Run a controlled Gaussian `%cpu` test using CPU IDs dynamically derived from the job's Slurm cpuset, selecting one hardware thread per physical core.
-- [ ] Verify Gaussian's runtime output reflects the explicit `%cpu` selection and completes normally.
-- [ ] Runtime-test the locally documented Gaussian `%cpu` processor-control mechanism against verified Slurm CPU affinity before generating CPU-aware Gaussian jobs.
+- [x] Run a controlled Gaussian `%cpu` test using CPU IDs dynamically derived from the job's Slurm cpuset, selecting one hardware thread per physical core.
+- [x] Verify Gaussian's runtime output reflects the explicit `%cpu` selection and completes normally: job `2173144` generated `%cpu=60,61`, Gaussian reported `Will use up to 2 processors via shared memory`, and terminated normally.
+- [x] Runtime-test the locally documented Gaussian `%cpu` processor-control mechanism against verified Slurm CPU affinity.
+- [ ] Test whether Slurm can allocate one hardware thread per physical core directly (for example with supported thread/core binding options) so Inkly does not request extra logical CPUs unnecessarily.
+- [ ] Decide the final Inkly CPU-generation rule only after comparing direct Slurm one-thread-per-core allocation with the proven dynamic `%cpu` fallback.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

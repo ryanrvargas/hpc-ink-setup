@@ -1771,3 +1771,26 @@ Gaussian `%mem=100mw` (~800 MiB) runs successfully inside a Cuttlefish Slurm
 
 Before defining Inkly's Phase 1B memory rule, repeat the same candidate ratio on a
 different Gaussian workload class.
+
+
+## 2026-09-29 — test0400 selected for cross-workload memory validation
+
+Inspected installed Gaussian test `test0400` as a second workload class for memory
+validation.
+
+Findings:
+
+- two self-contained Link1 sections
+- both use `%mem=100mw`
+- no checkpoint, old-checkpoint, external-file, or geometry/guess-read dependency
+- workload is open-shell TD-DFT, unlike the GHF/DFT multi-link `test0983`
+- reference output contains two normal terminations
+- largest observed `NReq=62618576` words
+- `MaxMem=104857600` words
+- screening ratio is about 0.597
+- reference elapsed time is about 30 seconds per section
+
+Decision:
+run `test0400` under the same tested memory relationship used for the successful
+`test0983` tight-memory run: Slurm `--mem=1G` with Gaussian `%mem=100mw`.
+This provides a cross-workload check before defining Inkly's Phase 1B memory policy.

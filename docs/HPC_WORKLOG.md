@@ -1465,3 +1465,32 @@ cluster-specific commands.
 
 Cuttlefish is the first reference implementation for this framework, not a set of
 special cases that should be embedded permanently into Inkly core.
+
+
+## 2026-09-29 — Gaussian memory control path
+
+Inspected the installed Gaussian 16 C.02 executable, scripts, release notes, profile,
+and utility examples to determine whether Gaussian memory can be controlled externally
+the way CPU binding can be controlled with `g16 -c="..."`.
+
+Observed:
+
+- `g16` is a direct ELF executable, not a shell wrapper
+- no `GAUSS_MDEF` or equivalent main-Gaussian memory environment default was found
+- no installed `g16` command-line memory option equivalent to `-c` was identified
+- installed helper scripts such as `mygau` generate a `%mem=...` line in the
+  Gaussian input
+- the `-m=1gb` command-line example in the release notes applies to the `formchk`
+  utility, not to the main `g16` calculation executable
+- no Default.Route file was found in the searched installed tree
+
+Current design implication:
+
+Keep CPU placement external through `g16 -c="..."`, but treat Gaussian calculation
+memory as an input-level Link 0 setting using `%mem=...` unless later runtime evidence
+shows a supported alternative.
+
+Next:
+run a controlled Gaussian calculation with a known Slurm `--mem` allocation and an
+explicit `%mem` value, then inspect Gaussian's own runtime memory reporting before
+choosing any mapping formula.

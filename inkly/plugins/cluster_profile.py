@@ -177,11 +177,7 @@ def _gaussian_lines(profile: dict) -> list[str]:
         memory_rounding = slurm.get("memory_rounding")
         if memory_fraction is not None:
             percent = float(memory_fraction) * 100
-            rounding = (
-                f" and round {memory_rounding}"
-                if memory_rounding
-                else ""
-            )
+            rounding = f" and round {memory_rounding}" if memory_rounding else ""
             lines.append(
                 "evidence=VERIFIED_RUNTIME | Gaussian automatic memory rule: "
                 f"set %mem to at most {percent:g}% of Slurm --mem{rounding}; "

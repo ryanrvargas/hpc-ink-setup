@@ -1249,3 +1249,33 @@ test `--hint=nomultithread` if supported. If Cuttlefish still allocates/exposes 
 threads, retain dynamic Gaussian `%cpu` selection as the verified mechanism and treat
 the extra sibling allocation as a scheduler-level characteristic rather than something
 Inkly can safely remove with a simple SBATCH directive.
+
+
+## 2026-09-29 — Cuttlefish checkout reconciled after reconnect
+
+After reconnecting to Cuttlefish, verified and safely reconciled the active Phase 1B
+working copy.
+
+State after reconciliation:
+
+- active branch: `phase1b/gaussian-operational-validation`
+- local Cuttlefish HEAD: `177ce37`
+- personal GitHub Phase 1B HEAD: `177ce37`
+- Alice Lab Phase 1B HEAD: `01c9823`
+- local versus personal remote: synchronized
+- Alice Lab remains behind and is still scheduled for end-of-day synchronization
+
+Before fast-forwarding, the three locally modified tracking documents were backed up
+under:
+
+`~/inkly-phase1b-presync-20260929`
+
+The working copy was then fast-forwarded from `01c9823` to `177ce37`.
+
+All untracked live-validation artifacts from Gaussian and Slurm jobs through job
+`2173145` remained intact. No live-test output or scripts were deleted or reset.
+
+Next:
+resume the Slurm binding experiment to compare `--threads-per-core=1`,
+`--hint=nomultithread`, and actual `srun` task affinity before finalizing Inkly's
+Gaussian CPU-generation rule.

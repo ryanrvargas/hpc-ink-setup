@@ -1861,3 +1861,31 @@ Changes prepared on `phase1b/gaussian-operational-validation`:
 
 These changes are prepared but not yet marked complete. They must pass targeted tests,
 the full pytest suite, Ruff, format checks, and a real Cuttlefish plugin-output check.
+
+
+## 2026-09-29 — Phase 1B implementation validation
+
+Validated the prepared Cuttlefish Gaussian runtime policy on the actual cluster.
+
+Results:
+
+- targeted cluster-profile/runtime tests: 9 passed
+- full pytest suite: 127 passed
+- Ruff lint: passed
+- live trusted-profile output correctly reported:
+  - Gaussian runtime verified
+  - verified Slurm partition `general`
+  - `--cpus-per-task=N` and `--hint=nomultithread`
+  - dynamic one-thread-per-physical-core selection
+  - `g16 -c=<selected_cpu_ids>`
+  - Slurm `--mem` cgroup enforcement
+  - automatic Gaussian memory rule capped at 75% of Slurm memory and rounded down
+  - successful local validation from `test0983` and `test0400`
+
+The only tracked-code validation issue was Ruff format on
+`inkly/plugins/cluster_profile.py`; a formatting-only fix was applied remotely.
+
+The full repository format check also reports the untracked live-test helper
+`benchmarks/gaussian/live_tests/cpu_affinity_report.py`. That file is a local
+validation artifact and should remain separate from production changes unless we
+explicitly decide to keep it.

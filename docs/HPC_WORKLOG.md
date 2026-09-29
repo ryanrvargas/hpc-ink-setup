@@ -907,3 +907,63 @@ Next investigation:
 test controlled 1-, 2-, and 4-CPU Slurm allocations and inspect scheduler allocation,
 CPU affinity, physical cores, and hardware threads before validating Gaussian
 `%NProcShared`.
+
+
+## 2026-09-29 — Cuttlefish CPU allocation probe
+
+Ran controlled Slurm-only CPU allocation probes before changing Gaussian CPU guidance.
+
+Jobs:
+
+- `2173138`: requested `--cpus-per-task=1`
+- `2173139`: requested `--cpus-per-task=2`
+- `2173140`: requested `--cpus-per-task=4`
+
+Observed:
+
+### Job 2173138 — request 1
+
+- `SLURM_CPUS_PER_TASK=1`
+- `SLURM_CPUS_ON_NODE=2`
+- Slurm: `ReqCPUS=1`, `AllocCPUS=2`
+- affinity: logical CPUs `4,68`
+
+### Job 2173139 — request 2
+
+- `SLURM_CPUS_PER_TASK=2`
+- `SLURM_CPUS_ON_NODE=2`
+- Slurm: `ReqCPUS=2`, `AllocCPUS=2`
+- affinity: logical CPUs `4,68`
+
+### Job 2173140 — request 4
+
+- `SLURM_CPUS_PER_TASK=4`
+- `SLURM_CPUS_ON_NODE=4`
+- Slurm: `ReqCPUS=4`, `AllocCPUS=4`
+- affinity: logical CPUs `60,61,124,125`
+
+The nodes report:
+
+- 2 sockets
+- 32 cores per socket
+- 2 hardware threads per core
+- 128 logical CPUs
+
+Combined with the previously observed Cuttlefish Slurm configuration using core-based
+allocation, the controlled affinity results support the following local scheduler fact:
+
+Cuttlefish allocates whole physical cores, while Slurm accounting exposes the two
+hardware threads belonging to each allocated core. Therefore a request for one CPU can
+produce an allocation containing two logical CPUs.
+
+This explains the repeatable `ReqCPUS=1 -> AllocCPUS=2` observation.
+
+Important limitation:
+
+This scheduler behavior does NOT yet prove what value Gaussian `%NProcShared` should
+use. The next validation must run controlled Gaussian calculations with explicit
+`%NProcShared` values and inspect Gaussian's reported processor/thread usage against
+the Slurm allocation and CPU affinity.
+
+Do not generate CPU-aware Gaussian jobs from a guessed one-to-one relationship until
+that runtime test is complete.

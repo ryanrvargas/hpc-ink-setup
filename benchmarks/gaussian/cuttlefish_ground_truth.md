@@ -524,3 +524,29 @@ Still unknown:
 - the production-safe relationship between `--mem` and `%mem`
 - the headroom Inkly should reserve for process/runtime overhead
 - whether one fixed ratio is appropriate for all Gaussian workload types
+
+
+## Gaussian memory accounting probe — job 2173174
+
+### VERIFIED_RUNTIME
+
+Job `2173174` used:
+
+- Slurm `--mem=1G`
+- Gaussian `%mem=768MB`
+- one Gaussian CPU selected from the allocated physical core
+
+Observed:
+
+- Gaussian accepted and echoed `%mem=768MB`
+- Gaussian terminated normally
+- GNU time maximum RSS was approximately 291840 KB
+- the inspected task-level cgroup reported `memory.max=max`
+
+This workload did not consume enough memory to validate a production headroom ratio.
+
+### UNKNOWN
+
+The effective location of Slurm's memory limit in the cgroup hierarchy is not yet
+verified. Do not interpret task-level `memory.max=max` as proof that the scheduler
+does not enforce `--mem`.

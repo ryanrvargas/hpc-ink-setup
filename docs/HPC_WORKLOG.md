@@ -1515,3 +1515,27 @@ It does not establish a production ratio. The small water calculation did not pr
 
 Next:
 determine a safe Inkly mapping between Slurm `--mem` and Gaussian `%mem`, then validate that mapping with a more memory-demanding local test.
+
+
+## 2026-09-29 — Gaussian memory accounting probe 2173174
+
+Job `2173174` tested Gaussian `%mem=768MB` inside a Slurm `--mem=1G` allocation.
+
+Observed:
+
+- `SLURM_MEM_PER_NODE=1024`
+- `SLURM_MEM_PER_CPU` unset
+- Gaussian accepted `%mem=768MB`
+- `g16` exit status 0
+- Gaussian normal termination
+- GNU time maximum resident set size: approximately 291840 KB
+- task-level cgroup `memory.max` reported `max`
+
+Interpretation:
+
+The job was too small to pressure the requested 768 MB Gaussian memory allowance, so
+it does not establish a safe production ratio between Slurm memory and Gaussian memory.
+
+The task-level `memory.max=max` result also does not prove that Slurm's 1 GB limit is
+unenforced; the effective memory limit may be attached to a parent Slurm cgroup. Inspect
+the cgroup hierarchy before drawing a scheduler enforcement conclusion.

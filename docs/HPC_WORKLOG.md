@@ -1668,3 +1668,25 @@ Decision:
 inspect `test0983` next because it combines a high memory-demand indicator with a much
 shorter reference runtime. The NReq/MaxMem ratio is only a screening heuristic; actual
 Linux RSS/cgroup peak still must be measured on Cuttlefish.
+
+
+## 2026-09-29 — test0983 dependency inspection
+
+Inspected installed Gaussian test `test0983`.
+
+Findings:
+
+- input uses `%mem=100mw` for each section
+- it contains eight `--Link1--` calculations
+- relative checkpoint files `test0983a`, `test0983b`, `test0983c`, and
+  `test0983d` are created/reused within the same multi-link input
+- no pre-existing external checkpoint or input dependency is required
+- reference output contains eight normal terminations
+- several reference links report `NReq` around 63 million words against
+  `MaxMem=104857600` words, giving an NReq/MaxMem screening ratio near 0.60
+
+Decision:
+run the installed input directly from its read-only Gaussian installation path, but use
+an isolated per-job working directory so its relative checkpoint files cannot collide
+with other runs. Measure actual Linux RSS and cgroup peak; do not treat NReq as actual
+resident memory.

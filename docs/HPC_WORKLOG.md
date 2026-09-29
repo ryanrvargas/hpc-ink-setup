@@ -1122,3 +1122,31 @@ the Slurm cpuset and how many threads it actually selects.
 
 Only after observing that runtime behavior should Inkly either rely on Gaussian's
 cpuset behavior or dynamically derive a `%cpu` directive from the Slurm allocation.
+
+
+## 2026-09-29 — No implicit Gaussian CPU selection visible
+
+Inspected the successful Gaussian runtime logs from jobs `2173136` and `2173137`
+to determine what Gaussian selected when no explicit `%cpu` directive was present.
+
+Both jobs:
+
+- started Gaussian successfully
+- completed normally
+- contained no lines matching Gaussian's vendor-reference messages such as
+  `Default CPUs for threads` or `Default is to use a total of ... processors`
+- therefore do not provide direct evidence for the number or identity of processor
+  threads Gaussian selected automatically
+
+Conclusion:
+
+Do not infer from successful execution that Gaussian automatically honored the desired
+one-hardware-thread-per-physical-core policy.
+
+The next controlled test will request a known Slurm allocation, read the actual Linux
+cpuset and topology assigned to that job, select one logical CPU ID from each unique
+physical core, construct an explicit Gaussian `%cpu` line from those runtime IDs, and
+verify the calculation completes with that processor selection.
+
+This avoids hard-coded CPU IDs and keeps the generated processor control grounded in the
+actual Slurm allocation for each job.

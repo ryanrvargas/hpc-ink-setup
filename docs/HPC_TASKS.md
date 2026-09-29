@@ -245,7 +245,9 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Record real Gaussian job `2173136`: `COMPLETED 0:0`, SCF completed, and Gaussian normal termination observed.
 - [x] Runtime-verify `g16 < input.com > output.log` for the tested Cuttlefish workflow.
 - [ ] Investigate the reproducible CPU accounting issue: jobs `2173135`, `2173136`, and `2173137` requested `ReqCPUS=1` but reported `AllocCPUS=2`.
-- [ ] Verify Slurm CPU/core/thread allocation before mapping `--cpus-per-task` to Gaussian `%NProcShared`.
+- [x] Record controlled CPU allocation probe jobs `2173138`, `2173139`, and `2173140`.
+- [x] Verify Cuttlefish's observed allocation unit is a physical core with two hardware threads: request 1 -> allocation 2 logical CPUs; request 2 -> allocation 2; request 4 -> allocation 4.
+- [ ] Verify how Gaussian `%NProcShared` should map to the Slurm allocation and CPU affinity before generating CPU-aware Gaussian jobs.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

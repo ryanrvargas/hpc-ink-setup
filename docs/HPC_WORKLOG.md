@@ -1390,3 +1390,35 @@ CPUs allocated to the job.
 Cuttlefish still exposes/accounts for both SMT siblings, so `AllocCPUS` may be 2N.
 That is a scheduler-level characteristic observed on this cluster, not something Inkly
 should hide or claim to eliminate.
+
+
+## 2026-09-29 — Gaussian memory evidence inspection
+
+Inspected the locally installed Gaussian 16 C.02 release notes, active module
+environment/profile, and installed test inputs before defining Inkly's memory rule.
+
+Observed:
+
+- the active Cuttlefish Gaussian profile contains no explicit memory setting found by
+  the memory search
+- the active Gaussian environment exposes no `GAUSS_MDEF` or other memory-default
+  variable found by the memory search
+- installed Gaussian test inputs use `%mem` directly
+- installed examples include units such as `gb`, `mb`, and `mw`, plus raw numeric
+  forms
+- the local C.02 performance notes recommend larger memory allocations for larger
+  calculations and discuss memory scaling with processor count
+
+Important distinction:
+
+The installed Gaussian performance guidance is not automatically a Cuttlefish
+scheduler rule. No mapping such as `Gaussian %Mem = Slurm --mem` or a fixed percentage
+of Slurm memory has been runtime-verified yet.
+
+Next:
+
+1. trace the installed Gaussian memory default/override mechanism, including any
+   supported command-line or environment equivalent to `%mem`
+2. run a controlled Gaussian job under a known Slurm memory allocation
+3. inspect Gaussian's own runtime memory reporting
+4. only then select an Inkly memory-generation rule

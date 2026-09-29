@@ -424,3 +424,61 @@ thread from each of those cores.
 
 This combined rule still requires one real end-to-end Gaussian validation before it is
 promoted to the final generated-job pattern.
+
+
+## Final verified CPU-generation pattern — job 2173172
+
+### VERIFIED_RUNTIME
+
+Job `2173172` validated the production-style CPU path.
+
+Requested:
+
+- `--cpus-per-task=2`
+- `--hint=nomultithread`
+
+Observed Slurm cpuset:
+
+`60,61,124,125`
+
+Topology:
+
+- `60,124` = physical core 28
+- `61,125` = physical core 29
+
+Runtime-selected Gaussian CPU list:
+
+`60,61`
+
+Gaussian invocation:
+
+`g16 -c="60,61" < input.com > output.log`
+
+Gaussian reported:
+
+`Default CPUs for threads: 60,61`
+
+`Default is to use a total of   2 processors:`
+
+`2 via shared-memory`
+
+The calculation terminated normally with Slurm state `COMPLETED` and exit code
+`0:0`.
+
+### Verified CPU rule
+
+For N desired Gaussian shared-memory processors on the tested Cuttlefish configuration:
+
+- request N CPUs with `--cpus-per-task=N`
+- add `--hint=nomultithread` to obtain N distinct physical cores
+- derive the job's actual logical CPU IDs from its cpuset/topology
+- choose one logical hardware thread per physical core
+- pass those IDs to Gaussian using `g16 -c="..."`
+
+Do not hard-code CPU numbers and do not assume Slurm's exposed logical CPU count equals
+the number of physical cores Gaussian should use.
+
+Known scheduler behavior:
+
+Cuttlefish currently exposes and accounts for both SMT siblings of each allocated
+physical core, so a request for N physical cores can show `AllocCPUS=2N`.

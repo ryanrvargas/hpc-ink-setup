@@ -609,3 +609,35 @@ A workload may use far less memory than its configured `%mem`.
 
 Do not derive Inkly's scheduler-memory headroom ratio from `test0977`; a more
 memory-demanding workload is required.
+
+
+## test0983 measured memory overhead — job 2173177
+
+### VERIFIED_RUNTIME
+
+Job `2173177` ran the eight-part installed Gaussian test `test0983` successfully
+with:
+
+- Gaussian `%mem=100mw` (~800 MiB internal allowance)
+- Slurm `--mem=2G`
+- four explicitly bound physical-core CPU IDs
+
+Observed:
+
+- eight normal Gaussian terminations
+- aggregate cgroup peak: 927997952 bytes (~885 MiB)
+- GNU time MaxRSS: 621892 KB
+- effective Slurm limit: 2 GiB
+
+For this workload, aggregate job memory peaked roughly 10.6% above the configured
+Gaussian internal memory allowance.
+
+Verified implication:
+
+Gaussian `%mem` must not be set equal to the Slurm job memory limit. Additional
+runtime/process overhead exists outside Gaussian's internal memory allowance.
+
+Not yet verified:
+
+- a universal overhead percentage
+- a final production ratio for all Gaussian workload classes

@@ -51,6 +51,8 @@ class InklyRuntime:
 
     Context marked scope=verified-local-cluster is trusted local cluster evidence.
     Use that evidence for cluster-specific facts while preserving its evidence labels.
+    When trusted local evidence includes a verified job-generation rule, follow that rule
+    rather than substituting commands or resource policies from external documentation.
     VERIFIED_CONFIG confirms configuration but does not prove successful runtime behavior.
     UNKNOWN facts must remain unknown and must not be filled from external-cluster examples.
     If local evidence says software is BLOCKED_BY_ACCESS, explain the access prerequisite

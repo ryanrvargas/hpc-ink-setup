@@ -1150,3 +1150,61 @@ verify the calculation completes with that processor selection.
 
 This avoids hard-coded CPU IDs and keeps the generated processor control grounded in the
 actual Slurm allocation for each job.
+
+
+## 2026-09-29 — Dynamic Gaussian %cpu runtime validation
+
+Ran controlled Gaussian job `2173144` using a processor list derived from the
+actual Slurm cpuset and Linux CPU topology at runtime.
+
+Slurm allocation:
+
+- requested `--cpus-per-task=4`
+- `ReqCPUS=4`
+- `AllocCPUS=4`
+- node: `node7`
+- job affinity: `60,61,124,125`
+
+Direct topology mapping showed:
+
+- CPUs `60,124` are sibling hardware threads of physical core 28
+- CPUs `61,125` are sibling hardware threads of physical core 29
+
+The job selected one logical CPU from each physical core:
+
+`60,61`
+
+and generated the Gaussian Link 0 directive:
+
+`%cpu=60,61`
+
+Gaussian runtime then reported:
+
+`Will use up to    2 processors via shared memory.`
+
+The calculation:
+
+- returned `g16` exit status 0
+- completed the RHF/STO-3G water calculation
+- reported normal Gaussian termination
+- completed in Slurm state `COMPLETED` with exit code `0:0`
+
+Conclusion:
+
+The dynamic processor-selection mechanism is now `VERIFIED_RUNTIME` for this
+controlled Cuttlefish workflow:
+
+1. obtain the CPUs assigned by Slurm
+2. map assigned logical CPUs to physical socket/core IDs
+3. select one logical CPU from each unique physical core
+4. generate a Gaussian `%cpu=<actual assigned CPU IDs>` directive
+5. Gaussian honors the explicit list and reports the corresponding shared-memory
+   processor count
+
+Important remaining design question:
+
+The tested job requested four Slurm CPUs in order to receive two physical cores because
+the current Cuttlefish allocation exposes two hardware threads per core. Before making
+this Inkly's final resource-generation rule, test whether supported Slurm options can
+request one hardware thread per physical core directly. If so, that may avoid requesting
+unused sibling hardware threads. The dynamic `%cpu` mechanism remains a proven fallback.

@@ -230,7 +230,7 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Verify successful Gaussian module load on a compute node.
 - [x] Run a minimal real Gaussian calculation.
 - [ ] Verify CPU / `%NProcShared` behavior.
-- [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
+- [ ] Verify Slurm memory / Gaussian `%Mem` behavior: local C.02 profile/environment has no explicit Gaussian memory default; installed test inputs use `%mem` directly, but the safe Cuttlefish mapping from Slurm memory to Gaussian memory remains unverified.
 - [ ] Produce and validate a proven-working Gaussian SBATCH file.
 
 
@@ -258,6 +258,8 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Run an end-to-end Gaussian job combining `--cpus-per-task=2`, `--hint=nomultithread`, and dynamically derived Gaussian CPU binding: job `2173172` completed normally with `g16 -c="60,61"` and Gaussian reported two shared-memory processors.
 - [x] Decide the Phase 1B Inkly CPU-generation rule: request N CPUs with `--hint=nomultithread`, derive one logical CPU from each allocated physical core at runtime, and pass those actual CPU IDs to Gaussian with `g16 -c="..."`.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
+- [ ] Trace the locally installed Gaussian `%mem` default/override mechanism and determine whether there is a supported command-line/environment equivalent suitable for generated SBATCH wrappers.
+- [ ] Runtime-test Gaussian memory reporting under a controlled Slurm memory allocation before choosing any Inkly memory formula.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.
 - [ ] Sync the completed Phase 1B work from the personal branch to `thealice-lab/hpc-ink-setup` before ending the work session.

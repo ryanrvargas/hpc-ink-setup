@@ -704,3 +704,24 @@ For Cuttlefish-generated Gaussian jobs:
 
 This policy is supported by two distinct local runtime validations and may now be
 implemented in Inkly with regression tests.
+
+
+## Trusted-profile implementation validation
+
+### VERIFIED_RUNTIME / VERIFIED_CONFIG
+
+On 2026-09-29 the implemented Cuttlefish Gaussian trusted profile passed:
+
+- 9 targeted cluster-profile/runtime tests
+- 127 full repository tests
+- Ruff lint
+- Ruff formatting
+- diff whitespace validation
+- live Cuttlefish profile assertions
+
+The live profile correctly emitted the verified Gaussian runtime, Slurm partition,
+physical-core CPU generation rule, cgroup memory enforcement, and conservative
+automatic memory policy.
+
+The profile implementation is therefore validated. User-facing answer generation is a
+separate validation layer and must still be checked against these facts.

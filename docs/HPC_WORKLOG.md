@@ -1837,3 +1837,27 @@ Recommended Phase 1B generation policy:
 
 Memory validation experiments can stop here for Phase 1B; next work is implementation
 and regression coverage.
+
+
+## 2026-09-29 — Phase 1B memory policy implementation prepared
+
+Prepared the trusted-profile implementation for the verified Cuttlefish Gaussian runtime
+policy.
+
+Changes prepared on `phase1b/gaussian-operational-validation`:
+
+- mark Cuttlefish Gaussian runtime as verified
+- record the verified `general` Slurm partition
+- record the physical-core CPU selection and `g16 -c=<selected_cpu_ids>` launch rule
+- record that Slurm `--mem` is cgroup-enforced
+- record a conservative automatic Gaussian memory cap of 75% of Slurm memory, rounded
+  downward
+- record the 1 GiB Slurm / ~800 MiB Gaussian validations from `test0983` and
+  `test0400`
+- expose those rules through the trusted cluster-profile plugin
+- add plugin regression assertions
+- strengthen the generic runtime contract to prefer verified local generation rules over
+  external-cluster guidance
+
+These changes are prepared but not yet marked complete. They must pass targeted tests,
+the full pytest suite, Ruff, format checks, and a real Cuttlefish plugin-output check.

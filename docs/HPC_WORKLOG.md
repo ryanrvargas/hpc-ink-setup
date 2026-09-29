@@ -1916,3 +1916,38 @@ cluster ground truth.
 
 The numerous files under `benchmarks/gaussian/live_tests/` remain untracked local
 validation artifacts and were not added to the production implementation.
+
+
+## 2026-09-29 — Phase 1B profile implementation fully validated
+
+Final Cuttlefish validation after the formatting-only fix:
+
+- targeted cluster-profile/runtime tests: 9 passed
+- full test suite: 127 passed
+- Ruff lint: passed
+- Ruff format check: all 69 files formatted
+- git diff check: clean
+- live trusted-profile assertion: `TRUSTED_PROFILE_VALIDATION_OK`
+
+The live profile confirmed verified local guidance for:
+
+- Gaussian runtime availability
+- default C02 module
+- `general` Slurm partition
+- physical-core-aware CPU placement
+- `--cpus-per-task=N`
+- `--hint=nomultithread`
+- `g16 -c=<selected_cpu_ids>`
+- cgroup-enforced Slurm memory
+- 75% automatic Gaussian memory cap
+- local validation from test0983 and test0400
+
+Tracked implementation validation is complete.
+
+Untracked files under `benchmarks/gaussian/live_tests/` remain local validation artifacts
+and were intentionally preserved rather than automatically committed or deleted.
+
+Next Phase 1B step:
+validate Inkly's actual user-facing answer for creating/running a Gaussian job on
+Cuttlefish, ensuring the model follows the trusted local generation rules rather than
+external-cluster documentation.

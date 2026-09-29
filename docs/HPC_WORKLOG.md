@@ -1729,3 +1729,45 @@ memory.
 Do not promote 10.6% to a universal overhead constant from one workload. Use it as
 evidence that `%mem` must remain below Slurm `--mem`, and validate a conservative
 production margin with another controlled run.
+
+
+## 2026-09-29 — test0983 tight 1 GiB validation
+
+Repeated installed Gaussian `test0983` as job `2173178` with the same Gaussian
+memory setting but a tighter Slurm memory boundary.
+
+Configuration:
+
+- Slurm `--mem=1G`
+- effective cgroup limit: 1073741824 bytes
+- Gaussian `%mem=100mw` (~800 MiB)
+- nominal Gaussian/Slurm ratio: 0.78125
+- nominal headroom: 224 MiB
+- four explicitly selected physical-core CPU IDs
+
+Observed:
+
+- all eight Gaussian Link1 calculations terminated normally
+- job completed with exit code 0
+- GNU time MaxRSS: 617328 KB
+- cgroup memory peak: 752685056 bytes (~717.8 MiB)
+- remaining cgroup margin at measured peak: ~306 MiB
+
+Comparison with job 2173177:
+
+- GNU MaxRSS was very similar between the 2 GiB and 1 GiB Slurm runs
+- cgroup peak was lower in the tighter-memory run
+
+Interpretation:
+
+The similar process MaxRSS suggests the Gaussian workload itself behaved consistently.
+The differing cgroup peaks indicate that cgroup peak can include memory behavior beyond
+the main process RSS, including reclaim/cache effects, so a single cgroup peak should
+not be converted directly into a universal overhead percentage.
+
+Verified for this workload:
+Gaussian `%mem=100mw` (~800 MiB) runs successfully inside a Cuttlefish Slurm
+`--mem=1G` allocation.
+
+Before defining Inkly's Phase 1B memory rule, repeat the same candidate ratio on a
+different Gaussian workload class.

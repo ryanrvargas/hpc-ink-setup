@@ -134,14 +134,14 @@ Initial baseline:
 - [x] Verify installed Cuttlefish Gaussian modules and identify `gaussian/avx2/g16_rev_c02` as the default module.
 - [x] Test the default Gaussian module instead of assuming that an advertised module is usable.
 - [x] Investigate the `g16.profile` permission failure: the Gaussian installation is restricted to the `gaussian` Unix group and the current account is not a member.
-- [ ] Verify at least one Gaussian module can actually load and expose a working `g16` executable before constructing the first controlled Gaussian SBATCH job.
+- [x] Verify at least one Gaussian module can actually load and expose a working `g16` executable before constructing the first controlled Gaussian SBATCH job.
 - [ ] Confirm the correct process for obtaining Gaussian access/group membership on Cuttlefish.
-- [ ] After access is granted, re-run module and executable validation before attempting a Gaussian job.
+- [x] After access is granted, re-run module and executable validation before attempting a Gaussian job.
 - [x] Add an access-aware benchmark case: Inkly must recognize when Gaussian is installed but unavailable to the current user instead of generating a supposedly runnable SBATCH file.
 - [x] Capture the seven-question pre-local-knowledge Inkly baseline.
-- [ ] Add a generic trusted cluster-profile mechanism to Inkly rather than hard-coding Cuttlefish-specific facts into runtime code.
-- [ ] Make local Gaussian questions consume both trusted cluster facts and external Gaussian documentation while preserving source boundaries.
-- [ ] Replace the all-or-nothing Gaussian hard stop with evidence-aware behavior: answer verified local facts, use external material only as attributed general guidance, and withhold unknown local details.
+- [x] Add a generic trusted cluster-profile mechanism to Inkly rather than hard-coding Cuttlefish-specific facts into runtime code.
+- [x] Make local Gaussian questions consume both trusted cluster facts and external Gaussian documentation while preserving source boundaries.
+- [x] Replace the all-or-nothing Gaussian hard stop with evidence-aware behavior: answer verified local facts, use external material only as attributed general guidance, and withhold unknown local details.
 
 
 
@@ -158,7 +158,7 @@ creation on the actual Cuttlefish environment.
 - [ ] Compare generated SBATCH files against known-good Cuttlefish examples and document incorrect, missing, or unnecessary directives.
 - [ ] Add regression fixtures/tests for verified Cuttlefish Gaussian job patterns and for preventing external-cluster commands from being presented as local commands.
 - [ ] Perform non-destructive scheduler/script validation of generated Gaussian job files where supported by the Cuttlefish environment.
-- [ ] Run a minimal controlled Gaussian test job on Cuttlefish if permitted, and verify submission, startup, Gaussian execution, and expected output.
+- [x] Run a minimal controlled Gaussian test job on Cuttlefish if permitted, and verify submission, startup, Gaussian execution, and expected output.
 - [ ] Record the verified local Gaussian facts separately from external documentation so future Inkly responses can distinguish Cuttlefish-specific knowledge from general examples.
 - [ ] Define a repeatable Gaussian job-generation evaluation so future scraper/database changes can be tested against the same known-good cases.
 
@@ -226,9 +226,26 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Validate Gaussian access on the Cuttlefish login node.
 - [x] Submit a controlled Gaussian-access diagnostic through Slurm.
 - [x] Reproduce the Gaussian permission failure on a real compute node.
-- [ ] Obtain valid Gaussian access for a test account.
-- [ ] Verify successful Gaussian module load on a compute node.
-- [ ] Run a minimal real Gaussian calculation.
+- [x] Obtain valid Gaussian access for a test account.
+- [x] Verify successful Gaussian module load on a compute node.
+- [x] Run a minimal real Gaussian calculation.
 - [ ] Verify CPU / `%NProcShared` behavior.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Produce and validate a proven-working Gaussian SBATCH file.
+
+
+## 2026-09-29 — Gaussian access restored and runtime validation
+
+- [x] Confirm `rrv9177` is now a member of the Cuttlefish `gaussian` Unix group.
+- [x] Verify `gaussian/avx2/g16_rev_c02` loads successfully on login and compute nodes.
+- [x] Record job `2173134`: `COMPLETED 0:0`; `g16` was available on the compute node.
+- [x] Verify Gaussian scratch write/delete behavior with job `2173135`.
+- [x] Use installed Gaussian tests/scripts as evidence sources without bulk-ingesting the proprietary test suite.
+- [x] Keep Nathan's scraper as the external/general documentation layer and Cuttlefish runtime/configuration evidence as the trusted local layer.
+- [x] Record real Gaussian job `2173136`: `COMPLETED 0:0`, SCF completed, and Gaussian normal termination observed.
+- [x] Runtime-verify `g16 < input.com > output.log` for the tested Cuttlefish workflow.
+- [ ] Investigate the reproducible CPU accounting issue: jobs `2173135`, `2173136`, and `2173137` requested `ReqCPUS=1` but reported `AllocCPUS=2`.
+- [ ] Verify Slurm CPU/core/thread allocation before mapping `--cpus-per-task` to Gaussian `%NProcShared`.
+- [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
+- [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
+- [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

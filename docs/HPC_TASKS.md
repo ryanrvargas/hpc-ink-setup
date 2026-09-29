@@ -248,8 +248,9 @@ Target window from the HPC meeting: November-December 2026.
 - [x] Record controlled CPU allocation probe jobs `2173138`, `2173139`, and `2173140`.
 - [x] Directly map affinity CPU IDs (`4,68`, `60,61,124,125`) to Linux core/socket IDs and thread-sibling lists; confirm Slurm is exposing both hardware threads of each allocated physical core.
 - [x] Inspect the installed Gaussian processor configuration: current Cuttlefish module environment exposes no processor-count variable, installed test inputs contain no explicit `%NProcShared`, and vendor reference logs' four-processor default is not established as a Cuttlefish runtime default.
-- [ ] Inspect Gaussian C.02 local release notes for `%cpu`, `%nprocshared`, and processor-affinity semantics before selecting Inkly's processor-control mechanism.
-- [ ] Runtime-test the locally documented Gaussian processor-control mechanism against verified Slurm CPU affinity before generating CPU-aware Gaussian jobs.
+- [x] Inspect Gaussian C.02 local release notes for `%cpu`, `%nprocshared`, and processor-affinity semantics: `%cpu` is the recommended mechanism, `%nprocshared` is deprecated, and Gaussian recommends one hardware thread per physical core when hyperthreading is enabled.
+- [ ] Inspect successful jobs `2173136` and `2173137` to determine Gaussian's actual processor/thread selection when no `%cpu` directive is present.
+- [ ] Runtime-test the locally documented Gaussian `%cpu` processor-control mechanism against verified Slurm CPU affinity before generating CPU-aware Gaussian jobs.
 - [ ] Verify Slurm memory / Gaussian `%Mem` behavior.
 - [ ] Compare Nathan's retrieved Gaussian guidance against verified Cuttlefish ground truth.
 - [ ] Produce and validate a proven-working Cuttlefish Gaussian SBATCH file.

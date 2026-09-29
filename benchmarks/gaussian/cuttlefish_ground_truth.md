@@ -667,3 +667,40 @@ within a 1 GiB Cuttlefish Slurm allocation.
 Do not treat the observed peak or the 78.1% configured ratio as a universal rule yet.
 A different Gaussian workload class must be tested before promotion to a general Inkly
 memory-generation policy.
+
+
+## Phase 1B Gaussian memory policy
+
+### VERIFIED_RUNTIME
+
+Two different installed Gaussian workloads were validated under an enforced Cuttlefish
+Slurm `--mem=1G` allocation while using Gaussian `%mem=100mw` (~800 MiB):
+
+1. `test0983` — GHF/DFT multi-link workload
+2. `test0400` — TD-DFT workload
+
+Both completed normally.
+
+`test0983`:
+- eight normal terminations
+- cgroup peak ~717.8 MiB
+
+`test0400`:
+- two normal terminations
+- cgroup peak ~641.9 MiB
+
+### PHASE 1B GENERATION POLICY
+
+For Cuttlefish-generated Gaussian jobs:
+
+- Slurm `--mem` is the enforced job boundary.
+- Gaussian `%mem` must remain below that boundary.
+- Use approximately 75-78% of the Slurm allocation as the maximum automatically
+  generated Gaussian internal memory target.
+- Prefer rounding downward to a simple memory value rather than maximizing the ratio.
+- Do not set Gaussian `%mem` equal to Slurm `--mem`.
+- Treat this as verified conservative Cuttlefish guidance, not a universal Gaussian
+  memory rule for every cluster or workload.
+
+This policy is supported by two distinct local runtime validations and may now be
+implemented in Inkly with regression tests.

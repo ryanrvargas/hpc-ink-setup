@@ -1032,3 +1032,30 @@ End-of-day requirement:
 before stopping the session, reconcile the Cuttlefish working branch with the personal
 remote tracking commits and sync the completed Phase 1B branch to
 `thealice-lab/hpc-ink-setup`.
+
+
+## 2026-09-29 — Gaussian processor-source inspection
+
+Inspected the installed Gaussian C.02 test inputs and logs before attempting to map
+Slurm CPUs to Gaussian processor settings.
+
+Findings:
+
+- no explicit `%NProcShared` directives were found in the searched installed
+  `tests/com/*.com` inputs
+- multiple installed Gaussian test logs report:
+  `Default is to use a total of   4 processors:`
+- because the corresponding test inputs do not contain an explicit `%NProcShared`,
+  the source of that four-processor default is not yet established
+- it may come from Gaussian's test harness, command-line/runtime configuration, or
+  another environment mechanism; this remains unverified until traced locally
+
+Decision:
+
+Do not use the test-log processor count as evidence that users should place
+`%NProcShared=4` in Cuttlefish inputs.
+
+Next:
+trace the installed Gaussian scripts/environment for the source of the default processor
+count, then run controlled Gaussian jobs with explicit processor settings only after the
+local mechanism is understood.

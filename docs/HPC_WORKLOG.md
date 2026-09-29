@@ -1539,3 +1539,38 @@ it does not establish a safe production ratio between Slurm memory and Gaussian 
 The task-level `memory.max=max` result also does not prove that Slurm's 1 GB limit is
 unenforced; the effective memory limit may be attached to a parent Slurm cgroup. Inspect
 the cgroup hierarchy before drawing a scheduler enforcement conclusion.
+
+
+## 2026-09-29 — Slurm memory enforcement verified
+
+Job `2173175` inspected the Cuttlefish cgroup v2 hierarchy for a job submitted with
+`--mem=1G`.
+
+Observed:
+
+- `SLURM_MEM_PER_NODE=1024`
+- Slurm `ReqMem=1G`
+- Slurm `AllocTRES` included `mem=1G`
+- the task-level cgroup had `memory.max=max`
+- the parent Slurm user/job cgroup had:
+  - `memory.max=1073741824`
+  - `memory.high=1073741824`
+- the Slurm job root also had the same 1073741824-byte limits
+- cgroup v2 is active
+- `ProctrackType=proctrack/cgroup`
+- `TaskPlugin=task/cgroup`
+- `ConstrainRAMSpace=yes`
+- `AllowedRAMSpace=100`
+
+Conclusion:
+
+Cuttlefish does enforce the requested Slurm memory allocation through cgroup v2.
+A `--mem=1G` request creates an effective one-GiB memory boundary for the job.
+
+Therefore Inkly must ensure Gaussian's internal `%mem` setting plus Gaussian/runtime
+overhead remain below the Slurm allocation. Giving Gaussian the full Slurm memory
+allocation is not automatically safe.
+
+Next:
+identify a local Gaussian workload that actually consumes a substantial fraction of its
+configured `%mem` so the necessary headroom can be measured rather than guessed.

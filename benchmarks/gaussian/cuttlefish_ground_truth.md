@@ -641,3 +641,29 @@ Not yet verified:
 
 - a universal overhead percentage
 - a final production ratio for all Gaussian workload classes
+
+
+## test0983 tight-memory validation — job 2173178
+
+### VERIFIED_RUNTIME
+
+Job `2173178` ran all eight sections of `test0983` successfully with:
+
+- Slurm `--mem=1G`
+- enforced cgroup limit: 1 GiB
+- Gaussian `%mem=100mw` (~800 MiB)
+- four explicitly bound physical cores
+
+Observed:
+
+- eight normal Gaussian terminations
+- GNU MaxRSS: 617328 KB
+- cgroup peak: ~717.8 MiB
+- measured cgroup margin: ~306 MiB
+
+This proves that, for this tested workload, an ~800 MiB Gaussian internal allowance fits
+within a 1 GiB Cuttlefish Slurm allocation.
+
+Do not treat the observed peak or the 78.1% configured ratio as a universal rule yet.
+A different Gaussian workload class must be tested before promotion to a general Inkly
+memory-generation policy.

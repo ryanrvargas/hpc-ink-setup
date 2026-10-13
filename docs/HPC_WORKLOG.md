@@ -1,5 +1,25 @@
 # HPC / Inkly Worklog
 
+## 2026-10-13 — Phase 1B merge and Gaussian V1 team handoff
+
+- Completed Phase 1B cleanup in the ALICE Lab repository: stopped tracking raw validation artifacts and local coverage files, updated public documentation, added `docs/CUTTLEFISH_SETUP.md`, and retained essential trusted-profile behavior.
+- Validated the updated branch on Cuttlefish: **127 pytest tests passed**, Ruff lint and formatting passed, and GitHub Quality CI passed on Python 3.9 and Python 3.11.
+- Merged [ALICE Lab PR #3](https://github.com/thealice-lab/hpc-ink-setup/pull/3) into the organization's `dev` branch. Merge commit: `1c0f8a9df813241eb978de09b95909c590be3b83`. Confirmed the local Cuttlefish `dev` checkout fast-forwarded to the same SHA with a clean working tree.
+- Agreed to use the ALICE Lab `dev` branch as the shared **code** baseline for the next phase. The personal repository is retained as historical and personal tracking material; its older `dev` SHA must not be treated as the current ALICE Lab baseline.
+- Planned three parallel Gaussian V1 workstreams: (1) deterministic Gaussian SBATCH generator, (2) Inkly natural-language request understanding and generator integration, and (3) independent Cuttlefish installation and end-to-end validation.
+- Selected a simple Python `GaussianJobSpec` dataclass in `inkly/gaussian/job_spec.py` with `input_file`, `cpus`, `slurm_memory_mib`, and `schema_version=1`. Generator contract: `generate_sbatch(spec: GaussianJobSpec, profile: dict) -> str`. Member 2 can propose changes directly to Member 1.
+- Prepared Markdown issues with clear goals, checklists, exact branches, PR readiness requirements, and a requirement to comment after **every work session** with accomplishments, next steps, and blockers.
+- Team lead reported creating three work items on the [ALICE Lab project board](https://github.com/orgs/thealice-lab/projects/3/views/2). Direct board membership/status could not be independently inspected through the available GitHub connection; repository issue search did not yet show three standalone issues. Verify whether these are project drafts and convert to repository issues if needed for linking PRs and comment workflows.
+- No Gaussian V1 generator or request-integration implementation was completed in this handoff session. End-to-end new-member installation and job-generation testing remain upcoming.
+
+### Current collaboration sequence
+
+1. Verify each project-board item is backed by a repository issue, assigned to a member, and linked to its target `dev` branch.
+2. Member 1 implements `feature/gaussian-sbatch-generator`.
+3. Member 2 implements `feature/gaussian-request-integration`, coordinating interface improvements directly with Member 1.
+4. Member 3 begins `test/cuttlefish-install-e2e` installation validation immediately, then tests the generated workflow after integration.
+5. Each member leaves a concise issue comment after every work session: completed work, next steps, and blockers. Submit PRs into ALICE Lab `dev` once acceptance checks pass.
+
 This is a sanitized project worklog for durable collaboration history. Machine-specific paths, credentials, and temporary debugging details are intentionally omitted.
 
 ## 2026-09-10 — Repository audit and stabilization

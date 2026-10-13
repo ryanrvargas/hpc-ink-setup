@@ -1,5 +1,47 @@
 # HPC / Inkly Project Tasks
 
+## Current status — 2026-10-13: Gaussian V1 team handoff
+
+> The **authoritative code baseline** is [ALICE Lab `dev`](https://github.com/thealice-lab/hpc-ink-setup/tree/dev) at merge commit `1c0f8a9df813241eb978de09b95909c590be3b83` (PR #3). The older personal-repository baseline details below are retained as historical context, not current instructions.
+
+### Completed
+
+- [x] Complete and validate Gaussian Phase 1B operational rules and trusted cluster-profile integration.
+- [x] Sanitize the public Phase 1B documentation, ignore local HPC validation artifacts, and add a Cuttlefish setup guide.
+- [x] Run Cuttlefish automated regression tests (127 passed), Ruff checks, and GitHub CI (Python 3.9 and 3.11).
+- [x] Merge [Phase 1B PR #3](https://github.com/thealice-lab/hpc-ink-setup/pull/3) into ALICE Lab `dev`.
+- [x] Sync the Cuttlefish local `dev` checkout with ALICE Lab `dev` at `1c0f8a9`.
+- [x] Define the initial Gaussian V1 division of work and shared `GaussianJobSpec` integration contract.
+- [x] Prepare issue descriptions with task checklists, specific branch names, PR readiness checks, and per-session progress comments.
+- [x] Team lead reports adding all three tasks to the ALICE Lab project board.
+
+### Next work — three-person Gaussian V1
+
+- [ ] **Issue 1 / Member 1:** Implement a deterministic, tested SBATCH generator on `feature/gaussian-sbatch-generator` from ALICE Lab `dev`. Use trusted profile rules and the shared `GaussianJobSpec` dataclass.
+- [ ] **Issue 2 / Member 2:** Implement request understanding and generator integration on `feature/gaussian-request-integration` from `dev`. Raise any alternative interface proposal directly with Member 1.
+- [ ] **Issue 3 / Member 3:** Independently install Inkly on Cuttlefish, identify onboarding problems, and later run approved end-to-end validation on `test/cuttlefish-install-e2e` from `dev`.
+- [ ] Confirm each project-board item is a **published repository issue**, not just a draft item. GitHub repository issue search did not show the three standalone issues when checked; board contents could not be independently viewed.
+- [ ] Assign members and use issue comments to record **after each work session**: completed work, next steps, and blockers.
+- [ ] Review and merge tested PRs into ALICE Lab `dev`; then have Member 3 validate the integrated Gaussian V1 workflow.
+
+### Proposed integration contract
+
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class GaussianJobSpec:
+    input_file: str
+    cpus: int
+    slurm_memory_mib: int
+    schema_version: int = 1
+
+# Member 1's generator API:
+# generate_sbatch(spec: GaussianJobSpec, profile: dict) -> str
+```
+
+This is the adopted starting interface. Member 2 may suggest changes directly to Member 1; do not block parallel development for an advance design meeting.
+
 This file tracks the current public project state and next work. Detailed machine-specific debugging notes remain private and are not committed here.
 
 ## Current baseline
